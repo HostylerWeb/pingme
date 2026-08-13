@@ -1,0 +1,1606 @@
+# Development Plan
+
+> **Working title:** PingMe (name TBD)  
+> **Last updated:** August 2026  
+> **Status:** Design & planning — follow phases in order
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Tech Stack](#tech-stack)
+3. [Monorepo Structure](#monorepo-structure)
+4. [Architecture Diagram](#architecture-diagram)
+5. [Database Plan](#database-plan)
+6. [API Conventions](#api-conventions)
+7. [Hosting & Infrastructure](#hosting--infrastructure)
+8. [Storage](#storage)
+9. [Payments](#payments)
+10. [Security & Compliance](#security--compliance)
+11. [Mobile App Features](#mobile-app-features)
+12. [Admin Dashboard](#admin-dashboard)
+13. [Environment Variables](#environment-variables)
+14. [Phased Implementation](#phased-implementation)
+
+---
+
+## Overview
+
+### Product summary
+
+Radius-based (~250m default) proximity social app. Users turn **Available** ON to appear nearby (including background). Core flows:
+
+1. **Nearby wall** — browse/post/reply within radius
+2. **Break the ice** — anonymous mutual nearby match (30–50m, ~10 min window)
+3. **Mutual accept chat** — private messaging after both agree
+4. **Liveness verification** — required to post/reply/chat
+5. **Audit log** — permanent server-side record of actions
+
+### Default configuration
+
+| Setting | Value |
+|---------|-------|
+| Default radius | 250 meters |
+| Radius range (later) | 150m – 500m |
+| Break the ice radius | 50 meters |
+| Break the ice window | 10 minutes |
+| Presence TTL | 5 minutes without heartbeat |
+| Background location interval | Best-effort 3–5 min (iOS may throttle more) |
+| Foreground location interval | Every 60s while app open |
+| Min age | 18 |
+
+---
+
+## Tech Stack
+
+### Mobile
+
+| Layer | Choice |
+|-------|--------|
+| Framework | Expo SDK 52+ (React Native, New Architecture) |
+| Dev builds | **expo-dev-client** (required — not Expo Go) |
+| Builds / OTA | EAS Build + EAS Update |
+| Language | TypeScript |
+| Navigation | Expo Router |
+| Server state | TanStack Query |
+| Local state | Zustand |
+| Local cache | react-native-mmkv (drafts, feed cache) |
+| Location | expo-location + expo-task-manager |
+| Push | expo-notifications |
+| Secure storage | expo-secure-store (tokens only) |
+| Images | expo-image-picker + expo-image |
+| Auth (iOS) | expo-apple-authentication (required if Google sign-in offered) |
+| Crash reporting | @sentry/react-native |
+| Real-time (Phase 5) | socket.io-client |
+| Liveness / KYC | **didit.me** (Sessions API + hosted flow in WebView) |
+
+### Backend
+
+| Layer | Choice |
+|-------|--------|
+| Runtime | Node.js 20 LTS |
+| Framework | NestJS |
+| Language | TypeScript |
+| ORM | Prisma (with raw PostGIS queries where needed) |
+| Validation | class-validator + Zod (shared package) |
+| Auth | JWT (access + refresh tokens) |
+| Real-time | Socket.io (or `@nestjs/websockets`) |
+| Job queue | BullMQ (Redis-backed) |
+| Email | Resend |
+| SMS | Twilio |
+
+### Data & infra
+
+| Layer | Choice |
+|-------|--------|
+| Database | PostgreSQL 16 + PostGIS |
+| Cache / GEO / pub-sub | Redis 7 |
+| File storage | Cloudflare R2 (S3-compatible) |
+| CDN | Cloudflare |
+| Hosting | **Self-hosted VPS** (Docker Compose) — API, admin, Postgres, Redis, Nginx |
+| CI/CD | GitHub Actions |
+| Monitoring | Sentry (API + mobile + admin) + Uptime Kuma |
+| Logs | Better Stack or Grafana Loki |
+| Push (server) | Firebase Admin SDK (FCM) + APNs HTTP/2 |
+
+### Third-party services
+
+| Service | Purpose |
+|---------|---------|
+| **didit.me** | Liveness (MVP) + optional full KYC workflow later |
+| Stripe | Payments (Phase 8) |
+| Firebase Admin SDK | Android push (FCM) |
+| APNs | iOS push |
+| Google Maps / Mapbox | Geofence drawing (admin only, optional) |
+
+### Mobile stack rules
+
+1. **Never use Expo Go for development** — liveness SDK, background location, and custom native config require dev builds from Phase 0.
+2. **Background location is best-effort** — design around push notifications + foreground refresh; do not assume GPS fires every 60s with app killed.
+3. **Fallback:** if `expo-location` background is unreliable after testing, evaluate `react-native-background-geolocation` (Transistor) via Expo config plugin.
+4. **Spike early (Phase 0):** background location on real iOS + Android device, and didit.me hosted session inside WebView in dev build, before building full UI.
+
+---
+
+## Monorepo Structure
+
+```
+PingMe/
+├── apps/
+│   ├── mobile/                 # Expo React Native app
+│   ├── api/                    # NestJS backend
+│   └── admin/                  # Next.js admin dashboard
+├── packages/
+│   ├── shared/                 # Types, Zod schemas, constants
+│   ├── db/                     # Prisma schema + migrations
+│   └── config/                 # ESLint, TSConfig shared
+├── infrastructure/
+│   ├── docker/                 # docker-compose.dev.yml
+│   └── scripts/                # deploy, seed, backup
+├── docs/
+│   ├── PRODUCT_STRATEGY.md
+│   └── development.md          # this file
+├── .github/workflows/
+├── development.md
+└── package.json                # Turborepo or pnpm workspaces
+```
+
+---
+
+## Architecture Diagram
+
+```
+┌─────────────┐     HTTPS/WSS      ┌─────────────┐
+│  Mobile App │ ◄────────────────► │  NestJS API │
+│   (Expo)    │                    │             │
+└──────┬──────┘                    └──────┬──────┘
+       │                                  │
+       │ Push                             ├── PostgreSQL + PostGIS
+       ▼                                  ├── Redis (GEO, cache, queue)
+┌─────────────┐                           ├── R2 (avatars, media)
+│ FCM / APNs  │                           ├── didit.me (liveness/KYC)
+└─────────────┘                           └── BullMQ workers
+                                                 │
+┌─────────────┐                                  │
+│ Admin Web   │ ◄────────────────────────────────┘
+│  (Next.js)  │
+└─────────────┘
+```
+
+---
+
+## Database Plan
+
+### Entity relationship summary
+
+```
+users ──┬── profiles
+        ├── user_settings
+        ├── devices (push tokens)
+        ├── verifications
+        ├── presence_sessions
+        ├── wall_posts ── wall_replies
+        ├── icebreaker_sessions
+        ├── matches ── chats ── messages
+        ├── blocks
+        ├── reports
+        └── audit_logs
+
+admin_users (role enum on row)
+admin_audit_logs (append-only, separate from user audit_logs)
+venues (Phase 9 — optional B2B boost)
+subscriptions (Phase 8)
+```
+
+### Full schema (PostgreSQL)
+
+#### `users`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| email | VARCHAR UNIQUE | nullable if phone-only |
+| phone | VARCHAR UNIQUE | E.164 format |
+| password_hash | VARCHAR | nullable if OAuth |
+| auth_provider | ENUM | email, phone, google, apple |
+| status | ENUM | active, suspended, deleted, pending_verification |
+| is_available | BOOLEAN | "Available" toggle |
+| last_seen_at | TIMESTAMPTZ | |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+| deleted_at | TIMESTAMPTZ | soft delete |
+
+#### `profiles`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK UNIQUE | |
+| display_name | VARCHAR(50) | |
+| bio | VARCHAR(300) | |
+| avatar_type | ENUM | photo, generated |
+| avatar_url | VARCHAR | R2 URL |
+| avatar_config | JSONB | for generated avatars |
+| date_of_birth | DATE | 18+ validation |
+| created_at | TIMESTAMPTZ | |
+| updated_at | TIMESTAMPTZ | |
+
+#### `user_settings`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK UNIQUE | |
+| radius_meters | INT | default 250 |
+| quiet_mode | BOOLEAN | |
+| show_distance_bucket | BOOLEAN | default true |
+| allow_push_replies | BOOLEAN | |
+| allow_push_chat | BOOLEAN | |
+| allow_push_icebreaker | BOOLEAN | |
+| language | VARCHAR(10) | |
+
+#### `devices`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK | |
+| platform | ENUM | ios, android |
+| push_token | VARCHAR | |
+| device_id | VARCHAR | |
+| app_version | VARCHAR | |
+| last_active_at | TIMESTAMPTZ | |
+| created_at | TIMESTAMPTZ | |
+
+#### `verifications`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK | |
+| type | ENUM | liveness, phone, email, document |
+| provider | VARCHAR | didit, twilio |
+| provider_reference | VARCHAR | external ID |
+| status | ENUM | pending, passed, failed, expired |
+| metadata | JSONB | |
+| verified_at | TIMESTAMPTZ | |
+| expires_at | TIMESTAMPTZ | |
+| created_at | TIMESTAMPTZ | |
+
+#### `presence_sessions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK | |
+| is_active | BOOLEAN | Available ON |
+| location | GEOGRAPHY(POINT) | PostGIS, server-only |
+| location_updated_at | TIMESTAMPTZ | |
+| fuzzy_lat | FLOAT | rounded for buckets |
+| fuzzy_lng | FLOAT | |
+| started_at | TIMESTAMPTZ | |
+| ended_at | TIMESTAMPTZ | |
+
+**Index:** GIST on `location` for spatial queries.
+
+#### `wall_posts`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK | |
+| content | TEXT | max 500 chars |
+| location | GEOGRAPHY(POINT) | where posted |
+| status | ENUM | active, hidden, deleted, moderated |
+| reply_count | INT | denormalized |
+| created_at | TIMESTAMPTZ | |
+| expires_at | TIMESTAMPTZ | optional TTL |
+
+#### `wall_replies`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| post_id | UUID FK | |
+| user_id | UUID FK | |
+| content | TEXT | max 300 chars |
+| status | ENUM | active, hidden, deleted |
+| created_at | TIMESTAMPTZ | |
+
+#### `icebreaker_sessions`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK | |
+| location | GEOGRAPHY(POINT) | |
+| status | ENUM | active, matched, expired, cancelled |
+| expires_at | TIMESTAMPTZ | +10 min |
+| matched_session_id | UUID FK | other session |
+| created_at | TIMESTAMPTZ | |
+
+#### `matches`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_a_id | UUID FK | |
+| user_b_id | UUID FK | |
+| source | ENUM | icebreaker, wall_reply, manual |
+| source_reference_id | UUID | post/reply/session ID |
+| status | ENUM | pending_a, pending_b, active, declined, expired |
+| user_a_accepted_at | TIMESTAMPTZ | |
+| user_b_accepted_at | TIMESTAMPTZ | |
+| created_at | TIMESTAMPTZ | |
+
+#### `chats`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| match_id | UUID FK UNIQUE | |
+| status | ENUM | active, closed, blocked |
+| created_at | TIMESTAMPTZ | |
+
+#### `messages`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| chat_id | UUID FK | |
+| sender_id | UUID FK | |
+| content | TEXT | max 2000 chars |
+| message_type | ENUM | text, system |
+| status | ENUM | sent, delivered, read, deleted |
+| created_at | TIMESTAMPTZ | |
+
+#### `blocks`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| blocker_id | UUID FK | |
+| blocked_id | UUID FK | |
+| created_at | TIMESTAMPTZ | |
+
+**Unique:** (blocker_id, blocked_id)
+
+#### `reports`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| reporter_id | UUID FK | |
+| reported_user_id | UUID FK | |
+| target_type | ENUM | user, post, reply, message |
+| target_id | UUID | |
+| reason | ENUM | harassment, spam, inappropriate, underage, other |
+| description | TEXT | |
+| status | ENUM | open, reviewing, resolved, dismissed |
+| resolved_by | UUID FK | admin |
+| resolution_note | TEXT | |
+| created_at | TIMESTAMPTZ | |
+| resolved_at | TIMESTAMPTZ | |
+
+#### `audit_logs` (append-only)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | BIGSERIAL PK | |
+| user_id | UUID | nullable for system |
+| action | VARCHAR | e.g. post.create, message.send |
+| entity_type | VARCHAR | |
+| entity_id | UUID | |
+| ip_address | INET | |
+| user_agent | TEXT | |
+| metadata | JSONB | |
+| created_at | TIMESTAMPTZ | immutable |
+
+#### `admin_users`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| email | VARCHAR UNIQUE | |
+| password_hash | VARCHAR | |
+| role | ENUM | super_admin, moderator, support |
+| created_at | TIMESTAMPTZ | |
+
+#### `refresh_tokens`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK | |
+| token_hash | VARCHAR | |
+| expires_at | TIMESTAMPTZ | |
+| revoked_at | TIMESTAMPTZ | |
+
+#### `admin_audit_logs` (append-only)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | BIGSERIAL PK | |
+| admin_user_id | UUID FK | |
+| action | VARCHAR | e.g. user.suspend, report.resolve |
+| entity_type | VARCHAR | |
+| entity_id | UUID | |
+| metadata | JSONB | |
+| created_at | TIMESTAMPTZ | immutable |
+
+#### `venues` (Phase 9 — optional B2B boost)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| name | VARCHAR | |
+| geofence | GEOGRAPHY(POLYGON) | |
+| partner_id | UUID | |
+| is_active | BOOLEAN | |
+| starts_at | TIMESTAMPTZ | |
+| ends_at | TIMESTAMPTZ | |
+
+#### `subscriptions` (Phase 8)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK | |
+| stripe_customer_id | VARCHAR | |
+| stripe_subscription_id | VARCHAR | |
+| plan | ENUM | free, premium |
+| status | ENUM | active, cancelled, past_due |
+| current_period_end | TIMESTAMPTZ | |
+
+### Redis keys
+
+| Key pattern | Purpose | TTL |
+|-------------|---------|-----|
+| `presence:{userId}` | Active presence JSON | 5 min |
+| `geo:available` | GEOADD available users | — |
+| `icebreaker:active:{userId}` | Active icebreaker session | 10 min |
+| `rate:post:{userId}` | Post rate limit | 1 hour |
+| `rate:icebreaker:{userId}` | Icebreaker rate limit | 1 hour |
+| `ws:session:{userId}` | WebSocket connection map | — |
+
+### PostGIS queries (reference)
+
+**Nearby wall posts (250m):**
+```sql
+SELECT * FROM wall_posts
+WHERE status = 'active'
+  AND ST_DWithin(
+    location::geography,
+    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+    :radius_meters
+  )
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+**Icebreaker match (50m, both active — pick closest if multiple):**
+```sql
+SELECT s.* FROM icebreaker_sessions s
+WHERE s.status = 'active'
+  AND s.user_id != :user_id
+  AND s.expires_at > NOW()
+  AND ST_DWithin(s.location::geography, :my_location::geography, 50)
+ORDER BY ST_Distance(s.location::geography, :my_location::geography) ASC
+LIMIT 1;
+```
+
+**Wall reply → match (optional flow):**
+When user A replies to user B's post, either user can send `POST /matches/request` with `source: wall_reply` and `source_reference_id: reply_id`. Other user accepts → chat opens (same mutual accept flow as icebreaker).
+
+---
+
+## API Conventions
+
+### Base URL
+
+```
+Production:  https://api.yourapp.com/v1
+Staging:     https://api.staging.yourapp.com/v1
+WebSocket:   wss://api.yourapp.com/ws
+```
+
+### Auth header
+
+```
+Authorization: Bearer <access_token>
+```
+
+### Standard response envelope
+
+```json
+{
+  "success": true,
+  "data": { },
+  "meta": { "page": 1, "limit": 20, "total": 100 }
+}
+```
+
+### Error envelope
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VERIFICATION_REQUIRED",
+    "message": "Liveness verification required to post."
+  }
+}
+```
+
+### Pagination
+
+Query params: `?page=1&limit=20`
+
+### Rate limits
+
+| Endpoint group | Limit |
+|----------------|-------|
+| Auth | 10/min per IP |
+| Posts | 10/hour per user |
+| Replies | 30/hour per user |
+| Icebreaker | 5/hour per user |
+| Location ping | 1/min per user |
+| Messages | 60/min per user |
+
+---
+
+## Hosting & Infrastructure
+
+> **Decision:** Self-hosted VPS (no Fly.io, Supabase, or Vercel).
+
+### VPS layout (single server — MVP / pilot)
+
+Recommended spec: **4 vCPU, 8GB RAM, 80GB+ SSD** (Hetzner CPX31 or equivalent).
+
+| Service | How it runs |
+|---------|-------------|
+| **Nginx** | Reverse proxy + SSL (Let's Encrypt) — `api.`, `admin.`, `cdn.` |
+| **NestJS API** | Docker container |
+| **BullMQ workers** | Same container or separate worker container |
+| **Next.js admin** | Docker container (or static export served by Nginx) |
+| **PostgreSQL 16 + PostGIS** | Docker container, persistent volume |
+| **Redis 7** | Docker container |
+| **Media** | Cloudflare R2 (external — not on VPS disk) |
+
+### Production `docker-compose.prod.yml` services
+
+```yaml
+services:
+  nginx:        # ports 80/443, routes to api + admin
+  api:          # NestJS
+  worker:       # BullMQ jobs (presence expiry, icebreaker match, push)
+  admin:        # Next.js admin dashboard
+  postgres:     # postgis/postgis:16-3.4 + volume
+  redis:        # redis:7-alpine
+```
+
+### DNS
+
+```
+api.yourapp.com     → VPS (Nginx → API)
+admin.yourapp.com   → VPS (Nginx → admin)
+cdn.yourapp.com     → Cloudflare R2 public bucket (avatars)
+```
+
+### Staging
+
+- Second VPS or same VPS with separate Docker Compose stack (`staging-api`, `staging-db`)
+- `api.staging.yourapp.com` + `admin.staging.yourapp.com`
+
+### Phase 4+ (scale on VPS)
+
+- Move PostgreSQL to a dedicated VPS or managed DB
+- Add read replica
+- Second API VPS behind Nginx load balancer
+- Redis on dedicated instance if memory pressure
+- CDN for media via R2 (already external)
+
+### Backups (VPS)
+
+- `pg_dump` daily → off-VPS storage (R2 or separate backup server)
+- Redis: persistence enabled (`AOF`), not critical to backup long-term
+- Nginx + env configs in git (secrets in vault, not git)
+
+### Docker services (development)
+
+```yaml
+services:
+  postgres:   # postgis/postgis:16-3.4
+  redis:      # redis:7-alpine
+  api:        # NestJS hot reload
+  admin:      # Next.js
+```
+
+### CI/CD pipeline
+
+1. Push to `main` → lint, typecheck, unit tests
+2. Push to `staging` → SSH deploy to VPS (`docker compose pull && up -d`)
+3. Tag release → deploy production VPS
+4. EAS Build for mobile (Expo Application Services)
+
+### Backups
+
+- PostgreSQL: daily automated backup, 30-day retention
+- R2: versioning enabled
+- Audit logs: never delete (separate tablespace / archive after 2 years per legal counsel)
+
+---
+
+## Storage
+
+### Cloudflare R2 buckets
+
+| Bucket | Contents | Access |
+|--------|----------|--------|
+| `avatars` | Profile photos | Public via CDN |
+| `media` | Future image posts | Public signed URLs |
+| `admin-exports` | Report exports | Private |
+| `verification` | Liveness snapshots (if stored) | Private, encrypted |
+
+### Upload flow
+
+1. Client requests presigned URL: `POST /media/presign`
+2. Client uploads directly to R2
+3. Client confirms: `POST /media/confirm`
+4. Server validates MIME, size, virus scan (optional ClamAV)
+
+### Limits
+
+| Type | Max size | Formats |
+|------|----------|---------|
+| Avatar | 5 MB | JPEG, PNG, WebP |
+| Wall media (later) | 10 MB | JPEG, PNG |
+
+---
+
+## Payments
+
+### Phase 6 only — not in MVP
+
+**Provider:** Stripe
+
+### Planned monetization (do NOT block core features)
+
+| Plan | Price | Includes |
+|------|-------|----------|
+| Free | $0 | Wall, reply, chat, icebreaker |
+| Premium (optional) | TBD | Custom avatars, profile themes, read receipts |
+| Venue B2B | Custom | Branded room, analytics, moderation tools |
+
+### Stripe objects
+
+- Products + Prices in Stripe Dashboard
+- `stripe_customer_id` on user
+- Webhook endpoint: `POST /webhooks/stripe`
+- Events: `checkout.session.completed`, `customer.subscription.updated`, `invoice.payment_failed`
+
+### Payment API (Phase 6)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/subscriptions/checkout` | Create Stripe checkout session |
+| GET | `/subscriptions/me` | Current plan |
+| POST | `/subscriptions/cancel` | Cancel at period end |
+| POST | `/webhooks/stripe` | Stripe webhooks (no auth, signature verify) |
+
+---
+
+## Security & Compliance
+
+### Authentication
+
+- Access token: JWT, 15 min expiry
+- Refresh token: opaque, 30 days, rotated on use, stored hashed
+- Password: bcrypt cost 12
+- Phone OTP via Twilio Verify
+- Sign in with Apple (required on iOS if Google sign-in is offered)
+- Sign in with Google (Phase 2)
+- `GET /users/me/export` — GDPR data export (JSON)
+
+### Authorization guards
+
+| Guard | Checks |
+|-------|--------|
+| `JwtAuthGuard` | Valid access token |
+| `VerifiedGuard` | Liveness passed |
+| `AvailableGuard` | is_available = true (for presence endpoints) |
+| `AdminGuard` | Admin JWT + role |
+
+### Data privacy
+
+- Never expose raw `location` to other users
+- Distance shown as buckets: `<100m`, `~200m`, `~300m`, `nearby`
+- GDPR: export endpoint, deletion request (soft delete + anonymize after 30 days)
+- Audit logs retained per legal policy (document in privacy policy)
+
+### App Store requirements
+
+- iOS: `NSLocationAlwaysAndWhenInUseUsageDescription` — clear copy for Available mode
+- Android: foreground service notification while Available
+- Privacy nutrition labels: location, identifiers, user content
+
+---
+
+## Mobile App Features
+
+### Screens
+
+| Screen | Phase |
+|--------|-------|
+| Splash / onboarding | 1 |
+| Sign up / login | 1 |
+| Phone/email verify | 1 |
+| Profile setup (avatar, bio, DOB) | 1 |
+| Location permission explainer | 1 |
+| Home — Nearby wall | 1 |
+| Create post | 1 |
+| Post detail + replies | 1 |
+| Available toggle (prominent) | 3 |
+| Break the ice | 4 |
+| Match pending / accept | 4 |
+| Chat list | 5 |
+| Chat thread | 5 |
+| Liveness verification | 6 |
+| Settings | 1 |
+| Blocked users | 5 |
+| Report flow | 5 |
+| Notifications center | 3 |
+| Quiet mode | 6 |
+
+### Background behavior (Available ON)
+
+1. Register background location task (expo-task-manager)
+2. **Foreground:** ping server every 60s while app is open
+3. **Background:** best-effort ping every 3–5 min (iOS may throttle to 10–15+ min)
+4. On push notification tap → ping location + deep link to relevant screen
+5. Android: persistent foreground service notification *"You're available nearby"*
+6. iOS: blue location indicator (system)
+7. Available OFF → unregister task, remove from Redis GEO
+
+### Push notification types
+
+| Type | Trigger |
+|------|---------|
+| `wall.reply` | Someone replied to your post |
+| `icebreaker.match` | Mutual icebreaker match |
+| `match.request` | Someone accepted, waiting for you |
+| `chat.message` | New message |
+| `verification.passed` | Liveness complete |
+| `moderation.action` | Account warning/suspension |
+
+---
+
+## Admin Dashboard
+
+### Tech
+
+- Next.js 15 App Router
+- Tailwind CSS + shadcn/ui
+- TanStack Query
+- Separate admin JWT auth (shorter expiry than user tokens)
+- Deploy on same VPS as API (Docker container behind Nginx)
+- **Not public** — IP allowlist or VPN optional for extra security
+
+### Pages
+
+| Page | Phase | Features |
+|------|-------|----------|
+| Login | 7 | Email + password, 2FA later |
+| Dashboard | 7 | DAU, posts/day, reports open, active Available users, launch area density |
+| Users | 7 | Search, view profile, suspend, ban, verification status, force re-verify |
+| Reports queue | 7 | Open reports, assign, resolve, dismiss, auto-flagged users (3+ reports/24h) |
+| Wall moderation | 7 | Hide/delete posts and replies |
+| Chats (read-only) | 7 | View reported chat context (audit — never editable) |
+| Audit log viewer | 7 | Filter user audit_logs + admin_audit_logs by user, action, date |
+| Live map (internal) | 7 | Heatmap of active users in launch area (admin only — never in mobile app) |
+| Analytics | 8 | Charts: signups, retention, posts, matches, icebreaker conversion |
+| Venues (B2B) | 9 | Create geofences, QR codes |
+| Subscriptions | 8 | Stripe customer lookup |
+| Settings | 7 | Admin users, roles, feature flags |
+
+### Admin roles
+
+| Role | Permissions |
+|------|-------------|
+| `super_admin` | Everything |
+| `moderator` | Reports, content, user suspend |
+| `support` | Read-only users, chats, resend verification |
+
+### Admin API prefix
+
+```
+/admin/v1/...
+```
+
+---
+
+## Environment Variables
+
+### API (`apps/api/.env`)
+
+```bash
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+JWT_ACCESS_SECRET=
+JWT_REFRESH_SECRET=
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_AVATARS=
+R2_PUBLIC_URL=
+DIDIT_API_KEY=
+DIDIT_WEBHOOK_SECRET=
+DIDIT_WORKFLOW_ID_LIVENESS=    # liveness-only workflow in didit console
+DIDIT_WORKFLOW_ID_KYC=         # optional full KYC workflow later
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_VERIFY_SERVICE_SID=
+RESEND_API_KEY=
+FIREBASE_SERVICE_ACCOUNT_JSON=   # or path to JSON file
+APNS_KEY_ID=
+APNS_TEAM_ID=
+APNS_BUNDLE_ID=
+STRIPE_SECRET_KEY=          # Phase 6
+STRIPE_WEBHOOK_SECRET=      # Phase 6
+SENTRY_DSN=
+DEFAULT_RADIUS_METERS=250
+ICEBREAKER_RADIUS_METERS=50
+ICEBREAKER_WINDOW_MINUTES=10
+PRESENCE_TTL_SECONDS=300
+```
+
+### Mobile (`apps/mobile/.env`)
+
+```bash
+EXPO_PUBLIC_API_URL=https://api.staging.yourapp.com/v1
+EXPO_PUBLIC_WS_URL=wss://api.staging.yourapp.com/ws
+EXPO_PUBLIC_ENV=staging
+EXPO_PUBLIC_SENTRY_DSN=
+```
+
+### Admin (`apps/admin/.env`)
+
+```bash
+NEXT_PUBLIC_API_URL=https://api.staging.yourapp.com/admin/v1
+```
+
+---
+
+## Phased Implementation
+
+> Complete each phase before moving to the next.  
+> Each step has numbered sub-tasks — check them off as you go.
+
+---
+
+# Phase 0 — Project Foundation
+
+**Goal:** Monorepo, dev environment, database, CI skeleton.
+
+---
+
+## Step 1 — Initialize monorepo
+
+1. Create Git repository and `.gitignore`
+2. Initialize pnpm workspaces + Turborepo
+3. Create folder structure (`apps/`, `packages/`, `infrastructure/`)
+4. Add root `package.json` scripts: `dev`, `build`, `lint`, `test`
+5. Configure shared TypeScript (`packages/config/tsconfig`)
+6. Configure shared ESLint + Prettier
+
+## Step 2 — Local infrastructure
+
+1. Create `docker-compose.dev.yml` with PostGIS + Redis
+2. Verify PostgreSQL PostGIS extension: `CREATE EXTENSION postgis;`
+3. Add `infrastructure/scripts/wait-for-db.sh`
+4. Document local setup in README (clone → pnpm install → docker up)
+
+## Step 3 — Database package
+
+1. Create `packages/db` with Prisma
+2. Implement schema for Phase 1 tables: `users`, `profiles`, `user_settings`, `refresh_tokens`
+3. Run initial migration
+4. Add seed script: 10 test users with profiles
+
+## Step 4 — Shared package
+
+1. Create `packages/shared`
+2. Define enums: `UserStatus`, `AuthProvider`, `AvatarType`
+3. Define Zod schemas: `SignUpSchema`, `LoginSchema`, `UpdateProfileSchema`
+4. Export constants: `DEFAULT_RADIUS`, `MAX_BIO_LENGTH`, etc.
+
+## Step 5 — API skeleton
+
+1. Scaffold NestJS app in `apps/api`
+2. Configure modules: `ConfigModule`, `PrismaModule`, `HealthModule`
+3. Add `GET /health` endpoint
+4. Connect Prisma to PostgreSQL
+5. Add global exception filter + validation pipe
+6. Add Swagger/OpenAPI at `/docs`
+
+## Step 6 — CI pipeline
+
+1. GitHub Actions: lint + typecheck on PR
+2. Add test job (placeholder passing test)
+3. Docker build job for API (no deploy yet)
+
+## Step 7 — Mobile dev environment
+
+1. Scaffold Expo app with **expo-dev-client** (not Expo Go)
+2. Configure EAS project (`eas.json` — development, preview, production profiles)
+3. Set up expo-secure-store, TanStack Query, Zustand, MMKV
+4. Add Sentry for mobile
+5. **Spike A:** background location on physical iOS + Android device — log actual ping intervals
+6. **Spike B:** didit.me hosted session in WebView inside dev build — confirm flow works before Phase 6
+7. First EAS development build to test device
+
+**Phase 0 done when:** `pnpm dev` starts API, DB migrates, health check returns 200, and EAS dev build installs on a real phone.
+
+---
+
+# Phase 1 — Auth, Profile & Core API
+
+**Goal:** Users can sign up, log in, create profile.
+
+---
+
+## Step 1 — Authentication
+
+1. Implement `AuthModule` with JWT strategy
+2. `POST /auth/register` — email or phone + password + DOB (18+ check)
+3. `POST /auth/login` — returns access + refresh tokens
+4. `POST /auth/refresh` — rotate refresh token
+5. `POST /auth/logout` — revoke refresh token
+6. `POST /auth/verify-email` — send via Resend (Phase 1 email verify)
+7. `POST /auth/verify-phone` — send OTP via Twilio Verify
+8. `POST /auth/forgot-password` + `POST /auth/reset-password`
+9. Hash passwords with bcrypt
+10. Write unit tests for auth service
+
+### Auth API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/register` | No | Create account |
+| POST | `/auth/login` | No | Login |
+| POST | `/auth/refresh` | No | Refresh tokens |
+| POST | `/auth/logout` | Yes | Logout |
+| POST | `/auth/verify-email` | Yes | Send/confirm email OTP |
+| POST | `/auth/verify-phone` | Yes | Send/confirm phone OTP |
+| POST | `/auth/forgot-password` | No | Request reset |
+| POST | `/auth/reset-password` | No | Reset with token |
+
+## Step 2 — User profile
+
+1. Implement `UsersModule` + `ProfilesModule`
+2. `GET /users/me` — current user + profile + settings
+3. `PATCH /users/me/profile` — display_name, bio, avatar_type
+4. `PATCH /users/me/settings` — radius, quiet_mode, notification prefs
+5. `DELETE /users/me` — soft delete request
+6. Avatar upload presign flow (R2)
+7. Validate all inputs with shared Zod schemas
+
+### User API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/users/me` | Yes | Current user |
+| PATCH | `/users/me/profile` | Yes | Update profile |
+| PATCH | `/users/me/settings` | Yes | Update settings |
+| DELETE | `/users/me` | Yes | Delete account |
+| POST | `/media/presign` | Yes | Get upload URL |
+| POST | `/media/confirm` | Yes | Confirm upload |
+
+## Step 3 — Mobile app shell
+
+1. Add Expo Router to existing `apps/mobile` (scaffolded in Phase 0 Step 7)
+2. Splash screen + onboarding slides (3 screens: concept, privacy, permissions)
+3. Sign up screen → call `/auth/register`
+4. Login screen → call `/auth/login`
+5. Store tokens in expo-secure-store
+6. Auto-refresh token on 401
+7. Profile setup screen (name, bio, avatar picker, DOB)
+8. Settings screen (stub)
+9. Tab navigator: Home (wall stub), Available (stub), Chats (stub), Profile
+
+## Step 4 — Audit log foundation
+
+1. Create `audit_logs` table migration
+2. Implement `AuditService` — `log(userId, action, entityType, entityId, metadata)`
+3. Hook into auth events: register, login, logout, delete
+4. Audit log is append-only (no UPDATE/DELETE in app code)
+
+**Phase 1 done when:** User can register, verify phone/email, set profile, stay logged in.
+
+---
+
+# Phase 2 — Location, Presence & Nearby Wall
+
+**Goal:** Foreground location, wall posts and replies within 250m.
+
+---
+
+## Step 1 — Location service (foreground)
+
+1. Add `presence_sessions` table migration
+2. Implement `LocationModule` + `PresenceService`
+3. `POST /presence/ping` — body: `{ lat, lng }`, stores PostGIS point, updates Redis GEO
+4. `POST /presence/available` — body: `{ is_available: true/false }`
+5. `GET /presence/nearby-count` — returns count of available users within radius (no identities)
+6. Round coordinates for fuzzy storage (3 decimal places ~100m)
+7. Rate limit: 1 ping/minute
+8. Expire presence in Redis after 5 min without ping
+
+### Presence API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/presence/ping` | Yes | Update location |
+| POST | `/presence/available` | Yes | Toggle Available |
+| GET | `/presence/status` | Yes | My availability + last ping |
+| GET | `/presence/nearby-count` | Yes | Count nearby available users |
+
+## Step 2 — Nearby wall
+
+1. Add `wall_posts`, `wall_replies` tables migration
+2. Implement `WallModule`
+3. `GET /wall/posts` — posts within user's radius, sorted by `created_at DESC`, paginated
+4. `POST /wall/posts` — create post (requires `VerifiedGuard` in Phase 4; stub pass for now)
+5. `GET /wall/posts/:id` — single post + replies
+6. `POST /wall/posts/:id/replies` — add reply
+7. `DELETE /wall/posts/:id` — soft delete own post
+8. Filter blocked users from all queries
+9. Include distance bucket per post (not exact)
+10. Audit log: post.create, reply.create, post.delete
+
+### Wall API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/wall/posts` | Yes | List nearby posts |
+| POST | `/wall/posts` | Yes | Create post |
+| GET | `/wall/posts/:id` | Yes | Get post + replies |
+| DELETE | `/wall/posts/:id` | Yes | Delete own post |
+| POST | `/wall/posts/:id/replies` | Yes | Reply to post |
+| DELETE | `/wall/replies/:id` | Yes | Delete own reply |
+
+## Step 3 — Mobile: location + wall UI
+
+1. Location permission screen with clear explanation
+2. Request foreground location permission
+3. On app open: `POST /presence/ping` every 60s while app active
+4. Available toggle UI (UI only — full background in Phase 3)
+5. Home screen: fetch and display wall feed
+6. Pull-to-refresh
+7. Create post modal (text input, 500 char limit)
+8. Post detail screen with replies
+9. Reply input on post detail
+10. Show distance bucket on each post ("nearby", "~200m")
+11. Show nearby available count at top
+
+**Phase 2 done when:** Two test users within 250m see each other's posts and can reply.
+
+---
+
+# Phase 3 — Available Mode, Background Location & Push
+
+**Goal:** App works in background when Available is ON.
+
+---
+
+## Step 1 — Background location (mobile)
+
+1. Add expo-task-manager background location task
+2. Request background location permission (iOS Always, Android background)
+3. When Available ON: start background task, best-effort ping every 3–5 min (see Mobile stack rules)
+4. When Available OFF: stop task, call `POST /presence/available { false }`
+5. Android: show foreground service notification
+6. iOS: handle App Store location justification copy
+7. Handle permission denied gracefully — degrade to foreground-only
+
+## Step 2 — Push notifications
+
+1. Add `devices` table migration
+2. `POST /devices/register` — save push token
+3. `DELETE /devices/:id` — remove token
+4. Integrate FCM (Android) + APNs (iOS) in NestJS
+5. Implement `NotificationService` — queue via BullMQ
+6. Send push on: wall reply, icebreaker match (Phase 4), chat message (Phase 4)
+7. Mobile: register for push on login
+8. Handle notification tap → deep link
+
+### Devices API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/devices/register` | Yes | Register push token |
+| DELETE | `/devices/:id` | Yes | Unregister device |
+| GET | `/devices` | Yes | List my devices |
+
+## Step 3 — Server-side presence hardening
+
+1. BullMQ worker: expire stale presence sessions every minute
+2. Remove expired users from Redis GEO
+3. When user goes Available OFF: end `presence_sessions` row, clear Redis
+4. `GET /presence/nearby-count` uses Redis GEO first, fallback to PostGIS
+5. Add monitoring: active Available user count metric
+
+## Step 4 — Mobile polish
+
+1. Available toggle with confirmation modal (explains background location)
+2. Persistent "You're available" banner when ON
+3. Notifications settings screen (per notification type)
+4. Quiet mode toggle — suppress non-essential pushes
+
+**Phase 3 done when:** User closes app with Available ON, moves within radius, another user sees updated presence; push delivers on reply.
+
+---
+
+# Phase 4 — Break the Ice & Matching
+
+**Goal:** Mutual anonymous nearby match for eye-contact scenario.
+
+---
+
+## Step 1 — Icebreaker backend
+
+1. Add `icebreaker_sessions`, `matches` tables migration
+2. Implement `IcebreakerModule`
+3. `POST /icebreaker/start` — create session at current location, 10 min expiry
+4. `POST /icebreaker/cancel` — cancel active session
+5. `GET /icebreaker/status` — my active session state
+6. Background worker: every 30s, find pairs within 50m both active → create `match`
+7. On match: update both sessions to `matched`, send push to both
+8. Rate limit: 5 starts per hour
+9. Audit log: icebreaker.start, icebreaker.match
+
+### Icebreaker API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/icebreaker/start` | Yes | Start break-the-ice |
+| POST | `/icebreaker/cancel` | Yes | Cancel session |
+| GET | `/icebreaker/status` | Yes | Current session |
+
+## Step 2 — Match accept flow
+
+1. `GET /matches` — list pending and active matches
+2. `GET /matches/:id` — match detail (minimal info until both accept)
+3. `POST /matches/:id/accept` — accept match
+4. `POST /matches/:id/decline` — decline (no notification to other)
+5. When both accept → status `active`, create `chat` row
+6. `POST /matches/request` — initiate match from wall reply (source: `wall_reply`)
+7. Push: `match.request` when one accepts, waiting for other
+8. Push: `icebreaker.match` when first matched
+9. Expire pending matches after 30 min
+
+### Match API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/matches` | Yes | List matches |
+| GET | `/matches/:id` | Yes | Match detail |
+| POST | `/matches/request` | Yes | Request chat (from wall reply) |
+| POST | `/matches/:id/accept` | Yes | Accept |
+| POST | `/matches/:id/decline` | Yes | Decline |
+
+## Step 3 — Mobile icebreaker UI
+
+1. "Break the ice" button on home screen (prominent but separate from wall)
+2. Explainer modal: anonymous, mutual only, 50m, 10 min
+3. Active state UI: pulsing indicator "Waiting for someone nearby..."
+4. Cancel button
+5. Match found screen: "Someone nearby wants to connect too"
+6. Accept / Decline buttons
+7. Both accepted → navigate to chat (Phase 5)
+
+**Phase 4 done when:** Two users within 50m both tap Break the ice → both get push → both accept → match active.
+
+---
+
+# Phase 5 — Chat, Real-time & Safety
+
+**Goal:** Private messaging, WebSockets, block/report.
+
+---
+
+## Step 1 — Chat backend
+
+1. Add `chats`, `messages` tables migration
+2. Implement `ChatModule`
+3. `GET /chats` — list active chats with last message preview
+4. `GET /chats/:id/messages` — paginated messages
+5. `POST /chats/:id/messages` — send text message
+6. `POST /chats/:id/close` — close chat
+7. Check blocks before any message send
+8. Audit log: message.send, chat.close (every message logged)
+
+### Chat API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/chats` | Yes | List chats |
+| GET | `/chats/:id` | Yes | Chat detail |
+| GET | `/chats/:id/messages` | Yes | Message history |
+| POST | `/chats/:id/messages` | Yes | Send message |
+| POST | `/chats/:id/close` | Yes | Close chat |
+
+## Step 2 — Real-time (WebSocket or polling fallback)
+
+1. **MVP fallback:** TanStack Query refetch every 30s on chat screen + push notifications
+2. Implement WebSocket gateway `/ws` when chat latency matters
+3. Auth via JWT on connect
+4. Events: `message.new`, `message.read`, `match.updated`
+5. On new message: persist → emit to recipient socket → send push if offline
+6. Mobile: connect on app open, reconnect on foreground
+7. Typing indicator (optional stretch goal)
+
+### WebSocket events
+
+| Event | Direction | Payload |
+|-------|-----------|---------|
+| `message.new` | Server → Client | `{ chatId, message }` |
+| `message.send` | Client → Server | `{ chatId, content }` |
+| `match.updated` | Server → Client | `{ matchId, status }` |
+| `ping` | Client → Server | keepalive |
+
+## Step 3 — Block & report
+
+1. Add `blocks`, `reports` tables migration
+2. `POST /blocks` — block user
+3. `DELETE /blocks/:userId` — unblock
+4. `GET /blocks` — list blocked users
+5. `POST /reports` — report user/post/reply/message
+6. Blocked users: hidden from wall, can't match, can't message
+7. Auto-flag: 3+ reports in 24h → suspend pending review
+
+### Safety API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/blocks` | Yes | Block user |
+| DELETE | `/blocks/:userId` | Yes | Unblock |
+| GET | `/blocks` | Yes | List blocks |
+| POST | `/reports` | Yes | Submit report |
+
+## Step 4 — Mobile chat UI
+
+1. Chats tab: list with last message + timestamp
+2. Chat thread screen
+3. Message input + send
+4. Report user button in chat header
+5. Block user confirmation dialog
+6. Real-time message receive via WebSocket
+
+**Phase 5 done when:** Matched users chat in real time; block prevents further contact; reports appear in DB.
+
+---
+
+# Phase 6 — Verification (didit.me)
+
+**Goal:** Trust gate before post/reply/chat/icebreaker.
+
+**Provider:** [didit.me](https://docs.didit.me/) — liveness-only workflow for MVP; full KYC workflow optional for escalations.
+
+### didit.me integration flow
+
+```
+Mobile app                    NestJS API                    didit.me
+    │                              │                            │
+    │ POST /verification/start     │                            │
+    │ ───────────────────────────► │ POST /v3/session/          │
+    │                              │ ──────────────────────────► │
+    │ ◄─────────────────────────── │ ◄── { url, session_token } │
+    │   { verification_url }       │                            │
+    │                              │                            │
+    │ Open WebView with URL        │                            │
+    │ User completes liveness      │                            │
+    │                              │ ◄── webhook: session.status│
+    │                              │ GET /v3/session/{id}/decision│
+    │                              │ Update verifications table │
+    │ Poll or push: verified ✓     │                            │
+```
+
+### didit.me workflow setup (console)
+
+1. Create **liveness-only** workflow in didit Business Console
+2. Copy `workflow_id` → `DIDIT_WORKFLOW_ID_LIVENESS`
+3. Configure webhook URL: `https://api.yourapp.com/v1/verification/webhook`
+4. Set `vendor_data` = your `user_id` on session create
+5. On pass: `liveness_checks[0].status === "Approved"`
+6. Optional later: full KYC workflow (ID + liveness + age) for reported users
+
+---
+
+## Step 1 — didit.me backend integration
+
+1. Add `verifications` table migration (if not already)
+2. Implement `VerificationModule` + `DiditService`
+3. `POST /verification/start` — call didit `POST /v3/session/` with `workflow_id` + `vendor_data: userId`, return `verification_url`
+4. `POST /verification/webhook` — verify didit signature, handle `session.status.updated`
+5. On webhook: fetch `GET /v3/session/{sessionId}/decision/`, parse `liveness_checks[]`
+6. `GET /verification/status` — current user verification state
+7. Implement `VerifiedGuard` — attach to post, reply, icebreaker, chat endpoints
+8. Browse wall without verification (read-only)
+9. Store `didit_session_id` in `verifications.provider_reference`
+10. Audit log: verification.start, verification.passed, verification.failed
+
+### Verification API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/verification/start` | Yes | Create didit session, return URL |
+| GET | `/verification/status` | Yes | Verification status |
+| POST | `/verification/webhook` | No* | didit webhook (*signature verify) |
+
+## Step 2 — Mobile verification flow
+
+1. When unverified user tries to post → redirect to verification
+2. Open didit `verification_url` in **WebView** (expo-web-browser or react-native-webview)
+3. On WebView close / deep link callback → poll `GET /verification/status`
+4. On pass → return to previous action
+5. On fail → retry option + support link
+6. Show verification badge on own profile
+
+## Step 3 — Escalation path
+
+1. Reported user → admin triggers full KYC workflow (`DIDIT_WORKFLOW_ID_KYC`)
+2. Admin can force re-verification from dashboard
+3. Underage detected by didit age estimate → suspend immediately
+4. Duplicate face / blocklist hit from didit → flag for admin review
+
+**Phase 6 done when:** Unverified users can browse; posting requires didit liveness pass.
+
+---
+
+# Phase 7 — Admin Dashboard
+
+**Goal:** Moderation, user management, analytics.
+
+---
+
+## Step 1 — Admin app scaffold
+
+1. Scaffold Next.js app in `apps/admin`
+2. Admin login page → `POST /admin/auth/login`
+3. Admin JWT separate from user JWT
+4. Protected layout with sidebar navigation
+5. shadcn/ui components
+
+## Step 2 — Moderation features
+
+1. Dashboard home: stats cards (DAU, posts today, open reports)
+2. Reports queue page — list, filter, assign, resolve
+3. User detail page — profile, verification, posts, reports, suspend/ban
+4. Content moderation — hide/delete posts and replies
+5. Chat viewer (read-only) for reported conversations
+6. Audit log search page
+
+### Admin API endpoints
+
+| Method | Endpoint | Role | Description |
+|--------|----------|------|-------------|
+| POST | `/admin/auth/login` | No | Admin login |
+| GET | `/admin/dashboard/stats` | Moderator | Overview stats |
+| GET | `/admin/users` | Support | Search users |
+| GET | `/admin/users/:id` | Support | User detail |
+| PATCH | `/admin/users/:id/status` | Moderator | Suspend/ban |
+| GET | `/admin/reports` | Moderator | List reports |
+| PATCH | `/admin/reports/:id` | Moderator | Resolve report |
+| DELETE | `/admin/wall/posts/:id` | Moderator | Remove post |
+| DELETE | `/admin/wall/replies/:id` | Moderator | Remove reply |
+| GET | `/admin/audit-logs` | Super Admin | Search logs |
+| GET | `/admin/chats/:id/messages` | Moderator | Read chat (reports) |
+
+## Step 3 — Admin user management
+
+1. Super admin can create moderator accounts
+2. Role-based access control on all admin endpoints
+3. `admin_audit_logs` table — log every admin action (suspend, delete post, resolve report)
+4. Internal launch-area heatmap (admin only — never expose to mobile users)
+
+**Phase 7 done when:** Moderator can resolve reports, suspend users, view audit logs; all admin actions logged.
+
+---
+
+# Phase 8 — Payments & Premium (Optional)
+
+**Goal:** Stripe subscriptions — do not gate core features.
+
+---
+
+## Step 1 — Stripe setup
+
+1. Create Stripe products: Free, Premium
+2. Add `subscriptions` table migration
+3. `POST /subscriptions/checkout` — Stripe Checkout session
+4. `POST /webhooks/stripe` — handle subscription events
+5. `GET /subscriptions/me` — current plan
+6. Premium features: custom avatar themes only (no pay-to-chat)
+
+## Step 2 — Mobile paywall UI
+
+1. Premium screen in settings (optional upgrade)
+2. Stripe Checkout via web browser or Stripe SDK
+3. Restore purchases
+
+**Phase 8 done when:** User can subscribe to premium; core wall/chat still free.
+
+---
+
+# Phase 9 — B2B Venues & Launch Prep
+
+**Goal:** Event/venue rooms as launch boost + production hardening.
+
+---
+
+## Step 1 — Venue rooms (optional boost)
+
+1. Add `venues` table migration
+2. Admin: create venue with geofence polygon
+3. `GET /venues/nearby` — venues user is inside
+4. `POST /venues/:id/join` — join venue room
+5. Wall posts can be scoped to `venue_id` OR radius (hybrid)
+6. QR code generator in admin
+
+## Step 2 — Production hardening
+
+1. Load testing: 500 concurrent Available users
+2. Security audit: OWASP top 10 checklist
+3. Pen test on auth + location endpoints
+4. App Store + Play Store submission assets
+5. Privacy policy + terms of service published
+6. Sentry error tracking live
+7. Uptime monitoring + alerting
+8. Database backup restore drill
+
+## Step 3 — Launch checklist
+
+1. Pick launch city/neighborhood
+2. Seed 20+ posts on day 1 (real team/friends)
+3. Moderator on-call for first 72 hours
+4. Monitor: posts/day, match rate, report rate, crash rate
+5. Iterate on radius default based on density feedback
+
+**Phase 9 done when:** App live in stores, launch area active, admin staffed.
+
+---
+
+## Complete API Endpoint Index
+
+### Public / Auth
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `POST /auth/verify-email`
+- `POST /auth/verify-phone`
+- `POST /auth/forgot-password`
+- `POST /auth/reset-password`
+
+### Users & Media
+- `GET /users/me`
+- `PATCH /users/me/profile`
+- `PATCH /users/me/settings`
+- `DELETE /users/me`
+- `POST /media/presign`
+- `POST /media/confirm`
+
+### Presence
+- `POST /presence/ping`
+- `POST /presence/available`
+- `GET /presence/status`
+- `GET /presence/nearby-count`
+
+### Wall
+- `GET /wall/posts`
+- `POST /wall/posts`
+- `GET /wall/posts/:id`
+- `DELETE /wall/posts/:id`
+- `POST /wall/posts/:id/replies`
+- `DELETE /wall/replies/:id`
+
+### Icebreaker & Matches
+- `POST /icebreaker/start`
+- `POST /icebreaker/cancel`
+- `GET /icebreaker/status`
+- `GET /users/me/export`
+- `GET /matches`
+- `GET /matches/:id`
+- `POST /matches/request`
+- `POST /matches/:id/accept`
+- `POST /matches/:id/decline`
+
+### Chat
+- `GET /chats`
+- `GET /chats/:id`
+- `GET /chats/:id/messages`
+- `POST /chats/:id/messages`
+- `POST /chats/:id/close`
+
+### Safety
+- `POST /blocks`
+- `DELETE /blocks/:userId`
+- `GET /blocks`
+- `POST /reports`
+
+### Devices & Notifications
+- `POST /devices/register`
+- `DELETE /devices/:id`
+- `GET /devices`
+
+### Verification
+- `POST /verification/start`
+- `GET /verification/status`
+- `POST /verification/webhook`
+
+### Subscriptions (Phase 8)
+- `POST /subscriptions/checkout`
+- `GET /subscriptions/me`
+- `POST /subscriptions/cancel`
+- `POST /webhooks/stripe`
+
+### Venues (Phase 9)
+- `GET /venues/nearby`
+- `POST /venues/:id/join`
+- `GET /venues/:id/wall/posts`
+
+### Admin
+- `POST /admin/auth/login`
+- `GET /admin/dashboard/stats`
+- `GET /admin/users`
+- `GET /admin/users/:id`
+- `PATCH /admin/users/:id/status`
+- `GET /admin/reports`
+- `PATCH /admin/reports/:id`
+- `DELETE /admin/wall/posts/:id`
+- `DELETE /admin/wall/replies/:id`
+- `GET /admin/audit-logs`
+- `GET /admin/chats/:id/messages`
+
+### System
+- `GET /health`
+- `GET /docs` (Swagger)
+
+---
+
+## Testing Strategy
+
+| Layer | Tool | Coverage target |
+|-------|------|-----------------|
+| Unit | Jest | Services, guards, utils — 80%+ |
+| Integration | Supertest | All API endpoints |
+| E2E mobile | Detox or Maestro | Auth, post, icebreaker, chat flows |
+| Load | k6 | 500 concurrent presence pings |
+| Security | OWASP ZAP | Before launch |
+
+---
+
+## Definition of Done (Full App)
+
+- [ ] User can register, verify, set profile
+- [ ] Available mode works in background with push
+- [ ] Wall posts/replies work within 250m
+- [ ] Break the ice mutual match works within 50m
+- [ ] Chat works with real-time + push
+- [ ] Liveness required to interact
+- [ ] Block/report works
+- [ ] Audit log captures all actions
+- [ ] Admin can moderate
+- [ ] Apps submitted to App Store + Play Store
+- [ ] Privacy policy + terms live
+- [ ] Launch area seeded and monitored
+
+---
+
+*Update this document as decisions change. Link to `docs/PRODUCT_STRATEGY.md` for market context.*
+
+> **Note:** `PRODUCT_STRATEGY.md` still mentions venue-first launch and full KYC in places. This dev plan uses **radius-first (250m)** and **liveness verification** per latest decisions. Update strategy doc when ready.

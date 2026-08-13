@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: pingme-postgres
+    restart: unless-stopped
+    env_file:
+      - ./docker/postgres.env
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - pingme_pg_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/init-postgis.sql:/docker-entrypoint-initdb.d/01-init-postgis.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pingme -d pingme']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: pingme-redis
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:6380:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pingme_pg_data:

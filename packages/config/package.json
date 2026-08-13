@@ -1,0 +1,6 @@
+{
+  "name": "@pingme/config",
+  "version": "0.0.1",
+  "private": true,
+  "files": ["tsconfig*.json", "eslint-preset.js"]
+}

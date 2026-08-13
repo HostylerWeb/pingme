@@ -1,0 +1,46 @@
+{
+  "name": "@pingme/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start --dev-client",
+    "start": "expo start --dev-client",
+    "android": "expo start --android --dev-client",
+    "ios": "expo start --ios --dev-client",
+    "build": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "test": "node -e \"console.log('mobile: no tests yet')\"",
+    "eas:build:dev": "eas build --profile development --platform all"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~57.0.8",
+    "@pingme/shared": "workspace:*",
+    "@sentry/react-native": "^8.23.0",
+    "@tanstack/react-query": "^5.62.8",
+    "expo": "~57.0.12",
+    "expo-constants": "~57.0.10",
+    "expo-dev-client": "~57.0.11",
+    "expo-device": "~57.0.1",
+    "expo-linking": "~57.0.5",
+    "expo-location": "~57.0.9",
+    "expo-notifications": "~57.0.10",
+    "expo-router": "~57.0.12",
+    "expo-secure-store": "~57.0.1",
+    "expo-status-bar": "~57.0.1",
+    "expo-task-manager": "~57.0.9",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-mmkv": "^3.2.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.2",
+    "react-native-webview": "13.16.1",
+    "socket.io-client": "^4.8.3",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  }
+}

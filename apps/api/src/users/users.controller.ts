@@ -1,0 +1,88 @@
+import { Body, Controller, Delete, Get, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  MediaConfirmSchema,
+  MediaPresignSchema,
+  UpdateProfileSchema,
+  UpdateSettingsSchema,
+  MediaConfirmInput,
+  MediaPresignInput,
+  UpdateProfileInput,
+  UpdateSettingsInput,
+} from '@pingme/shared';
+import { User, Profile } from '@pingme/db';
+import { Request } from 'express';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { getRequestMeta } from '../common/utils/crypto.util';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UsersService } from './users.service';
+
+@ApiTags('users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Controller()
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get('users/me')
+  @ApiOperation({ summary: 'Get current user' })
+  async getMe(@CurrentUser() user: User) {
+    const data = await this.usersService.getMe(user);
+    return { success: true, data };
+  }
+
+  @Patch('users/me/profile')
+  @ApiOperation({ summary: 'Update profile' })
+  async updateProfile(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(UpdateProfileSchema)) dto: UpdateProfileInput,
+  ): Promise<{ success: boolean; data: Profile }> {
+    const data = await this.usersService.updateProfile(user.id, dto);
+    return { success: true, data };
+  }
+
+  @Patch('users/me/settings')
+  @ApiOperation({ summary: 'Update settings' })
+  async updateSettings(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(UpdateSettingsSchema)) dto: UpdateSettingsInput,
+  ) {
+    const data = await this.usersService.updateSettings(user.id, dto);
+    return { success: true, data };
+  }
+
+  @Get('users/me/settings')
+  @ApiOperation({ summary: 'Get notification and app settings' })
+  async getSettings(@CurrentUser() user: User) {
+    const data = await this.usersService.getSettings(user.id);
+    return { success: true, data };
+  }
+
+  @Delete('users/me')
+  @ApiOperation({ summary: 'Delete account' })
+  async deleteAccount(@CurrentUser() user: User, @Req() req: Request) {
+    const data = await this.usersService.deleteAccount(user.id, getRequestMeta(req));
+    return { success: true, data };
+  }
+
+  @Post('media/presign')
+  @ApiOperation({ summary: 'Get avatar upload URL' })
+  async presign(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(MediaPresignSchema)) dto: MediaPresignInput,
+  ) {
+    const data = await this.usersService.createPresignedUpload(user.id, dto);
+    return { success: true, data };
+  }
+
+  @Post('media/confirm')
+  @ApiOperation({ summary: 'Confirm avatar upload' })
+  async confirm(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(MediaConfirmSchema)) dto: MediaConfirmInput,
+  ): Promise<{ success: boolean; data: Profile }> {
+    const data = await this.usersService.confirmUpload(user.id, dto);
+    return { success: true, data };
+  }
+}

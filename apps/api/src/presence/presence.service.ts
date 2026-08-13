@@ -1,0 +1,229 @@
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@pingme/db';
+import { distanceBucket, fuzzyCoordinate, PRESENCE_TTL_SECONDS } from '@pingme/shared';
+import { BlocksService } from '../common/services/blocks.service';
+import { RateLimitService } from '../common/services/rate-limit.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.module';
+import { PresencePingInput, SetAvailableInput } from '@pingme/shared';
+
+const GEO_AVAILABLE_KEY = 'geo:available';
+
+@Injectable()
+export class PresenceService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+    private readonly config: ConfigService,
+    private readonly rateLimit: RateLimitService,
+    private readonly blocks: BlocksService,
+  ) {}
+
+  async ping(userId: string, dto: PresencePingInput) {
+    const allowed = await this.rateLimit.checkLimit(`rate:ping:${userId}`, 60);
+    if (!allowed) {
+      throw new HttpException('Location ping rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    const fuzzyLat = fuzzyCoordinate(dto.latitude);
+    const fuzzyLng = fuzzyCoordinate(dto.longitude);
+
+    const session = await this.prisma.presenceSession.upsert({
+      where: { userId },
+      update: {
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        fuzzyLat,
+        fuzzyLng,
+        locationAccuracy: dto.accuracy,
+        locationUpdatedAt: new Date(),
+      },
+      create: {
+        userId,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        fuzzyLat,
+        fuzzyLng,
+        locationAccuracy: dto.accuracy,
+        locationUpdatedAt: new Date(),
+      },
+    });
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (user?.isAvailable) {
+      await this.prisma.presenceSession.update({
+        where: { userId },
+        data: { isActive: true, endedAt: null },
+      });
+      await this.redis.client.geoadd(GEO_AVAILABLE_KEY, dto.longitude, dto.latitude, userId);
+      await this.redis.client.set(
+        `presence:${userId}`,
+        JSON.stringify({ lat: fuzzyLat, lng: fuzzyLng, at: Date.now() }),
+        'EX',
+        PRESENCE_TTL_SECONDS,
+      );
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastSeenAt: new Date() },
+    });
+
+    return {
+      success: true,
+      data: {
+        sessionId: session.id,
+        fuzzyLat,
+        fuzzyLng,
+        updatedAt: session.locationUpdatedAt,
+      },
+    };
+  }
+
+  async setAvailable(userId: string, dto: SetAvailableInput) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { isAvailable: dto.isAvailable },
+    });
+
+    const session = await this.prisma.presenceSession.findUnique({ where: { userId } });
+
+    if (dto.isAvailable) {
+      await this.prisma.presenceSession.upsert({
+        where: { userId },
+        update: {
+          isActive: true,
+          startedAt: new Date(),
+          endedAt: null,
+        },
+        create: {
+          userId,
+          isActive: true,
+        },
+      });
+
+      if (session?.latitude != null && session.longitude != null) {
+        await this.redis.client.geoadd(
+          GEO_AVAILABLE_KEY,
+          session.longitude,
+          session.latitude,
+          userId,
+        );
+        await this.redis.client.set(
+          `presence:${userId}`,
+          JSON.stringify({
+            lat: session.fuzzyLat,
+            lng: session.fuzzyLng,
+            at: Date.now(),
+          }),
+          'EX',
+          PRESENCE_TTL_SECONDS,
+        );
+      }
+    } else {
+      await this.prisma.presenceSession.updateMany({
+        where: { userId },
+        data: {
+          isActive: false,
+          endedAt: new Date(),
+        },
+      });
+      await this.redis.client.zrem(GEO_AVAILABLE_KEY, userId);
+      await this.redis.client.del(`presence:${userId}`);
+    }
+
+    return {
+      success: true,
+      data: { isAvailable: dto.isAvailable },
+    };
+  }
+
+  async getStatus(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { presenceSession: true },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    return {
+      success: true,
+      data: {
+        isAvailable: user.isAvailable,
+        lastPingAt: user.presenceSession?.locationUpdatedAt ?? null,
+        fuzzyLat: user.presenceSession?.fuzzyLat ?? null,
+        fuzzyLng: user.presenceSession?.fuzzyLng ?? null,
+      },
+    };
+  }
+
+  async getNearbyCount(userId: string) {
+    const session = await this.prisma.presenceSession.findUnique({ where: { userId } });
+    if (!session?.latitude || !session?.longitude) {
+      throw new BadRequestException('Location required — send a ping first');
+    }
+
+    const settings = await this.prisma.userSettings.findUnique({ where: { userId } });
+    const radius =
+      settings?.radiusMeters ??
+      Number(this.config.get('DEFAULT_RADIUS_METERS', 250));
+
+    const blockedIds = await this.blocks.getBlockedUserIds(userId);
+    const redisCount = await this.redis.client.zcard(GEO_AVAILABLE_KEY);
+
+    if (redisCount > 0) {
+      const members = (await this.redis.client.georadius(
+        GEO_AVAILABLE_KEY,
+        session.longitude,
+        session.latitude,
+        radius,
+        'm',
+        'WITHDIST',
+      )) as [string, string][];
+
+      const count = members.filter(
+        ([memberId]) => memberId !== userId && !blockedIds.includes(memberId),
+      ).length;
+
+      return { success: true, data: { count, radiusMeters: radius, source: 'redis' as const } };
+    }
+
+    const blockedFilter =
+      blockedIds.length > 0
+        ? Prisma.sql`AND ps.user_id NOT IN (${Prisma.join(blockedIds)})`
+        : Prisma.empty;
+
+    const rows = await this.prisma.$queryRaw<{ user_id: string }[]>`
+      SELECT ps.user_id
+      FROM presence_sessions ps
+      INNER JOIN users u ON u.id = ps.user_id
+      WHERE u.is_available = true
+        AND ps.is_active = true
+        AND ps.latitude IS NOT NULL
+        AND ps.longitude IS NOT NULL
+        AND ps.user_id != ${userId}
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(ps.longitude, ps.latitude), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${session.longitude}, ${session.latitude}), 4326)::geography,
+          ${radius}
+        )
+        ${blockedFilter}
+    `;
+
+    return {
+      success: true,
+      data: { count: rows.length, radiusMeters: radius, source: 'postgis' as const },
+    };
+  }
+
+  getDistanceBucket(meters: number) {
+    return distanceBucket(meters);
+  }
+}

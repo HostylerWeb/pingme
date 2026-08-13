@@ -1,0 +1,334 @@
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import {
+  VerificationProvider,
+  VerificationStatus,
+  VerificationType,
+  Prisma,
+} from '@pingme/db';
+import { AuditService } from '../audit/audit.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.module';
+import { DiditService, DiditWebhookPayload } from './didit.service';
+
+@Injectable()
+export class VerificationService {
+  private readonly logger = new Logger(VerificationService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly didit: DiditService,
+    private readonly audit: AuditService,
+    private readonly redis: RedisService,
+  ) {}
+
+  isEnforcementEnabled(): boolean {
+    return this.didit.isEnabled();
+  }
+
+  async hasPassedLiveness(userId: string): Promise<boolean> {
+    if (!this.isEnforcementEnabled()) {
+      return true;
+    }
+
+    const passed = await this.prisma.verification.findFirst({
+      where: {
+        userId,
+        type: VerificationType.liveness,
+        status: VerificationStatus.passed,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      orderBy: { verifiedAt: 'desc' },
+    });
+
+    return !!passed;
+  }
+
+  async getStatus(userId: string, syncPending = true): Promise<{
+    success: true;
+    data: {
+      livenessVerified: boolean;
+      enforcementEnabled: boolean;
+      status: VerificationStatus | null;
+      verificationUrl: string | null;
+      rejectionReason: string | null;
+      sessionId: string | null;
+    };
+  }> {
+    const livenessVerified = await this.hasPassedLiveness(userId);
+
+    const latest = await this.prisma.verification.findFirst({
+      where: {
+        userId,
+        type: VerificationType.liveness,
+        provider: VerificationProvider.didit,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    let verificationUrl: string | null = null;
+    if (latest?.status === VerificationStatus.pending && latest.metadata) {
+      const metadata = latest.metadata as Record<string, unknown>;
+      verificationUrl = typeof metadata.url === 'string' ? metadata.url : null;
+    }
+
+    let rejectionReason: string | null = null;
+    if (latest?.status === VerificationStatus.failed && latest.metadata) {
+      const metadata = latest.metadata as Record<string, unknown>;
+      rejectionReason =
+        typeof metadata.rejection_reason === 'string' ? metadata.rejection_reason : null;
+    }
+
+    if (
+      syncPending &&
+      latest?.status === VerificationStatus.pending &&
+      latest.providerReference
+    ) {
+      await this.syncFromDidit(latest.providerReference, userId);
+      return this.getStatus(userId, false);
+    }
+
+    return {
+      success: true,
+      data: {
+        livenessVerified,
+        enforcementEnabled: this.isEnforcementEnabled(),
+        status: latest?.status ?? null,
+        verificationUrl,
+        rejectionReason,
+        sessionId: latest?.providerReference ?? null,
+      },
+    };
+  }
+
+  async start(userId: string, email?: string | null) {
+    if (!this.didit.isEnabled()) {
+      throw new ServiceUnavailableException(
+        'Identity verification is not configured on this server',
+      );
+    }
+
+    const existing = await this.prisma.verification.findFirst({
+      where: {
+        userId,
+        type: VerificationType.liveness,
+        provider: VerificationProvider.didit,
+        status: VerificationStatus.pending,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing?.metadata) {
+      const metadata = existing.metadata as Record<string, unknown>;
+      const url = typeof metadata.url === 'string' ? metadata.url : null;
+      if (url) {
+        return {
+          success: true,
+          data: {
+            verificationUrl: url,
+            sessionId: existing.providerReference,
+            status: existing.status,
+            resumed: true,
+          },
+        };
+      }
+    }
+
+    const session = await this.didit.createSession(userId, email);
+    const metadata = {
+      session_id: session.session_id,
+      session_token: session.session_token ?? null,
+      url: session.url,
+      workflow_id: session.workflow_id,
+      didit_status: session.status,
+      started_at: new Date().toISOString(),
+    };
+
+    const verification = await this.prisma.verification.create({
+      data: {
+        userId,
+        type: VerificationType.liveness,
+        provider: VerificationProvider.didit,
+        providerReference: session.session_id,
+        status: VerificationStatus.pending,
+        metadata,
+      },
+    });
+
+    await this.audit.log({
+      userId,
+      action: 'verification.start',
+      entityType: 'verification',
+      entityId: verification.id,
+      metadata: { provider: 'didit', sessionId: session.session_id },
+    });
+
+    return {
+      success: true,
+      data: {
+        verificationUrl: session.url,
+        sessionId: session.session_id,
+        status: VerificationStatus.pending,
+        resumed: false,
+      },
+    };
+  }
+
+  async handleWebhook(payload: DiditWebhookPayload, headers: Record<string, string | string[] | undefined>) {
+    if (!this.didit.isEnabled()) {
+      return { success: false, message: 'Verification disabled' };
+    }
+
+    if (!this.didit.verifyWebhookSignature(headers, payload as Record<string, unknown>)) {
+      throw new ForbiddenException('Invalid webhook signature');
+    }
+
+    const eventType = payload.webhook_type;
+    if (!eventType || !this.didit.isSubscribedEvent(eventType)) {
+      return { success: true, ignored: true };
+    }
+
+    if (payload.event_id) {
+      const cacheKey = `didit:webhook:${payload.event_id}`;
+      const seen = await this.redis.client.get(cacheKey);
+      if (seen) {
+        return { success: true, duplicate: true };
+      }
+      await this.redis.client.set(cacheKey, '1', 'EX', 7 * 24 * 60 * 60);
+    }
+
+    const sessionId = payload.session_id;
+    const vendorData = payload.vendor_data;
+
+    let verification = sessionId
+      ? await this.prisma.verification.findFirst({
+          where: { providerReference: sessionId },
+        })
+      : null;
+
+    if (!verification && vendorData) {
+      verification = await this.prisma.verification.findFirst({
+        where: {
+          userId: vendorData,
+          type: VerificationType.liveness,
+          provider: VerificationProvider.didit,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
+
+    if (!verification) {
+      this.logger.warn('Didit webhook could not match verification record', {
+        sessionId,
+        vendorData,
+      });
+      return { success: false, message: 'Verification not found' };
+    }
+
+    await this.applyDiditResult(verification.id, verification.userId, payload);
+
+    return { success: true };
+  }
+
+  private async syncFromDidit(sessionId: string, userId: string) {
+    const decision = await this.didit.fetchDecision(sessionId);
+    if (!decision) return;
+
+    const verification = await this.prisma.verification.findFirst({
+      where: { userId, providerReference: sessionId },
+    });
+    if (!verification) return;
+
+    await this.applyDiditResult(verification.id, userId, {
+      session_id: sessionId,
+      status: typeof decision.status === 'string' ? decision.status : undefined,
+      decision,
+    });
+  }
+
+  private async applyDiditResult(
+    verificationId: string,
+    userId: string,
+    payload: DiditWebhookPayload,
+  ) {
+    const sessionId = payload.session_id;
+    const localStatus = this.didit.mapStatusToLocal(payload.status);
+    if (!localStatus) return;
+
+    const decision = payload.decision ?? null;
+    const livenessApproved = this.didit.isLivenessApproved(decision ?? { status: payload.status });
+
+    let finalStatus = localStatus;
+    if (localStatus === 'passed' && !livenessApproved) {
+      finalStatus = 'failed';
+    }
+    if (localStatus === 'pending' && livenessApproved) {
+      finalStatus = 'passed';
+    }
+
+    const existing = await this.prisma.verification.findUnique({ where: { id: verificationId } });
+    const rejectionReason =
+      finalStatus === 'failed' ? this.didit.extractRejectionReason(payload) : null;
+
+    const metadata = {
+      ...(typeof existing?.metadata === 'object' && existing.metadata !== null
+        ? (existing.metadata as Record<string, unknown>)
+        : {}),
+      last_webhook: {
+        status: payload.status,
+        webhook_type: payload.webhook_type,
+        received_at: new Date().toISOString(),
+      },
+      decision,
+      rejection_reason: rejectionReason,
+    } as Prisma.InputJsonValue;
+
+    const updated = await this.prisma.verification.update({
+      where: { id: verificationId },
+      data: {
+        providerReference: sessionId ?? existing?.providerReference,
+        status:
+          finalStatus === 'passed'
+            ? VerificationStatus.passed
+            : finalStatus === 'failed'
+              ? VerificationStatus.failed
+              : VerificationStatus.pending,
+        metadata,
+        verifiedAt: finalStatus === 'passed' ? new Date() : null,
+      },
+    });
+
+    if (finalStatus === 'passed' && existing?.status !== VerificationStatus.passed) {
+      await this.audit.log({
+        userId,
+        action: 'verification.passed',
+        entityType: 'verification',
+        entityId: updated.id,
+        metadata: { provider: 'didit', sessionId },
+      });
+    }
+
+    if (finalStatus === 'failed' && existing?.status !== VerificationStatus.failed) {
+      await this.audit.log({
+        userId,
+        action: 'verification.failed',
+        entityType: 'verification',
+        entityId: updated.id,
+        metadata: { provider: 'didit', sessionId, reason: rejectionReason },
+      });
+    }
+  }
+
+  assertLivenessRequired() {
+    if (!this.isEnforcementEnabled()) return;
+    throw new BadRequestException({
+      code: 'LIVENESS_REQUIRED',
+      message: 'Complete liveness verification to use this feature',
+    });
+  }
+}
