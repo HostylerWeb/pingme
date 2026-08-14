@@ -9,6 +9,7 @@ import '../src/lib/background-location';
 import { AppSocketProvider } from '../src/lib/app-socket';
 import { hasForegroundLocationPermission, locationSetupStorage } from '../src/lib/location-setup-storage';
 import { onboardingStorage } from '../src/lib/onboarding-storage';
+import { productTourStorage } from '../src/lib/product-tour-storage';
 import { addNotificationResponseListener, addNotificationReceivedListener, registerForPushNotifications } from '../src/lib/push-notifications';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
@@ -36,12 +37,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isHydrated, hydrate } = useAuthStore();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [locationReady, setLocationReady] = useState<boolean | null>(null);
+  const [productTourComplete, setProductTourComplete] = useState<boolean | null>(null);
   const lastTargetRef = useRef<string | null>(null);
   const initialLoadDoneRef = useRef(false);
 
   useEffect(() => {
     hydrate();
     setOnboardingComplete(onboardingStorage.isComplete());
+    setProductTourComplete(productTourStorage.isComplete());
   }, [hydrate]);
 
   useEffect(() => {
@@ -106,10 +109,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       target = '/(auth)/login';
     } else if ((user.email && !user.emailVerified) || (user.phone && !user.phoneVerified)) {
       target = '/(setup)/verify';
-    } else if (locationReady === null) {
+    } else if (locationReady === null || productTourComplete === null) {
       return;
     } else if (!locationReady) {
       target = '/(setup)/location';
+    } else if (!productTourComplete && !pathname.startsWith('/(setup)/tour')) {
+      target = '/(setup)/tour';
     } else if (pathname.startsWith('/(auth)') || pathname.startsWith('/(onboarding)') || pathname.startsWith('/(setup)')) {
       target = '/(tabs)/home';
     }
@@ -122,7 +127,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (lastTargetRef.current === target) return;
     lastTargetRef.current = target;
     router.replace(target as Href);
-  }, [user, isHydrated, pathname, router, onboardingComplete, locationReady]);
+  }, [user, isHydrated, pathname, router, onboardingComplete, locationReady, productTourComplete]);
 
   useEffect(() => {
     if (isHydrated && onboardingComplete !== null) {

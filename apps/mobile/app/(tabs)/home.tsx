@@ -30,6 +30,7 @@ import {
   BottomSheet,
   Button,
   DistancePill,
+  DisplayNameWithFlair,
   EmptyState,
   Input,
   LivenessBanner,
@@ -75,9 +76,14 @@ function PostRow({ post, onPress }: { post: WallPost; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.postRow, pressed && styles.postPressed]}>
       <View style={styles.postTop}>
-        <Avatar uri={post.author.avatarUrl} name={name} size="sm" />
+        <Avatar
+          uri={post.author.avatarUrl}
+          name={name}
+          size="sm"
+          themeId={post.author.isPremium ? post.author.avatarTheme : null}
+        />
         <View style={styles.postMeta}>
-          <Text style={styles.authorName}>{name}</Text>
+          <DisplayNameWithFlair name={name} isPremium={post.author.isPremium} />
           <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
         </View>
       </View>
@@ -91,6 +97,9 @@ function PostRow({ post, onPress }: { post: WallPost; onPress: () => void }) {
     </Pressable>
   );
 }
+
+const WALL_SUBTITLE =
+  'A local feed within ~250m. Post, read replies, and chat after you connect.';
 
 export default function WallScreen() {
   const router = useRouter();
@@ -264,7 +273,7 @@ export default function WallScreen() {
           large
           title="Wall"
           showBrand={false}
-          subtitle="Posts from people nearby. Turn on visibility to appear on the wall."
+          subtitle={WALL_SUBTITLE}
         />
         <View style={styles.center}>
           <EmptyState
@@ -291,11 +300,11 @@ export default function WallScreen() {
     <View style={styles.headerBlock}>
       <View style={styles.presenceBar}>
         <View style={styles.presenceCopy}>
-          <Text style={styles.presenceTitle}>{availableOn ? "You're online" : "You're offline"}</Text>
+          <Text style={styles.presenceTitle}>{availableOn ? 'Visible on Wall' : 'Hidden on Wall'}</Text>
           <Text style={styles.presenceHint}>
             {availableOn
-              ? `Visible to people within ${radiusMeters}m`
-              : 'Turn on to appear in the nearby list'}
+              ? `Others within ${radiusMeters}m can see you're around on the Wall`
+              : 'Turn on to show up in the nearby list on the Wall — separate from Break the ice'}
           </Text>
         </View>
         <AppSwitch
@@ -314,7 +323,12 @@ export default function WallScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nearbyScroll}>
             {nearbyUsers.map((person) => (
               <View key={person.userId} style={styles.nearbyPerson}>
-                <Avatar uri={person.avatarUrl} name={person.displayName} size="lg" />
+                <Avatar
+                  uri={person.avatarUrl}
+                  name={person.displayName}
+                  size="lg"
+                  themeId={person.isPremium ? person.avatarTheme : null}
+                />
                 <Text style={styles.nearbyName} numberOfLines={1}>
                   {person.displayName}
                 </Text>
@@ -333,7 +347,7 @@ export default function WallScreen() {
       <AppHeader
         title="Wall"
         showBrand={false}
-        subtitle="Posts from people nearby. Turn on visibility to appear on the wall."
+        subtitle={WALL_SUBTITLE}
         right={<AvailableChip isAvailable={availableOn} />}
       />
 
@@ -353,8 +367,17 @@ export default function WallScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="megaphone-outline"
-              title="Quiet for now"
+              title="No posts yet"
               message="Be the first to say something to people within about 250 meters."
+              action={
+                <Button
+                  label="Write a post"
+                  onPress={() => {
+                    if (!ensureVerified()) return;
+                    setModalOpen(true);
+                  }}
+                />
+              }
             />
           }
           renderItem={({ item }) => <PostRow post={item} onPress={() => router.push(`/post/${item.id}`)} />}
@@ -373,8 +396,8 @@ export default function WallScreen() {
 
       <BottomSheet
         visible={confirmOpen}
-        title="Go online?"
-        subtitle={`People within ~${radiusMeters}m can see you're nearby. Background location may be used while you're online.`}
+        title="Visible on Wall?"
+        subtitle={`People within ~${radiusMeters}m can see you're on the Wall. This is separate from Break the ice. Background location may be used while you're visible.`}
         onClose={() => setConfirmOpen(false)}
       >
         <Button

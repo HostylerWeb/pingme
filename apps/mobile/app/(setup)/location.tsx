@@ -49,7 +49,7 @@ export default function LocationSetupScreen() {
         return;
       }
       locationSetupStorage.markComplete();
-      router.replace('/(tabs)/home');
+      router.replace('/(setup)/tour');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not request location permission');
     } finally {
@@ -59,7 +59,7 @@ export default function LocationSetupScreen() {
 
   const onSkip = () => {
     locationSetupStorage.markComplete();
-    router.replace('/(tabs)/home');
+    router.replace('/(setup)/tour');
   };
 
   return (
@@ -77,7 +77,7 @@ export default function LocationSetupScreen() {
 
         <Card variant="muted" style={styles.noteCard}>
           <Ionicons name="information-circle-outline" size={18} color={colors.inkSecondary} />
-          <Text style={styles.note}>Background location is only requested when you turn Online ON.</Text>
+          <Text style={styles.note}>Background location is only requested when you turn Visible on Wall ON.</Text>
         </Card>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}

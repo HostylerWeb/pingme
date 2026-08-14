@@ -23,6 +23,7 @@ import {
   Button,
   Card,
   DistancePill,
+  DisplayNameWithFlair,
   EmptyState,
   hapticLight,
   hapticSuccess,
@@ -147,6 +148,9 @@ function ResponsePill({
   );
 }
 
+const ICEBREAKER_SUBTITLE =
+  'People open to meeting nearby. Say yes — if they say yes too, you match.';
+
 function IcebreakerRow({
   person,
   onYes,
@@ -217,9 +221,14 @@ function IcebreakerRow({
       ) : null}
 
       <View style={styles.personHeader}>
-        <Avatar uri={person.avatarUrl} name={person.displayName} size="md" />
+        <Avatar
+          uri={person.avatarUrl}
+          name={person.displayName}
+          size="md"
+          themeId={person.isPremium ? person.avatarTheme : null}
+        />
         <View style={styles.personMeta}>
-          <Text style={styles.personName}>{person.displayName}</Text>
+          <DisplayNameWithFlair name={person.displayName} isPremium={person.isPremium} />
           <DistancePill
             label={icebreakerRadiusLabel()}
             tone={distanceTone(person.distanceBucket)}
@@ -505,7 +514,7 @@ export default function IcebreakerScreen() {
         <AppHeader
           title="Break the ice"
           showBrand={false}
-          subtitle="Browse people nearby and send a quick hello to start a match."
+          subtitle={ICEBREAKER_SUBTITLE}
         />
         <LoadingView />
       </Screen>
@@ -518,7 +527,7 @@ export default function IcebreakerScreen() {
         <AppHeader
           title="Break the ice"
           showBrand={false}
-          subtitle="Browse people nearby and send a quick hello to start a match."
+          subtitle={ICEBREAKER_SUBTITLE}
         />
         <View style={[styles.denied, { paddingBottom: contentBottom }]}>
           <EmptyState
@@ -536,7 +545,7 @@ export default function IcebreakerScreen() {
       <AppHeader
         title="Break the ice"
         showBrand={false}
-        subtitle="Browse people nearby and send a quick hello to start a match."
+        subtitle={ICEBREAKER_SUBTITLE}
       />
 
       <ScrollView
@@ -573,7 +582,7 @@ export default function IcebreakerScreen() {
               <View style={styles.icebreakerTitleBlock}>
                 <Text style={styles.icebreakerTitle}>Break the ice</Text>
                 <Text style={styles.icebreakerSubtitle}>
-                  {icebreakerOn ? 'You are visible nearby' : 'You are hidden'}
+                  {icebreakerOn ? 'You appear in the list' : 'Turn on to browse people'}
                 </Text>
               </View>
             </View>
@@ -608,8 +617,24 @@ export default function IcebreakerScreen() {
             ) : people.length === 0 ? (
               <EmptyState
                 icon="people-outline"
-                title="No one else yet"
-                message={`Keep Break the ice on — someone ${icebreakerRadiusLabel().toLowerCase()} may appear soon.`}
+                title={icebreakerOn ? 'No one else yet' : 'Turn on Break the ice'}
+                message={
+                  icebreakerOn
+                    ? `Keep it on — someone ${icebreakerRadiusLabel().toLowerCase()} may appear soon.`
+                    : 'Switch Break the ice on to browse people nearby who also want to connect.'
+                }
+                action={
+                  !icebreakerOn ? (
+                    <Button
+                      label="Turn on Break the ice"
+                      variant="icebreaker"
+                      onPress={() => {
+                        if (!ensureVerified()) return;
+                        setIcebreakerSetupOpen(true);
+                      }}
+                    />
+                  ) : undefined
+                }
               />
             ) : (
               <View style={styles.nearbyList}>

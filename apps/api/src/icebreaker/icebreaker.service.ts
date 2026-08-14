@@ -20,6 +20,7 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { BlocksService } from '../common/services/blocks.service';
+import { loadPublicProfileMap } from '../common/utils/public-profile.util';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -314,6 +315,9 @@ export class IcebreakerService {
         })
       : [];
     const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
+    const flairByUserId = await loadPublicProfileMap(this.prisma, [...profileIds]);
+
+    const withFlair = (userId: string) => flairByUserId.get(userId) ?? { isPremium: false, avatarTheme: null };
 
     const data = visibleRows.map((row) => {
       const profile = profileByUserId.get(row.user_id);
@@ -337,6 +341,8 @@ export class IcebreakerService {
         interestedInMe: interestedInMe.has(row.user_id),
         highlight,
         matchId: matchId ?? null,
+        isPremium: withFlair(row.user_id).isPremium,
+        avatarTheme: withFlair(row.user_id).avatarTheme,
       };
     });
 
@@ -360,6 +366,8 @@ export class IcebreakerService {
         interestedInMe: true,
         highlight: 'mutual_match',
         matchId,
+        isPremium: withFlair(otherUserId).isPremium,
+        avatarTheme: withFlair(otherUserId).avatarTheme,
       });
     }
 

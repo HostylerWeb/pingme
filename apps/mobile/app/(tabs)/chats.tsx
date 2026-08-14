@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { api, ChatSummary } from '../../src/lib/api';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
-import { AppHeader, Avatar, EmptyState, ListSkeleton, Screen } from '../../src/components/ui';
+import { AppHeader, Avatar, Button, DisplayNameWithFlair, EmptyState, ListSkeleton, Screen } from '../../src/components/ui';
 import { spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 function formatTime(iso: string) {
@@ -59,10 +59,19 @@ function ChatRow({ chat, onPress }: { chat: ChatSummary; onPress: () => void }) 
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-      <Avatar name={chat.otherUser.displayName} size="md" />
+      <Avatar
+        name={chat.otherUser.displayName}
+        size="md"
+        uri={chat.otherUser.avatarUrl}
+        themeId={chat.otherUser.isPremium ? chat.otherUser.avatarTheme : null}
+      />
       <View style={styles.rowBody}>
         <View style={styles.rowHeader}>
-          <Text style={hasUnread ? styles.nameUnread : styles.name}>{chat.otherUser.displayName}</Text>
+          <DisplayNameWithFlair
+            name={chat.otherUser.displayName}
+            isPremium={chat.otherUser.isPremium}
+            style={hasUnread ? styles.nameUnread : styles.name}
+          />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {chat.lastMessage ? <Text style={styles.time}>{formatTime(chat.lastMessage.createdAt)}</Text> : null}
             {hasUnread ? (
@@ -111,7 +120,7 @@ export default function ChatsScreen() {
         large
         title="Chats"
         showBrand={false}
-        subtitle="Private conversations after you both accept a match."
+        subtitle="Private chats after you and someone nearby both accept a match."
       />
 
       {isLoading ? (
@@ -129,7 +138,14 @@ export default function ChatsScreen() {
             <EmptyState
               icon="chatbubbles-outline"
               title="No chats yet"
-              message="When you and someone nearby both accept a match, your conversation will show up here."
+              message="Match with someone on the Wall or in Break the ice — when you both accept, your chat appears here."
+              action={
+                <Button
+                  label="Browse Break the ice"
+                  variant="secondary"
+                  onPress={() => router.push('/(tabs)/icebreaker')}
+                />
+              }
             />
           }
           renderItem={({ item }) => (

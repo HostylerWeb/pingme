@@ -9,6 +9,7 @@ import { Prisma, WallPostStatus, WallReplyStatus } from '@pingme/db';
 import { distanceBucket, NOTIFICATION_TYPES, CreateWallPostInput, CreateWallReplyInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { BlocksService } from '../common/services/blocks.service';
+import { getPublicProfileFields } from '../common/utils/public-profile.util';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -25,6 +26,10 @@ interface WallPostRow {
   distance_meters: number;
   display_name: string;
   avatar_url: string | null;
+  avatar_config: unknown;
+  subscription_plan: string | null;
+  subscription_status: string | null;
+  subscription_period_end: Date | null;
 }
 
 @Injectable()
@@ -70,9 +75,14 @@ export class WallService {
           ST_SetSRID(ST_MakePoint(${session.longitude}, ${session.latitude}), 4326)::geography
         ) AS distance_meters,
         p.display_name,
-        p.avatar_url
+        p.avatar_url,
+        p.avatar_config,
+        sub.plan AS subscription_plan,
+        sub.status AS subscription_status,
+        sub.current_period_end AS subscription_period_end
       FROM wall_posts wp
       INNER JOIN profiles p ON p.user_id = wp.user_id
+      LEFT JOIN subscriptions sub ON sub.user_id = wp.user_id
       WHERE wp.status = 'active'
         AND ST_DWithin(
           ST_SetSRID(ST_MakePoint(wp.longitude, wp.latitude), 4326)::geography,
@@ -84,7 +94,19 @@ export class WallService {
       LIMIT ${limit} OFFSET ${offset}
     `;
 
-    const data = rows.map((row) => ({
+    const data = rows.map((row) => {
+      const flair = getPublicProfileFields(
+        { avatarConfig: row.avatar_config },
+        row.subscription_plan
+          ? {
+              plan: row.subscription_plan,
+              status: row.subscription_status ?? 'active',
+              currentPeriodEnd: row.subscription_period_end,
+            }
+          : null,
+      );
+
+      return {
       id: row.id,
       content: row.content,
       replyCount: row.reply_count,
@@ -95,8 +117,11 @@ export class WallService {
         displayName: row.display_name,
         avatarUrl: row.show_photo ? row.avatar_url : null,
         isYou: row.user_id === userId,
+        isPremium: flair.isPremium,
+        avatarTheme: flair.avatarTheme,
       },
-    }));
+    };
+    });
 
     return { success: true, data, meta: { page, limit, radiusMeters: radius } };
   }
@@ -133,14 +158,14 @@ export class WallService {
         userId: blockedIds.length ? { notIn: blockedIds } : undefined,
       },
       include: {
-        user: { include: { profile: true } },
+        user: { include: { profile: true, subscription: true } },
         replies: {
           where: {
             status: WallReplyStatus.active,
             userId: blockedIds.length ? { notIn: blockedIds } : undefined,
           },
           orderBy: { createdAt: 'asc' },
-          include: { user: { include: { profile: true } } },
+          include: { user: { include: { profile: true, subscription: true } } },
         },
       },
     });
@@ -159,6 +184,23 @@ export class WallService {
       if (result) distanceBucketValue = distanceBucket(Number(result.distance_meters));
     }
 
+    const mapAuthor = (
+      authorId: string,
+      profile: { displayName: string; avatarUrl?: string | null; avatarConfig?: unknown } | null | undefined,
+      subscription: { plan: string; status: string; currentPeriodEnd: Date | null } | null | undefined,
+      avatarUrl: string | null | undefined,
+    ) => {
+      const flair = getPublicProfileFields(profile, subscription ?? null);
+      return {
+        id: authorId,
+        displayName: profile?.displayName,
+        avatarUrl: avatarUrl ?? null,
+        isYou: authorId === userId,
+        isPremium: flair.isPremium,
+        avatarTheme: flair.avatarTheme,
+      };
+    };
+
     return {
       success: true,
       data: {
@@ -167,22 +209,22 @@ export class WallService {
         replyCount: post.replyCount,
         createdAt: post.createdAt,
         distanceBucket: distanceBucketValue,
-        author: {
-          id: post.userId,
-          displayName: post.user.profile?.displayName,
-          avatarUrl: post.showPhoto ? post.user.profile?.avatarUrl ?? null : null,
-          isYou: post.userId === userId,
-        },
+        author: mapAuthor(
+          post.userId,
+          post.user.profile,
+          post.user.subscription,
+          post.showPhoto ? post.user.profile?.avatarUrl ?? null : null,
+        ),
         replies: post.replies.map((reply) => ({
           id: reply.id,
           content: reply.content,
           createdAt: reply.createdAt,
-          author: {
-            id: reply.userId,
-            displayName: reply.user.profile?.displayName,
-            avatarUrl: reply.user.profile?.avatarUrl,
-            isYou: reply.userId === userId,
-          },
+          author: mapAuthor(
+            reply.userId,
+            reply.user.profile,
+            reply.user.subscription,
+            reply.user.profile?.avatarUrl,
+          ),
         })),
       },
     };

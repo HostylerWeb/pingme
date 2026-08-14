@@ -22,6 +22,7 @@ import {
   AppHeader,
   Avatar,
   Button,
+  DisplayNameWithFlair,
   EmptyState,
   hapticLight,
   LoadingView,
@@ -331,8 +332,16 @@ export default function ChatThreadScreen() {
       />
 
       <View style={styles.threadHeader}>
-        <Avatar name={chat.otherUser.displayName} size="sm" />
-        <Text style={styles.threadHint}>Private conversation</Text>
+        <Avatar
+          name={chat.otherUser.displayName}
+          uri={chat.otherUser.avatarUrl}
+          size="sm"
+          themeId={chat.otherUser.isPremium ? chat.otherUser.avatarTheme : null}
+        />
+        <View style={{ flex: 1 }}>
+          <DisplayNameWithFlair name={chat.otherUser.displayName} isPremium={chat.otherUser.isPremium} />
+          <Text style={styles.threadHint}>Private conversation</Text>
+        </View>
       </View>
 
       <FlatList

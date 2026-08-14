@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@pingme/db';
 import { distanceBucket, fuzzyCoordinate, PRESENCE_TTL_SECONDS } from '@pingme/shared';
 import { BlocksService } from '../common/services/blocks.service';
+import { loadPublicProfileMap } from '../common/utils/public-profile.util';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
@@ -269,16 +270,20 @@ export class PresenceService {
         })
       : [];
     const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
+    const flairByUserId = await loadPublicProfileMap(this.prisma, userIds);
 
     const data = rows
       .filter((row) => !blockedSet.has(row.user_id))
       .map((row) => {
         const profile = profileByUserId.get(row.user_id);
+        const flair = flairByUserId.get(row.user_id) ?? { isPremium: false, avatarTheme: null };
         return {
           userId: row.user_id,
           displayName: profile?.displayName ?? 'Someone nearby',
           avatarUrl: profile?.avatarUrl ?? null,
           distanceBucket: distanceBucket(Number(row.distance_meters)),
+          isPremium: flair.isPremium,
+          avatarTheme: flair.avatarTheme,
         };
       });
 

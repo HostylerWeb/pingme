@@ -21,6 +21,7 @@ import {
   AppHeader,
   Avatar,
   Button,
+  DisplayNameWithFlair,
   Card,
   DistancePill,
   EmptyState,
@@ -259,9 +260,14 @@ export default function PostDetailScreen() {
           <>
             <Card style={styles.postCard} variant="elevated">
               <View style={styles.postHeader}>
-                <Avatar uri={post.author.avatarUrl} name={authorName} size="md" />
+                <Avatar
+                  uri={post.author.avatarUrl}
+                  name={authorName}
+                  size="md"
+                  themeId={post.author.isPremium ? post.author.avatarTheme : null}
+                />
                 <View style={styles.postMeta}>
-                  <Text style={styles.author}>{authorName}</Text>
+                  <DisplayNameWithFlair name={authorName} isPremium={post.author.isPremium} />
                   <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
                 </View>
               </View>
@@ -297,9 +303,14 @@ export default function PostDetailScreen() {
               </View>
               <Card style={styles.replyCard} variant="flat">
                 <View style={styles.replyHeader}>
-                  <Avatar uri={item.author.avatarUrl} name={replyName} size="sm" />
+                  <Avatar
+                    uri={item.author.avatarUrl}
+                    name={replyName}
+                    size="sm"
+                    themeId={item.author.isPremium ? item.author.avatarTheme : null}
+                  />
                   <View style={styles.replyMeta}>
-                    <Text style={styles.replyAuthor}>{replyName}</Text>
+                    <DisplayNameWithFlair name={replyName} isPremium={item.author.isPremium} />
                     {!item.author.isYou ? (
                       <Button
                         label="Connect"

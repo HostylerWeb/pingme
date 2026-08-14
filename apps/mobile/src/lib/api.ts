@@ -499,7 +499,12 @@ export const api = {
     }),
 };
 
-export interface NearbyAvailableUser {
+export interface PublicUserFlair {
+  isPremium?: boolean;
+  avatarTheme?: string | null;
+}
+
+export interface NearbyAvailableUser extends PublicUserFlair {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
@@ -513,7 +518,7 @@ export interface IcebreakerUnansweredNotice {
   expiredAt: string;
 }
 
-export interface IcebreakerNearbyUser {
+export interface IcebreakerNearbyUser extends PublicUserFlair {
   userId: string;
   sessionId: string;
   displayName: string;
@@ -537,6 +542,8 @@ export interface WallPost {
     displayName: string;
     avatarUrl?: string | null;
     isYou: boolean;
+    isPremium?: boolean;
+    avatarTheme?: string | null;
   };
 }
 
@@ -550,6 +557,8 @@ export interface WallPostDetail extends WallPost {
       displayName: string;
       avatarUrl?: string | null;
       isYou: boolean;
+      isPremium?: boolean;
+      avatarTheme?: string | null;
     };
   }>;
 }
@@ -636,7 +645,13 @@ export interface ChatSummary {
   id: string;
   matchId: string;
   status: string;
-  otherUser: { id: string; displayName: string };
+  otherUser: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    isPremium?: boolean;
+    avatarTheme?: string | null;
+  };
   lastMessage: {
     id: string;
     content: string;
@@ -651,7 +666,13 @@ export interface ChatDetail {
   id: string;
   matchId: string;
   status: string;
-  otherUser: { id: string; displayName: string };
+  otherUser: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    isPremium?: boolean;
+    avatarTheme?: string | null;
+  };
   createdAt: string;
 }
 

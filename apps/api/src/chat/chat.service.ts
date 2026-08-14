@@ -10,6 +10,7 @@ import { ChatStatus, MatchStatus, MessageStatus } from '@pingme/db';
 import { NOTIFICATION_TYPES } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { BlocksService } from '../common/services/blocks.service';
+import { getPublicProfileFields } from '../common/utils/public-profile.util';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
@@ -41,8 +42,8 @@ export class ChatService {
       include: {
         match: {
           include: {
-            userA: { include: { profile: true } },
-            userB: { include: { profile: true } },
+            userA: { include: { profile: true, subscription: true } },
+            userB: { include: { profile: true, subscription: true } },
           },
         },
         messages: {
@@ -75,8 +76,10 @@ export class ChatService {
         const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
         if (blockedIds.includes(otherUserId)) return null;
 
-        const otherProfile =
-          chat.match.userAId === userId ? chat.match.userB.profile : chat.match.userA.profile;
+        const otherUser =
+          chat.match.userAId === userId ? chat.match.userB : chat.match.userA;
+        const otherProfile = otherUser.profile;
+        const flair = getPublicProfileFields(otherProfile, otherUser.subscription);
         const lastMessage = chat.messages[0] ?? null;
 
         return {
@@ -86,6 +89,9 @@ export class ChatService {
           otherUser: {
             id: otherUserId,
             displayName: otherProfile?.displayName ?? 'User',
+            avatarUrl: otherProfile?.avatarUrl ?? null,
+            isPremium: flair.isPremium,
+            avatarTheme: flair.avatarTheme,
           },
           lastMessage: lastMessage
             ? {
@@ -110,8 +116,9 @@ export class ChatService {
   async getChat(userId: string, chatId: string) {
     const chat = await this.getChatForUser(userId, chatId);
     const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
-    const otherProfile =
-      chat.match.userAId === userId ? chat.match.userB.profile : chat.match.userA.profile;
+    const otherUser =
+      chat.match.userAId === userId ? chat.match.userB : chat.match.userA;
+    const flair = getPublicProfileFields(otherUser.profile, otherUser.subscription);
 
     return {
       success: true,
@@ -121,7 +128,10 @@ export class ChatService {
         status: chat.status,
         otherUser: {
           id: otherUserId,
-          displayName: otherProfile?.displayName ?? 'User',
+          displayName: otherUser.profile?.displayName ?? 'User',
+          avatarUrl: otherUser.profile?.avatarUrl ?? null,
+          isPremium: flair.isPremium,
+          avatarTheme: flair.avatarTheme,
         },
         createdAt: chat.createdAt,
       },
@@ -295,8 +305,8 @@ export class ChatService {
       include: {
         match: {
           include: {
-            userA: { include: { profile: true } },
-            userB: { include: { profile: true } },
+            userA: { include: { profile: true, subscription: true } },
+            userB: { include: { profile: true, subscription: true } },
           },
         },
       },
