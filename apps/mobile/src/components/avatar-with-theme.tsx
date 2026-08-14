@@ -1,7 +1,7 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { Image, Text, View } from 'react-native';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
-import { fontFamilies, typography, useThemedStyles } from '../theme';
+import { fontFamilies, typography, useTheme, useThemedStyles } from '../theme';
+import { AnimatedGradientRing } from './ui/animated-gradient-ring';
 
 type ThemeId = (typeof PREMIUM_AVATAR_THEMES)[number]['id'];
 
@@ -24,6 +24,7 @@ export function AvatarWithTheme({
   size?: number;
   showPremiumBadge?: boolean;
 }) {
+  const { colors: themeColors } = useTheme();
   const gradientColors = getThemeColors(themeId);
   const innerSize = size - 8;
   const initial = (displayName ?? 'U').charAt(0).toUpperCase();
@@ -73,11 +74,11 @@ export function AvatarWithTheme({
   return (
     <View style={{ alignItems: 'center' }}>
       {gradientColors ? (
-        <LinearGradient colors={gradientColors as [string, string, ...string[]]} style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }]}>
+        <AnimatedGradientRing colors={gradientColors} size={size} borderWidth={4} innerBackgroundColor={themeColors.surface}>
           <View style={[styles.inner, { width: innerSize, height: innerSize, borderRadius: innerSize / 2 }]}>
             {avatarContent}
           </View>
-        </LinearGradient>
+        </AnimatedGradientRing>
       ) : (
         <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden' }}>{avatarContent}</View>
       )}

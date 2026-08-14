@@ -115,10 +115,10 @@ export default function UsersPage() {
               {data.items.map((user) => (
                 <TR key={user.id}>
                   <TD>
-                    <p className="font-medium text-white">{user.displayName ?? 'No name'}</p>
-                    <p className="text-xs text-zinc-500">{user.id}</p>
+                    <p className="font-medium text-foreground">{user.displayName ?? 'No name'}</p>
+                    <p className="text-xs text-ink-tertiary">{user.id}</p>
                   </TD>
-                  <TD className="text-zinc-400">
+                  <TD className="text-ink-secondary">
                     {user.email ?? user.phone ?? '—'}
                   </TD>
                   <TD>
@@ -129,8 +129,8 @@ export default function UsersPage() {
                     </div>
                   </TD>
                   <TD><Badge>{user.status}</Badge></TD>
-                  <TD className="text-zinc-400">{formatDate(user.createdAt)}</TD>
-                  <TD className="text-zinc-400">
+                  <TD className="text-ink-secondary">{formatDate(user.createdAt)}</TD>
+                  <TD className="text-ink-secondary">
                     {user.lastSeenAt ? formatDate(user.lastSeenAt) : '—'}
                   </TD>
                   <TD>

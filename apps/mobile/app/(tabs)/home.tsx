@@ -9,12 +9,11 @@ import {
   ScrollView,
   Text,
   View,
+  Alert,
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, WallPost } from '../../src/lib/api';
 import {
-  requestBackgroundPermissions,
-  startBackgroundLocation,
   stopBackgroundLocation,
   syncBackgroundLocationWithAvailability,
 } from '../../src/lib/background-location';
@@ -46,7 +45,15 @@ function distanceTone(bucket: string): 'neutral' | 'near' | 'accent' {
   return 'neutral';
 }
 
-function PostRow({ post, onPress }: { post: WallPost; onPress: () => void }) {
+function PostRow({
+  post,
+  onPress,
+  onLongPress,
+}: {
+  post: WallPost;
+  onPress: () => void;
+  onLongPress?: () => void;
+}) {
   const { colors } = useTheme();
 
   const styles = useThemedStyles(({ colors }) => ({
@@ -74,7 +81,11 @@ function PostRow({ post, onPress }: { post: WallPost; onPress: () => void }) {
   const name = post.author.isYou ? 'You' : post.author.displayName;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.postRow, pressed && styles.postPressed]}>
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={({ pressed }) => [styles.postRow, pressed && styles.postPressed]}
+    >
       <View style={styles.postTop}>
         <Avatar
           uri={post.author.avatarUrl}
@@ -205,9 +216,10 @@ export default function WallScreen() {
     mutationFn: async (isAvailable: boolean) => {
       if (isAvailable) {
         const foregroundGranted = await requestPermission();
-        if (!foregroundGranted) throw new Error('Location permission is required to go online.');
-        const backgroundGranted = await requestBackgroundPermissions();
-        if (backgroundGranted) await startBackgroundLocation();
+        if (!foregroundGranted) {
+          throw new Error('Location permission is required to go visible on the Wall.');
+        }
+        await ping();
       } else {
         await stopBackgroundLocation();
       }
@@ -263,6 +275,25 @@ export default function WallScreen() {
     }
     setAvailableOn(false);
     availabilityMutation.mutate(false);
+  };
+
+  const onDeletePost = (post: WallPost) => {
+    Alert.alert('Delete post?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.deleteWallPost(post.id);
+            await queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+            showToast('Post deleted', 'success');
+          } catch (error) {
+            showToast(error instanceof ApiError ? error.message : 'Could not delete post', 'error');
+          }
+        },
+      },
+    ]);
   };
 
   if (locationError && !coords) {
@@ -380,7 +411,13 @@ export default function WallScreen() {
               }
             />
           }
-          renderItem={({ item }) => <PostRow post={item} onPress={() => router.push(`/post/${item.id}`)} />}
+          renderItem={({ item }) => (
+            <PostRow
+              post={item}
+              onPress={() => router.push(`/post/${item.id}`)}
+              onLongPress={item.author.isYou ? () => onDeletePost(item) : undefined}
+            />
+          )}
         />
       )}
 
@@ -397,7 +434,7 @@ export default function WallScreen() {
       <BottomSheet
         visible={confirmOpen}
         title="Visible on Wall?"
-        subtitle={`People within ~${radiusMeters}m can see you're on the Wall. This is separate from Break the ice. Background location may be used while you're visible.`}
+        subtitle={`People within ~${radiusMeters}m can see you're on the Wall while you use PingMe. "Allow only while using the app" is enough — no extra permission needed.`}
         onClose={() => setConfirmOpen(false)}
       >
         <Button

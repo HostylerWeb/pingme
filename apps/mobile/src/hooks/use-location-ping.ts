@@ -15,6 +15,13 @@ export function useLocationPing(enabled = true) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const requestPermission = useCallback(async () => {
+    const existing = await Location.getForegroundPermissionsAsync();
+    if (existing.status === 'granted') {
+      setPermissionGranted(true);
+      setError(null);
+      return true;
+    }
+
     const { status } = await Location.requestForegroundPermissionsAsync();
     const granted = status === 'granted';
     setPermissionGranted(granted);
@@ -50,8 +57,16 @@ export function useLocationPing(enabled = true) {
     let mounted = true;
 
     (async () => {
-      const granted = permissionGranted ?? (await requestPermission());
-      if (!mounted || !granted) return;
+      const { status } = await Location.getForegroundPermissionsAsync();
+      const granted = status === 'granted';
+      if (!mounted) return;
+
+      setPermissionGranted(granted);
+      if (!granted) {
+        setError('Location permission is required to use PingMe nearby features.');
+        return;
+      }
+
       await ping();
       intervalRef.current = setInterval(ping, 60_000);
     })();
@@ -60,7 +75,7 @@ export function useLocationPing(enabled = true) {
       mounted = false;
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [enabled, permissionGranted, ping, requestPermission]);
+  }, [enabled, ping]);
 
   return { coords, permissionGranted, error, requestPermission, ping };
 }

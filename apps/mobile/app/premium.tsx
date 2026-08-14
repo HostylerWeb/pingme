@@ -257,16 +257,18 @@ export default function PremiumScreen() {
           <View style={styles.heroBadge}>
             <Ionicons name="diamond-outline" size={20} color={colors.premiumOnSurface} />
           </View>
-          <Text style={styles.title}>Go Premium</Text>
+          <Text style={styles.title}>{isPremium ? 'Premium membership' : 'Go Premium'}</Text>
           <Text style={styles.subtitle}>
-            Wall and chat stay free. Premium adds flair and optional read receipts.
+            {isPremium
+              ? 'You have access to all Premium perks below.'
+              : 'Wall and chat stay free. Premium adds flair and optional read receipts.'}
           </Text>
         </View>
 
         <View style={[styles.statusCard, isPremium && styles.statusCardPremium]}>
           <Text style={styles.statusLabel}>Your plan</Text>
           <Text style={[styles.statusValue, isPremium && styles.statusValuePremium]}>
-            {isPremium ? 'Premium' : 'Free'}
+            {isPremium ? 'Premium member' : 'Free'}
           </Text>
           {subscription?.currentPeriodEnd ? (
             <Text style={styles.statusMeta}>
@@ -275,23 +277,23 @@ export default function PremiumScreen() {
           ) : null}
         </View>
 
-        {plans?.plans.map((plan: { id: string; name: string; priceLabel: string; features: string[] }) => (
-          <Card key={plan.id} style={styles.planCard} variant="flat">
-            <View style={styles.planHeader}>
-              <Text style={styles.planName}>{plan.name}</Text>
-              <Text style={styles.planPrice}>{plan.priceLabel}</Text>
-            </View>
-            {plan.features.map((feature: string) => (
-              <View key={feature} style={styles.featureRow}>
-                <Ionicons name="checkmark" size={16} color={colors.premiumStart} />
-                <Text style={styles.planFeature}>{feature}</Text>
-              </View>
-            ))}
-          </Card>
-        ))}
-
         {!isPremium ? (
           <>
+            {plans?.plans.map((plan: { id: string; name: string; priceLabel: string; features: string[] }) => (
+              <Card key={plan.id} style={styles.planCard} variant="flat">
+                <View style={styles.planHeader}>
+                  <Text style={styles.planName}>{plan.name}</Text>
+                  <Text style={styles.planPrice}>{plan.priceLabel}</Text>
+                </View>
+                {plan.features.map((feature: string) => (
+                  <View key={feature} style={styles.featureRow}>
+                    <Ionicons name="checkmark" size={16} color={colors.premiumStart} />
+                    <Text style={styles.planFeature}>{feature}</Text>
+                  </View>
+                ))}
+              </Card>
+            ))}
+
             <Button
               label={plans?.paymentsEnabled ? 'Subscribe to Premium' : 'Payments coming soon'}
               variant="premium"
@@ -330,34 +332,52 @@ export default function PremiumScreen() {
             </View>
           </>
         ) : (
-          <View style={styles.premiumSection}>
-            <SectionLabel>Avatar theme</SectionLabel>
-            <Text style={styles.sectionHint}>Pick a gradient ring for your profile.</Text>
-            <View style={styles.themeGrid}>
-              {PREMIUM_AVATAR_THEMES.map((theme) => {
-                const isSelected = currentAvatarTheme === theme.id;
-                return (
-                <Pressable
-                  key={theme.id}
-                  style={styles.themeOption}
-                  disabled={themeMutation.isPending}
-                  onPress={() => themeMutation.mutate(theme.id as 'aurora' | 'sunset' | 'midnight' | 'forest')}
-                >
-                  <View>
-                    <LinearGradient
-                      colors={[...theme.colors] as [string, string, ...string[]]}
-                      style={[styles.themeSwatch, isSelected && styles.themeSwatchSelected]}
-                    />
-                    {isSelected ? (
-                      <View style={styles.themeCheck}>
-                        <Ionicons name="checkmark" size={12} color={colors.onPrimary} />
-                      </View>
-                    ) : null}
+          <>
+            <View style={styles.premiumSection}>
+              <SectionLabel>Your benefits</SectionLabel>
+              <Card style={styles.planCard} variant="flat">
+                {[
+                  'Animated gradient avatar rings',
+                  'Premium star next to your name',
+                  'Optional read receipts in chat',
+                ].map((feature) => (
+                  <View key={feature} style={styles.featureRow}>
+                    <Ionicons name="checkmark-circle" size={18} color={colors.premiumStart} />
+                    <Text style={styles.planFeature}>{feature}</Text>
                   </View>
-                  <Text style={styles.themeLabel}>{theme.label}</Text>
-                </Pressable>
-              );
-              })}
+                ))}
+              </Card>
+            </View>
+
+            <View style={styles.premiumSection}>
+              <SectionLabel>Avatar theme</SectionLabel>
+              <Text style={styles.sectionHint}>Pick a gradient ring for your profile.</Text>
+              <View style={styles.themeGrid}>
+                {PREMIUM_AVATAR_THEMES.map((theme) => {
+                  const isSelected = currentAvatarTheme === theme.id;
+                  return (
+                    <Pressable
+                      key={theme.id}
+                      style={styles.themeOption}
+                      disabled={themeMutation.isPending}
+                      onPress={() => themeMutation.mutate(theme.id as 'aurora' | 'sunset' | 'midnight' | 'forest')}
+                    >
+                      <View>
+                        <LinearGradient
+                          colors={[...theme.colors] as [string, string, ...string[]]}
+                          style={[styles.themeSwatch, isSelected && styles.themeSwatchSelected]}
+                        />
+                        {isSelected ? (
+                          <View style={styles.themeCheck}>
+                            <Ionicons name="checkmark" size={12} color={colors.onPrimary} />
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.themeLabel}>{theme.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
 
             <View style={styles.settingRow}>
@@ -372,7 +392,7 @@ export default function PremiumScreen() {
                 disabled={settingsMutation.isPending}
               />
             </View>
-          </View>
+          </>
         )}
       </ScrollView>
     </Screen>

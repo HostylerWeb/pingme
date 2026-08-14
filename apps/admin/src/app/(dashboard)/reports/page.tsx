@@ -106,7 +106,7 @@ export default function ReportsPage() {
           <option value="underage">Underage</option>
           <option value="other">Other</option>
         </Select>
-        <label className="flex items-center gap-2 text-sm text-zinc-300">
+        <label className="flex items-center gap-2 text-sm text-ink-secondary">
           <input type="checkbox" checked={assignedToMe} onChange={(e) => { setPage(1); setAssignedToMe(e.target.checked); }} />
           Assigned to me
         </label>
@@ -137,19 +137,19 @@ export default function ReportsPage() {
               {data.items.map((report) => (
                 <TR key={report.id}>
                   <TD>
-                    <p className="font-medium text-white">{report.reason}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="font-medium text-foreground">{report.reason}</p>
+                    <p className="text-xs text-ink-tertiary">
                       by {report.reporter.displayName ?? 'Unknown'} against{' '}
                       {report.reportedUser.displayName ?? 'Unknown'}
                     </p>
                     {report.description ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{report.description}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-ink-secondary">{report.description}</p>
                     ) : null}
                   </TD>
                   <TD><Badge color="violet">{report.targetType}</Badge></TD>
                   <TD><Badge>{report.status}</Badge></TD>
-                  <TD className="text-zinc-400">{report.assignedTo?.email ?? '—'}</TD>
-                  <TD className="text-zinc-400">{formatDate(report.createdAt)}</TD>
+                  <TD className="text-ink-secondary">{report.assignedTo?.email ?? '—'}</TD>
+                  <TD className="text-ink-secondary">{formatDate(report.createdAt)}</TD>
                   <TD>
                     <Link href={`/reports/${report.id}`}>
                       <Button variant="secondary">Review</Button>

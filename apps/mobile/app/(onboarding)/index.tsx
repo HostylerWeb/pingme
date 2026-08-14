@@ -20,7 +20,7 @@ const SLIDES = [
   {
     icon: 'location' as const,
     title: 'You stay in control',
-    body: 'Foreground location powers the wall. Background location is only used when you turn Available ON.',
+    body: 'Choose "Allow only while using the app" for location. Background access is only requested when you turn Visible on Wall on.',
   },
 ];
 

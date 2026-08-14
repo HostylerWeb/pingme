@@ -36,8 +36,10 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 });
 
 export async function requestBackgroundPermissions() {
-  const foreground = await Location.requestForegroundPermissionsAsync();
-  if (!foreground.granted) return false;
+  const foreground = await Location.getForegroundPermissionsAsync();
+  if (foreground.status !== 'granted') {
+    return false;
+  }
 
   const background = await Location.requestBackgroundPermissionsAsync();
   return background.granted;
@@ -81,7 +83,12 @@ export async function syncBackgroundLocationWithAvailability(isAvailable: boolea
   }
 
   if (!started) {
-    const backgroundGranted = await requestBackgroundPermissions();
-    if (backgroundGranted) await startBackgroundLocation();
+    const foreground = await Location.getForegroundPermissionsAsync();
+    if (foreground.status !== 'granted') return;
+
+    const background = await Location.getBackgroundPermissionsAsync();
+    if (background.status === 'granted') {
+      await startBackgroundLocation();
+    }
   }
 }

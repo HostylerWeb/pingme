@@ -125,19 +125,19 @@ function UserSummaryCard({
   if (!user) {
     return (
       <Card>
-        <h2 className="font-medium text-white">{title}</h2>
-        <p className="mt-3 text-sm text-zinc-500">User not found.</p>
+        <h2 className="font-medium text-foreground">{title}</h2>
+        <p className="mt-3 text-sm text-ink-tertiary">User not found.</p>
       </Card>
     );
   }
 
   return (
-    <Card className={highlight ? 'border-violet-500/40' : undefined}>
+    <Card className={highlight ? 'border-accent/40' : undefined}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-medium text-white">{title}</h2>
-          <p className="mt-1 text-lg font-semibold text-white">{user.displayName ?? 'Unnamed user'}</p>
-          <p className="text-sm text-zinc-400">{user.email ?? user.phone ?? user.id}</p>
+          <h2 className="font-medium text-foreground">{title}</h2>
+          <p className="mt-1 text-lg font-semibold text-foreground">{user.displayName ?? 'Unnamed user'}</p>
+          <p className="text-sm text-ink-secondary">{user.email ?? user.phone ?? user.id}</p>
         </div>
         <Link href={`/users/${user.id}`}>
           <Button variant="secondary">Open profile</Button>
@@ -146,40 +146,40 @@ function UserSummaryCard({
 
       <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
         <div>
-          <dt className="text-zinc-500">Account status</dt>
+          <dt className="text-ink-tertiary">Account status</dt>
           <dd className="mt-1"><Badge>{user.status}</Badge></dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Verification</dt>
+          <dt className="text-ink-tertiary">Verification</dt>
           <dd className="mt-1 flex flex-wrap gap-2">
             <Badge color={user.emailVerified ? 'green' : 'zinc'}>Email {user.emailVerified ? 'verified' : 'unverified'}</Badge>
             <Badge color={user.phoneVerified ? 'green' : 'zinc'}>Phone {user.phoneVerified ? 'verified' : 'unverified'}</Badge>
           </dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Reports received</dt>
-          <dd className={`mt-1 ${user.counts.reportsReceived >= 3 ? 'font-semibold text-red-300' : 'text-zinc-200'}`}>
+          <dt className="text-ink-tertiary">Reports received</dt>
+          <dd className={`mt-1 ${user.counts.reportsReceived >= 3 ? 'font-semibold text-error' : 'text-foreground'}`}>
             {user.counts.reportsReceived}
           </dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Matches / posts</dt>
-          <dd className="mt-1 text-zinc-200">{user.counts.matches} matches · {user.counts.wallPosts} posts</dd>
+          <dt className="text-ink-tertiary">Matches / posts</dt>
+          <dd className="mt-1 text-foreground">{user.counts.matches} matches · {user.counts.wallPosts} posts</dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Joined</dt>
-          <dd className="mt-1 text-zinc-200">{formatDate(user.createdAt)}</dd>
+          <dt className="text-ink-tertiary">Joined</dt>
+          <dd className="mt-1 text-foreground">{formatDate(user.createdAt)}</dd>
         </div>
         <div>
-          <dt className="text-zinc-500">Last seen</dt>
-          <dd className="mt-1 text-zinc-200">{user.lastSeenAt ? formatDate(user.lastSeenAt) : '—'}</dd>
+          <dt className="text-ink-tertiary">Last seen</dt>
+          <dd className="mt-1 text-foreground">{user.lastSeenAt ? formatDate(user.lastSeenAt) : '—'}</dd>
         </div>
       </dl>
 
       {user.bio ? (
         <div className="mt-4">
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Bio</p>
-          <p className="mt-1 rounded-lg bg-zinc-900 p-3 text-sm text-zinc-200">{user.bio}</p>
+          <p className="text-xs uppercase tracking-wide text-ink-tertiary">Bio</p>
+          <p className="mt-1 rounded-lg bg-surface-muted p-3 text-sm text-foreground">{user.bio}</p>
         </div>
       ) : null}
     </Card>
@@ -198,7 +198,7 @@ function ChatTranscript({
   reportedUserId: string;
 }) {
   if (!messages.length) {
-    return <p className="text-sm text-zinc-500">No messages to show.</p>;
+    return <p className="text-sm text-ink-tertiary">No messages to show.</p>;
   }
 
   return (
@@ -213,22 +213,22 @@ function ChatTranscript({
             key={message.id}
             className={`rounded-lg border p-3 ${
               isHighlighted
-                ? 'border-amber-500/60 bg-amber-500/10'
-                : 'border-zinc-800 bg-zinc-900/50'
+                ? 'border-amber-500/60 bg-warning-soft/30'
+                : 'border-border bg-surface-muted/50'
             }`}
           >
             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-foreground">
                   {message.sender.displayName ?? message.sender.id}
                 </p>
                 {isReporter ? <Badge color="violet">Reporter</Badge> : null}
                 {isReported ? <Badge color="red">Reported user</Badge> : null}
                 {isHighlighted ? <Badge color="yellow">Reported message</Badge> : null}
               </div>
-              <span className="text-xs text-zinc-500">{formatDate(message.createdAt)}</span>
+              <span className="text-xs text-ink-tertiary">{formatDate(message.createdAt)}</span>
             </div>
-            <p className="text-sm text-zinc-200">{message.content}</p>
+            <p className="text-sm text-foreground">{message.content}</p>
           </div>
         );
       })}
@@ -340,11 +340,11 @@ export default function ReportDetailPage() {
 
       {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
 
-      <Card className="mb-4 border-violet-500/30 bg-violet-500/5">
-        <p className="text-sm font-medium text-violet-100">{context.summary}</p>
+      <Card className="mb-4 border-accent/30 bg-accent-soft/30">
+        <p className="text-sm font-medium text-accent">{context.summary}</p>
         {report.description ? (
-          <p className="mt-2 text-sm text-zinc-300">
-            <span className="text-zinc-500">Reporter note:</span> {report.description}
+          <p className="mt-2 text-sm text-ink-secondary">
+            <span className="text-ink-tertiary">Reporter note:</span> {report.description}
           </p>
         ) : null}
       </Card>
@@ -358,8 +358,8 @@ export default function ReportDetailPage() {
         <Card>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-medium text-white">What was reported</h2>
-              <p className="mt-1 text-sm text-zinc-400">
+              <h2 className="font-medium text-foreground">What was reported</h2>
+              <p className="mt-1 text-sm text-ink-secondary">
                 <Badge color="violet">{report.targetType}</Badge>{' '}
                 <Badge>{report.status}</Badge>
               </p>
@@ -373,40 +373,40 @@ export default function ReportDetailPage() {
 
           <dl className="mt-4 space-y-3 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-zinc-500">Assigned to</dt>
-              <dd className="text-zinc-200">{report.assignedTo?.email ?? 'Unassigned'}</dd>
+              <dt className="text-ink-tertiary">Assigned to</dt>
+              <dd className="text-foreground">{report.assignedTo?.email ?? 'Unassigned'}</dd>
             </div>
             {report.resolutionNote ? (
               <div>
-                <dt className="text-zinc-500">Resolution note</dt>
-                <dd className="mt-1 text-zinc-200">{report.resolutionNote}</dd>
+                <dt className="text-ink-tertiary">Resolution note</dt>
+                <dd className="mt-1 text-foreground">{report.resolutionNote}</dd>
               </div>
             ) : null}
           </dl>
 
           {!target ? (
-            <p className="mt-4 text-sm text-zinc-500">Target content not found (may have been deleted).</p>
+            <p className="mt-4 text-sm text-ink-tertiary">Target content not found (may have been deleted).</p>
           ) : (
             <div className="mt-4 space-y-3 text-sm">
               {target.authorDisplayName ? (
-                <p><span className="text-zinc-500">Author:</span> {target.authorDisplayName}</p>
+                <p><span className="text-ink-tertiary">Author:</span> {target.authorDisplayName}</p>
               ) : null}
               {target.content ? (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-zinc-100">
+                <div className="rounded-lg border border-warning/40 bg-warning-soft/30 p-3 text-foreground">
                   {target.content}
                 </div>
               ) : null}
               {target.postContent ? (
                 <div>
-                  <p className="text-zinc-500">Parent post</p>
-                  <div className="mt-1 rounded-lg bg-zinc-900 p-3 text-zinc-200">{target.postContent}</div>
+                  <p className="text-ink-tertiary">Parent post</p>
+                  <div className="mt-1 rounded-lg bg-surface-muted p-3 text-foreground">{target.postContent}</div>
                 </div>
               ) : null}
               {target.bio ? (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-zinc-100">{target.bio}</div>
+                <div className="rounded-lg border border-warning/40 bg-warning-soft/30 p-3 text-foreground">{target.bio}</div>
               ) : null}
               {target.createdAt ? (
-                <p className="text-zinc-500">Posted {formatDate(target.createdAt)}</p>
+                <p className="text-ink-tertiary">Posted {formatDate(target.createdAt)}</p>
               ) : null}
               {target.chatId ? (
                 <Link href={`/chats/${target.chatId}`}>
@@ -420,8 +420,8 @@ export default function ReportDetailPage() {
         <Card>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="font-medium text-white">Conversation context</h2>
-              <p className="mt-1 text-sm text-zinc-400">
+              <h2 className="font-medium text-foreground">Conversation context</h2>
+              <p className="mt-1 text-sm text-ink-secondary">
                 {context.reporterConversation
                   ? 'Messages between reporter and reported user'
                   : 'No direct chat found between these users'}
@@ -447,8 +447,8 @@ export default function ReportDetailPage() {
 
       {context.relatedReports.length > 0 ? (
         <Card className="mb-4">
-          <h2 className="font-medium text-white">Other reports against this user</h2>
-          <p className="mt-1 text-sm text-zinc-400">Helps spot repeat offenders or patterns.</p>
+          <h2 className="font-medium text-foreground">Other reports against this user</h2>
+          <p className="mt-1 text-sm text-ink-secondary">Helps spot repeat offenders or patterns.</p>
           <div className="mt-4 overflow-x-auto">
             <Table>
               <THead>
@@ -468,7 +468,7 @@ export default function ReportDetailPage() {
                     <TD><Badge>{item.status}</Badge></TD>
                     <TD>{item.targetType}</TD>
                     <TD>{item.reporterDisplayName ?? '—'}</TD>
-                    <TD className="text-zinc-400">{formatDate(item.createdAt)}</TD>
+                    <TD className="text-ink-secondary">{formatDate(item.createdAt)}</TD>
                     <TD>
                       <Link href={`/reports/${item.id}`}>
                         <Button variant="secondary">View</Button>
@@ -484,10 +484,10 @@ export default function ReportDetailPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <h2 className="font-medium text-white">Recent chats</h2>
-          <p className="mt-1 text-sm text-zinc-400">Other conversations involving the reported user.</p>
+          <h2 className="font-medium text-foreground">Recent chats</h2>
+          <p className="mt-1 text-sm text-ink-secondary">Other conversations involving the reported user.</p>
           {context.recentChats.length === 0 ? (
-            <p className="mt-4 text-sm text-zinc-500">No chats found.</p>
+            <p className="mt-4 text-sm text-ink-tertiary">No chats found.</p>
           ) : (
             <div className="mt-4 overflow-x-auto">
               <Table>
@@ -503,7 +503,7 @@ export default function ReportDetailPage() {
                   {context.recentChats.map((chat) => (
                     <TR key={chat.matchId}>
                       <TD>{chat.otherUser.displayName ?? chat.otherUser.id}</TD>
-                      <TD className="max-w-xs truncate text-zinc-300">
+                      <TD className="max-w-xs truncate text-ink-secondary">
                         {chat.lastMessage?.content ?? '—'}
                       </TD>
                       <TD><Badge>{chat.matchStatus}</Badge></TD>
@@ -523,19 +523,19 @@ export default function ReportDetailPage() {
         </Card>
 
         <Card>
-          <h2 className="font-medium text-white">Recent wall posts</h2>
-          <p className="mt-1 text-sm text-zinc-400">Latest public posts from the reported user.</p>
+          <h2 className="font-medium text-foreground">Recent wall posts</h2>
+          <p className="mt-1 text-sm text-ink-secondary">Latest public posts from the reported user.</p>
           {context.recentPosts.length === 0 ? (
-            <p className="mt-4 text-sm text-zinc-500">No wall posts found.</p>
+            <p className="mt-4 text-sm text-ink-tertiary">No wall posts found.</p>
           ) : (
             <div className="mt-4 space-y-3">
               {context.recentPosts.map((post) => (
-                <div key={post.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+                <div key={post.id} className="rounded-lg border border-border bg-surface-muted/50 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <Badge>{post.status}</Badge>
-                    <span className="text-xs text-zinc-500">{formatDate(post.createdAt)}</span>
+                    <span className="text-xs text-ink-tertiary">{formatDate(post.createdAt)}</span>
                   </div>
-                  <p className="text-sm text-zinc-200">{post.content}</p>
+                  <p className="text-sm text-foreground">{post.content}</p>
                 </div>
               ))}
             </div>

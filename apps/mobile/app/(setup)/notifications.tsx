@@ -1,13 +1,14 @@
-import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { locationSetupStorage } from '../../src/lib/location-setup-storage';
+import * as Notifications from 'expo-notifications';
+import { notificationsSetupStorage } from '../../src/lib/notifications-setup-storage';
+import { registerForPushNotifications } from '../../src/lib/push-notifications';
 import { Button, Card, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
-export default function LocationSetupScreen() {
+export default function NotificationsSetupScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const [loading, setLoading] = useState(false);
@@ -45,24 +46,27 @@ export default function LocationSetupScreen() {
     },
   }));
 
+  const finishSetup = () => {
+    notificationsSetupStorage.markComplete();
+    router.replace('/(setup)/tour');
+  };
+
   const onEnable = async () => {
     setLoading(true);
     setError(null);
     try {
-      const existing = await Location.getForegroundPermissionsAsync();
-      let status = existing.status;
-      if (status !== 'granted') {
-        const requested = await Location.requestForegroundPermissionsAsync();
-        status = requested.status;
+      const { status: existing } = await Notifications.getPermissionsAsync();
+      if (existing !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status !== 'granted') {
+          setError('Notifications help you know when someone replies, messages, or wants to connect.');
+          return;
+        }
       }
-      if (status !== 'granted') {
-        setError('Choose "Allow only while using the app" so PingMe can show nearby posts and people.');
-        return;
-      }
-      locationSetupStorage.markComplete();
-      router.replace('/(setup)/notifications');
+      await registerForPushNotifications({ skipPermissionRequest: true });
+      finishSetup();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not request location permission');
+      setError(err instanceof Error ? err.message : 'Could not request notification permission');
     } finally {
       setLoading(false);
     }
@@ -71,28 +75,27 @@ export default function LocationSetupScreen() {
   return (
     <Screen padded={false} edges={['top', 'bottom']}>
       <View style={styles.content}>
-        <Text style={styles.step}>Step 1 of 2</Text>
+        <Text style={styles.step}>Step 2 of 2</Text>
         <View style={styles.iconWrap}>
-          <Ionicons name="location" size={36} color={colors.accent} />
+          <Ionicons name="notifications" size={36} color={colors.accent} />
         </View>
 
-        <Text style={styles.title}>Enable location</Text>
+        <Text style={styles.title}>Stay in the loop</Text>
         <Text style={styles.body}>
-          PingMe uses your location while you use the app to show posts and people within about 250 meters.
-          We never share your exact coordinates — only fuzzy distance buckets.
+          PingMe sends notifications when someone replies to your Wall post, messages you in chat, or
+          wants to break the ice nearby. You can change which alerts you receive anytime in Settings.
         </Text>
 
         <Card variant="muted" style={styles.noteCard}>
           <Ionicons name="information-circle-outline" size={18} color={colors.inkSecondary} />
           <Text style={styles.note}>
-            On the next screen, tap &quot;Allow only while using the app&quot;. Do not choose &quot;Allow all
-            the time&quot; — that is only needed later if you turn Visible on Wall on.
+            We never spam — only activity that matters to you within your area.
           </Text>
         </Card>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button label="Continue" onPress={onEnable} loading={loading} style={styles.cta} />
+        <Button label="Allow notifications" onPress={onEnable} loading={loading} style={styles.cta} />
       </View>
     </Screen>
   );

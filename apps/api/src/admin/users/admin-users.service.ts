@@ -126,6 +126,8 @@ export class AdminUsersService {
       throw new NotFoundException('User not found');
     }
 
+    const subscription = await this.subscriptionsService.getSubscriptionView(user.id);
+
     const livenessVerified = user.verifications.some(
       (v) =>
         v.type === VerificationType.liveness &&
@@ -149,7 +151,7 @@ export class AdminUsersService {
         deletedAt: user.deletedAt,
         profile: user.profile,
         settings: user.settings,
-        subscription: user.subscription,
+        subscription,
         verifications: user.verifications,
         counts: user._count,
       },

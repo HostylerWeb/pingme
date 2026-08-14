@@ -14,7 +14,7 @@ import { api, ApiError, IcebreakerNearbyUser } from '../../src/lib/api';
 import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
-import { showToast } from '../../src/stores/toast-store';
+import { useToastStore, showToast } from '../../src/stores/toast-store';
 import {
   AppHeader,
   AppSwitch,
@@ -308,6 +308,35 @@ export default function IcebreakerScreen() {
       borderWidth: 1,
       borderColor: colors.border,
     },
+    toggleCardActive: {
+      backgroundColor: colors.onlineSoft,
+      borderColor: colors.online,
+    },
+    activePill: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      borderRadius: radius.full,
+      marginTop: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.online,
+    },
+    activePillDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.online,
+    },
+    activePillText: {
+      ...typography.labelSm,
+      color: colors.online,
+      textTransform: 'none',
+      letterSpacing: 0,
+    },
     hint: {
       ...typography.caption,
       color: colors.inkSecondary,
@@ -374,10 +403,6 @@ export default function IcebreakerScreen() {
   const unanswered = icebreakerData?.data?.unanswered ?? [];
   const serverIcebreakerActive = session?.status === 'active';
 
-  useEffect(() => {
-    setIcebreakerOn(serverIcebreakerActive);
-  }, [serverIcebreakerActive]);
-
   const { data: matchesData } = useQuery({
     queryKey: ['matches'],
     queryFn: () => api.getMatches(),
@@ -423,12 +448,16 @@ export default function IcebreakerScreen() {
     onMutate: async (action) => {
       setIcebreakerOn(action === 'start');
     },
-    onSuccess: () => {
+    onSuccess: (_data, action) => {
       queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
       queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       setIcebreakerSetupOpen(false);
-      showToast('Break the ice is on', 'success');
+      if (action === 'start') {
+        showToast("You're open to meeting people nearby", 'success');
+      } else {
+        showToast("You're hidden from Break the ice", 'info');
+      }
     },
     onError: (error: ApiError) => {
       setIcebreakerOn(serverIcebreakerActive);
@@ -437,6 +466,11 @@ export default function IcebreakerScreen() {
       }
     },
   });
+
+  useEffect(() => {
+    if (icebreakerMutation.isPending) return;
+    setIcebreakerOn(serverIcebreakerActive);
+  }, [serverIcebreakerActive, icebreakerMutation.isPending]);
 
   const interestMutation = useMutation({
     mutationFn: (payload: { targetUserId: string; interested: boolean }) =>
@@ -504,6 +538,7 @@ export default function IcebreakerScreen() {
       setIcebreakerSetupOpen(true);
       return;
     }
+    useToastStore.getState().hide();
     setIcebreakerOn(false);
     icebreakerMutation.mutate('cancel');
   };
@@ -573,16 +608,16 @@ export default function IcebreakerScreen() {
           </Card>
         ))}
 
-        <View style={styles.toggleCard}>
+        <View style={[styles.toggleCard, icebreakerOn && styles.toggleCardActive]}>
           <View style={styles.icebreakerHeader}>
             <View style={styles.icebreakerTitleRow}>
-              <View style={styles.icebreakerIcon}>
-                <Ionicons name="flash" size={18} color={colors.accent} />
+              <View style={[styles.icebreakerIcon, icebreakerOn && { backgroundColor: colors.surface }]}>
+                <Ionicons name="flash" size={18} color={icebreakerOn ? colors.online : colors.accent} />
               </View>
               <View style={styles.icebreakerTitleBlock}>
                 <Text style={styles.icebreakerTitle}>Break the ice</Text>
                 <Text style={styles.icebreakerSubtitle}>
-                  {icebreakerOn ? 'You appear in the list' : 'Turn on to browse people'}
+                  {icebreakerOn ? 'Visible to people nearby' : 'Hidden — turn on to browse'}
                 </Text>
               </View>
             </View>
@@ -593,6 +628,12 @@ export default function IcebreakerScreen() {
               disabled={icebreakerMutation.isPending}
             />
           </View>
+          {icebreakerOn ? (
+            <View style={styles.activePill}>
+              <View style={styles.activePillDot} />
+              <Text style={styles.activePillText}>Open to connections</Text>
+            </View>
+          ) : null}
           <Text style={styles.hint}>
             {icebreakerOn
               ? `People with Break the ice ON ${icebreakerRadiusLabel().toLowerCase()} show up below. Tap Yes to connect.`

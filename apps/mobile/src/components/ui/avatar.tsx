@@ -2,9 +2,9 @@ import * as Haptics from 'expo-haptics';
 import { ComponentProps } from 'react';
 import { Image, Pressable, Text, View, ViewStyle } from 'react-native';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
-import { LinearGradient } from 'expo-linear-gradient';
 import { fontFamilies, typography } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
+import { AnimatedGradientRing } from './animated-gradient-ring';
 
 type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -51,6 +51,7 @@ export function Avatar({
   const inner = px - (themeId ? 6 : 0);
   const initial = name.charAt(0).toUpperCase();
   const ringColors = getThemeColors(themeId);
+  const ringInnerBg = styles.ringInner.backgroundColor as string | undefined;
 
   const innerContent = uri ? (
     <Image source={{ uri }} style={{ width: inner, height: inner, borderRadius: inner / 2 }} />
@@ -63,14 +64,11 @@ export function Avatar({
   if (ringColors) {
     return (
       <View style={style}>
-        <LinearGradient
-          colors={ringColors as [string, string, ...string[]]}
-          style={{ width: px, height: px, borderRadius: px / 2, alignItems: 'center', justifyContent: 'center' }}
-        >
+        <AnimatedGradientRing colors={ringColors} size={px} borderWidth={3} innerBackgroundColor={ringInnerBg}>
           <View style={[styles.ringInner, { width: inner, height: inner, borderRadius: inner / 2 }]}>
             {innerContent}
           </View>
-        </LinearGradient>
+        </AnimatedGradientRing>
       </View>
     );
   }

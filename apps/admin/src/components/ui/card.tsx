@@ -7,7 +7,7 @@ export function Card({
 }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 shadow-sm ${className}`}
+      className={`rounded-2xl border border-border bg-surface p-4 shadow-sm sm:p-5 ${className}`}
       {...props}
     >
       {children}
@@ -22,7 +22,7 @@ export function CardTitle({
   className?: string;
   children: React.ReactNode;
 }) {
-  return <h3 className={`text-sm font-medium text-zinc-400 ${className}`}>{children}</h3>;
+  return <h3 className={`text-sm font-medium text-ink-secondary ${className}`}>{children}</h3>;
 }
 
 export function CardValue({
@@ -32,5 +32,9 @@ export function CardValue({
   className?: string;
   children: React.ReactNode;
 }) {
-  return <p className={`mt-2 text-3xl font-semibold text-zinc-50 ${className}`}>{children}</p>;
+  return (
+    <p className={`mt-2 font-display text-2xl font-semibold text-foreground sm:text-3xl ${className}`}>
+      {children}
+    </p>
+  );
 }

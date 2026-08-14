@@ -7,7 +7,8 @@ import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../src/lib/background-location';
 import { AppSocketProvider } from '../src/lib/app-socket';
-import { hasForegroundLocationPermission, locationSetupStorage } from '../src/lib/location-setup-storage';
+import { locationSetupStorage } from '../src/lib/location-setup-storage';
+import { notificationsSetupStorage } from '../src/lib/notifications-setup-storage';
 import { onboardingStorage } from '../src/lib/onboarding-storage';
 import { productTourStorage } from '../src/lib/product-tour-storage';
 import { addNotificationResponseListener, addNotificationReceivedListener, registerForPushNotifications } from '../src/lib/push-notifications';
@@ -37,36 +38,30 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isHydrated, hydrate } = useAuthStore();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [locationReady, setLocationReady] = useState<boolean | null>(null);
+  const [notificationsReady, setNotificationsReady] = useState<boolean | null>(null);
   const [productTourComplete, setProductTourComplete] = useState<boolean | null>(null);
   const lastTargetRef = useRef<string | null>(null);
   const initialLoadDoneRef = useRef(false);
 
+  const refreshSetupProgress = () => {
+    setOnboardingComplete(onboardingStorage.isComplete());
+    setLocationReady(locationSetupStorage.isComplete());
+    setNotificationsReady(notificationsSetupStorage.isComplete());
+    setProductTourComplete(productTourStorage.isComplete());
+  };
+
   useEffect(() => {
     hydrate();
-    setOnboardingComplete(onboardingStorage.isComplete());
-    setProductTourComplete(productTourStorage.isComplete());
+    refreshSetupProgress();
   }, [hydrate]);
 
   useEffect(() => {
-    if (!user) {
-      setLocationReady(null);
-      return;
-    }
-    let mounted = true;
-    void (async () => {
-      const granted = await hasForegroundLocationPermission();
-      if (mounted) {
-        setLocationReady(locationSetupStorage.isComplete() || granted);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [user?.id]);
+    refreshSetupProgress();
+  }, [pathname]);
 
   useEffect(() => {
-    if (!user) return;
-    void registerForPushNotifications();
+    if (!user || !notificationsSetupStorage.isComplete()) return;
+    void registerForPushNotifications({ skipPermissionRequest: true });
   }, [user?.id]);
 
   useEffect(() => {
@@ -109,10 +104,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       target = '/(auth)/login';
     } else if ((user.email && !user.emailVerified) || (user.phone && !user.phoneVerified)) {
       target = '/(setup)/verify';
-    } else if (locationReady === null || productTourComplete === null) {
+    } else if (
+      locationReady === null ||
+      notificationsReady === null ||
+      productTourComplete === null
+    ) {
       return;
-    } else if (!locationReady) {
+    } else if (!locationReady && !pathname.startsWith('/(setup)/location')) {
       target = '/(setup)/location';
+    } else if (!notificationsReady && !pathname.startsWith('/(setup)/notifications')) {
+      target = '/(setup)/notifications';
     } else if (!productTourComplete && !pathname.startsWith('/(setup)/tour')) {
       target = '/(setup)/tour';
     } else if (pathname.startsWith('/(auth)') || pathname.startsWith('/(onboarding)') || pathname.startsWith('/(setup)')) {
@@ -127,7 +128,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (lastTargetRef.current === target) return;
     lastTargetRef.current = target;
     router.replace(target as Href);
-  }, [user, isHydrated, pathname, router, onboardingComplete, locationReady, productTourComplete]);
+  }, [user, isHydrated, pathname, router, onboardingComplete, locationReady, notificationsReady, productTourComplete]);
 
   useEffect(() => {
     if (isHydrated && onboardingComplete !== null) {

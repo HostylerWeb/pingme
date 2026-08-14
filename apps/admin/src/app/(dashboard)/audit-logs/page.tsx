@@ -93,7 +93,7 @@ export default function AuditLogsPage() {
             <TBody>
               {data.items.map((log) => (
                 <TR key={String(log.id)}>
-                  <TD className="font-medium text-white">{String(log.action)}</TD>
+                  <TD className="font-medium text-foreground">{String(log.action)}</TD>
                   <TD>
                     {tab === 'admin' ? (
                       <>
@@ -104,11 +104,11 @@ export default function AuditLogsPage() {
                       <span className="font-mono text-xs">{String(log.userId ?? '—')}</span>
                     )}
                   </TD>
-                  <TD className="text-zinc-400">
+                  <TD className="text-ink-secondary">
                     {String(log.entityType ?? '—')}
                     {log.entityId ? <span className="block text-xs">{String(log.entityId)}</span> : null}
                   </TD>
-                  <TD className="text-zinc-400">{formatDate(String(log.createdAt))}</TD>
+                  <TD className="text-ink-secondary">{formatDate(String(log.createdAt))}</TD>
                 </TR>
               ))}
             </TBody>

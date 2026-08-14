@@ -103,17 +103,17 @@ export default function ContentPage() {
       <PageHeader title="Content moderation" description="Review and remove wall posts and replies" />
 
       <div className="mb-4 flex flex-wrap gap-3">
-        <div className="flex rounded-lg border border-zinc-800 p-1">
+        <div className="flex rounded-lg border border-border p-1">
           <button
             type="button"
-            className={`rounded-md px-3 py-1.5 text-sm ${tab === 'posts' ? 'bg-violet-600 text-white' : 'text-zinc-400'}`}
+            className={`rounded-md px-3 py-1.5 text-sm ${tab === 'posts' ? 'bg-accent text-foreground' : 'text-ink-secondary'}`}
             onClick={() => { setTab('posts'); setPage(1); }}
           >
             Posts
           </button>
           <button
             type="button"
-            className={`rounded-md px-3 py-1.5 text-sm ${tab === 'replies' ? 'bg-violet-600 text-white' : 'text-zinc-400'}`}
+            className={`rounded-md px-3 py-1.5 text-sm ${tab === 'replies' ? 'bg-accent text-foreground' : 'text-ink-secondary'}`}
             onClick={() => { setTab('replies'); setPage(1); }}
           >
             Replies
@@ -156,12 +156,12 @@ export default function ContentPage() {
                 ? posts!.items.map((post) => (
                     <TR key={post.id}>
                       <TD>
-                        <p className="max-w-xl text-white">{post.content}</p>
-                        <p className="mt-1 text-xs text-zinc-500">{post.replyCount} replies</p>
+                        <p className="max-w-xl text-foreground">{post.content}</p>
+                        <p className="mt-1 text-xs text-ink-tertiary">{post.replyCount} replies</p>
                       </TD>
                       <TD>{post.authorDisplayName ?? '—'}</TD>
                       <TD><Badge>{post.status}</Badge></TD>
-                      <TD className="text-zinc-400">{formatDate(post.createdAt)}</TD>
+                      <TD className="text-ink-secondary">{formatDate(post.createdAt)}</TD>
                       <TD>
                         <div className="flex gap-2">
                           {post.status !== 'active' ? (
@@ -190,12 +190,12 @@ export default function ContentPage() {
                 : replies!.items.map((reply) => (
                     <TR key={reply.id}>
                       <TD>
-                        <p className="max-w-xl text-white">{reply.content}</p>
-                        <p className="mt-1 line-clamp-1 text-xs text-zinc-500">On: {reply.postContent}</p>
+                        <p className="max-w-xl text-foreground">{reply.content}</p>
+                        <p className="mt-1 line-clamp-1 text-xs text-ink-tertiary">On: {reply.postContent}</p>
                       </TD>
                       <TD>{reply.authorDisplayName ?? '—'}</TD>
                       <TD><Badge>{reply.status}</Badge></TD>
-                      <TD className="text-zinc-400">{formatDate(reply.createdAt)}</TD>
+                      <TD className="text-ink-secondary">{formatDate(reply.createdAt)}</TD>
                       <TD>
                         <div className="flex gap-2">
                           {reply.status !== 'active' ? (

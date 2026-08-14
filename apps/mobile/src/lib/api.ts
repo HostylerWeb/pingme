@@ -339,6 +339,11 @@ export const api = {
       body: JSON.stringify({ content }),
     }),
 
+  deleteWallPost: (postId: string) =>
+    apiFetch<{ success: boolean }>(`/wall/posts/${postId}`, {
+      method: 'DELETE',
+    }),
+
   registerDevice: (payload: {
     platform: 'ios' | 'android';
     pushToken: string;

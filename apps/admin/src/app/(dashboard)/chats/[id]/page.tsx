@@ -64,21 +64,21 @@ export default function ChatViewerPage() {
         </p>
 
         {!data || data.messages.length === 0 ? (
-          <p className="text-sm text-zinc-500">No messages in this chat.</p>
+          <p className="text-sm text-ink-tertiary">No messages in this chat.</p>
         ) : (
           <div className="space-y-3">
             {data.messages.map((message) => (
-              <div key={message.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+              <div key={message.id} className="rounded-lg border border-border bg-surface-muted/50 p-3">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-foreground">
                     {message.sender.displayName ?? message.sender.id}
                   </p>
                   <div className="flex items-center gap-2">
                     <Badge>{message.status}</Badge>
-                    <span className="text-xs text-zinc-500">{formatDate(message.createdAt)}</span>
+                    <span className="text-xs text-ink-tertiary">{formatDate(message.createdAt)}</span>
                   </div>
                 </div>
-                <p className="text-sm text-zinc-200">{message.content}</p>
+                <p className="text-sm text-foreground">{message.content}</p>
               </div>
             ))}
           </div>

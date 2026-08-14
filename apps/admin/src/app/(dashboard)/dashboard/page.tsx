@@ -66,10 +66,10 @@ export default function DashboardPage() {
         actions={
           showModeration ? (
             <>
-              <Link href="/reports" className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-500">
+              <Link href="/reports" className="rounded-lg bg-accent px-4 py-2 text-sm text-foreground hover:bg-accent/90">
                 View reports
               </Link>
-              <Link href="/content" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900">
+              <Link href="/content" className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-muted">
                 Moderate content
               </Link>
             </>
@@ -120,9 +120,9 @@ export default function DashboardPage() {
 
           <div className="mt-8 grid gap-8 lg:grid-cols-2">
             <div>
-              <h2 className="mb-3 text-lg font-medium text-white">Flagged users (3+ reports / 24h)</h2>
+              <h2 className="mb-3 text-lg font-medium text-foreground">Flagged users (3+ reports / 24h)</h2>
               {stats.flaggedUsers.length === 0 ? (
-                <Card><p className="text-sm text-zinc-400">No auto-flagged users.</p></Card>
+                <Card><p className="text-sm text-ink-secondary">No auto-flagged users.</p></Card>
               ) : (
                 <div className="space-y-2">
                   {stats.flaggedUsers.map((u) => (
@@ -130,8 +130,8 @@ export default function DashboardPage() {
                       <Card className="transition hover:border-red-500/40">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-white">{u.displayName ?? u.userId}</p>
-                            <p className="text-sm text-red-300">{u.reportCount} reports in 24h</p>
+                            <p className="font-medium text-foreground">{u.displayName ?? u.userId}</p>
+                            <p className="text-sm text-error">{u.reportCount} reports in 24h</p>
                           </div>
                           <Badge color="red">{u.status ?? 'unknown'}</Badge>
                         </div>
@@ -143,17 +143,17 @@ export default function DashboardPage() {
             </div>
 
             <div>
-              <h2 className="mb-3 text-lg font-medium text-white">Verification review queue</h2>
+              <h2 className="mb-3 text-lg font-medium text-foreground">Verification review queue</h2>
               {stats.verificationReviewUsers.length === 0 ? (
-                <Card><p className="text-sm text-zinc-400">No users flagged by Didit review.</p></Card>
+                <Card><p className="text-sm text-ink-secondary">No users flagged by Didit review.</p></Card>
               ) : (
                 <div className="space-y-2">
                   {stats.verificationReviewUsers.map((u) => (
                     <Link key={u.userId} href={`/users/${u.userId}`}>
-                      <Card className="transition hover:border-amber-500/40">
+                      <Card className="transition hover:border-warning/40">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-white">{u.displayName ?? u.userId}</p>
+                            <p className="font-medium text-foreground">{u.displayName ?? u.userId}</p>
                             <p className="text-sm text-amber-300">Requires admin review</p>
                           </div>
                           <Badge color="yellow">{u.status ?? 'unknown'}</Badge>
@@ -166,22 +166,22 @@ export default function DashboardPage() {
             </div>
 
             <div>
-              <h2 className="mb-3 text-lg font-medium text-white">Recent reports</h2>
+              <h2 className="mb-3 text-lg font-medium text-foreground">Recent reports</h2>
             {stats.recentReports.length === 0 ? (
               <Card>
-                <p className="text-sm text-zinc-400">No reports yet.</p>
+                <p className="text-sm text-ink-secondary">No reports yet.</p>
               </Card>
             ) : (
               <div className="space-y-2">
                 {stats.recentReports.map((report) => (
                   <Link key={report.id} href={`/reports/${report.id}`}>
-                    <Card className="transition hover:border-violet-500/40">
+                    <Card className="transition hover:border-accent/40">
                       <div className="flex items-center justify-between gap-4">
                         <div>
-                          <p className="font-medium text-white">
+                          <p className="font-medium text-foreground">
                             {report.reportedUserDisplayName ?? 'Unknown user'} · {report.reason}
                           </p>
-                          <p className="mt-1 text-sm text-zinc-500">
+                          <p className="mt-1 text-sm text-ink-tertiary">
                             {formatRelative(report.createdAt)} · {formatDate(report.createdAt)}
                           </p>
                         </div>

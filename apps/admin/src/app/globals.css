@@ -1,18 +1,76 @@
 @import "tailwindcss";
 
+/* PingMe Warm Ink — admin uses mobile dark palette */
 :root {
-  --background: #09090b;
-  --foreground: #fafafa;
+  --background: #121110;
+  --surface: #1c1b18;
+  --surface-muted: #262522;
+  --surface-elevated: #2e2d29;
+  --foreground: #f5f4f0;
+  --ink-secondary: #b8b6b0;
+  --ink-tertiary: #8a8882;
+  --ink-muted: #6e6c66;
+  --accent: #e05a42;
+  --accent-soft: #3a2620;
+  --accent-muted: #8b4438;
+  --on-accent: #ffffff;
+  --online: #4a9b75;
+  --online-soft: #1a2e24;
+  --error: #f2b8b5;
+  --error-container: #3d1a18;
+  --warning: #e8c04a;
+  --warning-soft: #2e2818;
+  --premium: #d4a017;
+  --premium-soft: #2a2618;
+  --border: rgba(255, 255, 255, 0.08);
+  --divider: #2e2d29;
+  --overlay: rgba(0, 0, 0, 0.65);
+  --shadow: rgba(0, 0, 0, 0.45);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-elevated: var(--surface-elevated);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-tertiary: var(--ink-tertiary);
+  --color-ink-muted: var(--ink-muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-muted: var(--accent-muted);
+  --color-on-accent: var(--on-accent);
+  --color-online: var(--online);
+  --color-online-soft: var(--online-soft);
+  --color-error: var(--error);
+  --color-error-container: var(--error-container);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-premium: var(--premium);
+  --color-premium-soft: var(--premium-soft);
+  --color-border: var(--border);
+  --color-divider: var(--divider);
+  --color-overlay: var(--overlay);
+  --font-sans: var(--font-dm-sans);
+  --font-display: var(--font-outfit);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+}
+
+/* Horizontal scroll for data tables on small screens */
+.table-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
 }

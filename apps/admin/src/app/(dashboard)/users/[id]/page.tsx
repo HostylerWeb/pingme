@@ -225,14 +225,14 @@ export default function UserDetailPage() {
       {tab === 'overview' ? (
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
-            <h2 className="font-medium text-white">Edit profile</h2>
+            <h2 className="font-medium text-foreground">Edit profile</h2>
             <div className="mt-4 space-y-3">
               <Input placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
               <Input placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               <Input placeholder="Display name" value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} />
               <Textarea placeholder="Bio" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} rows={3} />
               <Input type="number" placeholder="Radius (m)" value={form.radiusMeters} onChange={(e) => setForm({ ...form, radiusMeters: Number(e.target.value) })} />
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
+              <label className="flex items-center gap-2 text-sm text-ink-secondary">
                 <input type="checkbox" checked={form.quietMode} onChange={(e) => setForm({ ...form, quietMode: e.target.checked })} />
                 Quiet mode
               </label>
@@ -241,16 +241,16 @@ export default function UserDetailPage() {
           </Card>
 
           <Card>
-            <h2 className="font-medium text-white">Premium subscription</h2>
+            <h2 className="font-medium text-foreground">Premium subscription</h2>
             <div className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between rounded-lg bg-zinc-900 p-3">
+              <div className="flex items-center justify-between rounded-lg bg-surface-muted p-3">
                 <div>
-                  <p className="text-white">Plan</p>
+                  <p className="text-foreground">Plan</p>
                   <Badge color={user.subscription?.isPremium ? 'green' : 'zinc'}>
                     {user.subscription?.isPremium ? 'Premium' : 'Free'}
                   </Badge>
                   {user.subscription?.currentPeriodEnd ? (
-                    <p className="mt-1 text-zinc-400">
+                    <p className="mt-1 text-ink-secondary">
                       Until {formatDate(user.subscription.currentPeriodEnd)}
                     </p>
                   ) : null}
@@ -278,11 +278,11 @@ export default function UserDetailPage() {
           </Card>
 
           <Card>
-            <h2 className="font-medium text-white">Verification controls</h2>
+            <h2 className="font-medium text-foreground">Verification controls</h2>
             <div className="mt-4 space-y-4 text-sm">
-              <div className="flex items-center justify-between rounded-lg bg-zinc-900 p-3">
+              <div className="flex items-center justify-between rounded-lg bg-surface-muted p-3">
                 <div>
-                  <p className="text-white">Email verified</p>
+                  <p className="text-foreground">Email verified</p>
                   <Badge>{user.emailVerified ? 'yes' : 'no'}</Badge>
                 </div>
                 <div className="flex gap-2">
@@ -295,9 +295,9 @@ export default function UserDetailPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between rounded-lg bg-zinc-900 p-3">
+              <div className="flex items-center justify-between rounded-lg bg-surface-muted p-3">
                 <div>
-                  <p className="text-white">Phone verified</p>
+                  <p className="text-foreground">Phone verified</p>
                   <Badge>{user.phoneVerified ? 'yes' : 'no'}</Badge>
                 </div>
                 <div className="flex gap-2">
@@ -310,9 +310,9 @@ export default function UserDetailPage() {
                 </div>
               </div>
 
-              <div className="rounded-lg bg-zinc-900 p-3">
-                <p className="text-white">Liveness (Didit)</p>
-                <p className="mt-1 text-zinc-400">
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-foreground">Liveness (Didit)</p>
+                <p className="mt-1 text-ink-secondary">
                   Current: {user.livenessVerified ? 'Passed' : 'Not passed'}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -339,9 +339,9 @@ export default function UserDetailPage() {
 
               {user.verifications.length > 0 ? (
                 <div className="space-y-2">
-                  <p className="text-zinc-500">Verification history</p>
+                  <p className="text-ink-tertiary">Verification history</p>
                   {user.verifications.map((v) => (
-                    <div key={v.id} className="flex justify-between rounded border border-zinc-800 px-3 py-2">
+                    <div key={v.id} className="flex justify-between rounded border border-border px-3 py-2">
                       <span>{v.type} · {v.provider}</span>
                       <Badge>{v.status}</Badge>
                     </div>
@@ -352,19 +352,19 @@ export default function UserDetailPage() {
           </Card>
 
           <Card className="lg:col-span-2">
-            <h2 className="font-medium text-white">Account info</h2>
+            <h2 className="font-medium text-foreground">Account info</h2>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-              <div><dt className="text-zinc-500">User ID</dt><dd className="font-mono text-xs break-all">{user.id}</dd></div>
-              <div><dt className="text-zinc-500">Joined</dt><dd>{formatDate(user.createdAt)}</dd></div>
-              <div><dt className="text-zinc-500">Date of birth</dt><dd>{user.profile?.dateOfBirth ? formatDate(user.profile.dateOfBirth) : '—'}</dd></div>
-              <div><dt className="text-zinc-500">Gender</dt><dd>{user.profile?.gender ?? '—'}</dd></div>
-              <div><dt className="text-zinc-500">Last seen</dt><dd>{user.lastSeenAt ? formatDate(user.lastSeenAt) : '—'}</dd></div>
-              <div><dt className="text-zinc-500">Available now</dt><dd>{user.isAvailable ? 'Yes' : 'No'}</dd></div>
-              <div><dt className="text-zinc-500">Posts</dt><dd>{user.counts.wallPosts}</dd></div>
-              <div><dt className="text-zinc-500">Reports received</dt><dd>{user.counts.reportsReceived}</dd></div>
-              <div><dt className="text-zinc-500">Devices</dt><dd>{user.counts.devices}</dd></div>
-              <div><dt className="text-zinc-500">Matches</dt><dd>{(user.counts.matchesAsUserA ?? 0) + (user.counts.matchesAsUserB ?? 0)}</dd></div>
-              <div><dt className="text-zinc-500">Blocks</dt><dd>{(user.counts.blocksInitiated ?? 0) + (user.counts.blocksReceived ?? 0)}</dd></div>
+              <div><dt className="text-ink-tertiary">User ID</dt><dd className="font-mono text-xs break-all">{user.id}</dd></div>
+              <div><dt className="text-ink-tertiary">Joined</dt><dd>{formatDate(user.createdAt)}</dd></div>
+              <div><dt className="text-ink-tertiary">Date of birth</dt><dd>{user.profile?.dateOfBirth ? formatDate(user.profile.dateOfBirth) : '—'}</dd></div>
+              <div><dt className="text-ink-tertiary">Gender</dt><dd>{user.profile?.gender ?? '—'}</dd></div>
+              <div><dt className="text-ink-tertiary">Last seen</dt><dd>{user.lastSeenAt ? formatDate(user.lastSeenAt) : '—'}</dd></div>
+              <div><dt className="text-ink-tertiary">Available now</dt><dd>{user.isAvailable ? 'Yes' : 'No'}</dd></div>
+              <div><dt className="text-ink-tertiary">Posts</dt><dd>{user.counts.wallPosts}</dd></div>
+              <div><dt className="text-ink-tertiary">Reports received</dt><dd>{user.counts.reportsReceived}</dd></div>
+              <div><dt className="text-ink-tertiary">Devices</dt><dd>{user.counts.devices}</dd></div>
+              <div><dt className="text-ink-tertiary">Matches</dt><dd>{(user.counts.matchesAsUserA ?? 0) + (user.counts.matchesAsUserB ?? 0)}</dd></div>
+              <div><dt className="text-ink-tertiary">Blocks</dt><dd>{(user.counts.blocksInitiated ?? 0) + (user.counts.blocksReceived ?? 0)}</dd></div>
             </dl>
           </Card>
         </div>
@@ -418,7 +418,7 @@ function UserPostsTab({ userId }: { userId: string }) {
         <TR key={post.id}>
           <TD className="max-w-md">{post.content}</TD>
           <TD><Badge>{post.status}</Badge></TD>
-          <TD className="text-zinc-400">{formatDate(post.createdAt)}</TD>
+          <TD className="text-ink-secondary">{formatDate(post.createdAt)}</TD>
           <TD>
             {post.status !== 'deleted' ? (
               <Button variant="danger" onClick={() => adminFetch(`/admin/wall/posts/${post.id}`, { method: 'DELETE' }).then(() => setPage(1))}>
@@ -453,7 +453,7 @@ function UserReportsTab({ userId }: { userId: string }) {
           <TD>{r.reason}</TD>
           <TD><Badge>{r.status}</Badge></TD>
           <TD>{r.reporterDisplayName ?? '—'}</TD>
-          <TD className="text-zinc-400">{formatDate(r.createdAt)}</TD>
+          <TD className="text-ink-secondary">{formatDate(r.createdAt)}</TD>
           <TD><Link href={`/reports/${r.id}`}><Button variant="secondary">View</Button></Link></TD>
         </TR>
       )}
@@ -481,7 +481,7 @@ function UserChatsTab({ userId }: { userId: string }) {
         <TR key={`${c.chatId}-${c.createdAt}`}>
           <TD>{c.otherUserDisplayName}</TD>
           <TD><Badge>{c.status}</Badge></TD>
-          <TD className="text-zinc-400">{formatDate(c.createdAt)}</TD>
+          <TD className="text-ink-secondary">{formatDate(c.createdAt)}</TD>
           <TD>
             {c.chatId ? (
               <Link href={`/chats/${c.chatId}`}><Button variant="secondary">Open chat</Button></Link>
@@ -514,7 +514,7 @@ function UserMatchesTab({ userId }: { userId: string }) {
           <TD>{m.otherDisplayName}</TD>
           <TD><Badge color="violet">{m.source}</Badge></TD>
           <TD><Badge>{m.status}</Badge></TD>
-          <TD className="text-zinc-400">{formatDate(m.createdAt)}</TD>
+          <TD className="text-ink-secondary">{formatDate(m.createdAt)}</TD>
         </TR>
       )}
     />
@@ -541,11 +541,11 @@ function UserDevicesTab({ userId }: { userId: string }) {
     adminFetch<{ items: typeof items }>(`/admin/users/${userId}/devices`).then((d) => setItems(d.items));
   }, [userId]);
 
-  if (!items.length) return <Card><p className="text-sm text-zinc-500">No registered devices.</p></Card>;
+  if (!items.length) return <Card><p className="text-sm text-ink-tertiary">No registered devices.</p></Card>;
 
   return (
     <>
-      <p className="mb-3 text-sm text-zinc-500">Click a device row for full forensic details (identity, IP, location, security events).</p>
+      <p className="mb-3 text-sm text-ink-tertiary">Click a device row for full forensic details (identity, IP, location, security events).</p>
       <Table>
         <THead>
           <TR>
@@ -562,7 +562,7 @@ function UserDevicesTab({ userId }: { userId: string }) {
           {items.map((d) => (
             <TR
               key={d.id}
-              className="cursor-pointer hover:bg-zinc-900/60"
+              className="cursor-pointer hover:bg-surface-muted/60"
               onClick={() => setSelectedDeviceId(d.id)}
             >
               <TD>{d.platform}</TD>
@@ -571,7 +571,7 @@ function UserDevicesTab({ userId }: { userId: string }) {
               <TD className="max-w-xs truncate font-mono text-xs">{d.pushToken}</TD>
               <TD className="font-mono text-xs">{d.lastIpAddress ?? '—'}</TD>
               <TD>{d.appVersion ?? '—'}</TD>
-              <TD className="text-zinc-400">{d.lastActiveAt ? formatDate(d.lastActiveAt) : '—'}</TD>
+              <TD className="text-ink-secondary">{d.lastActiveAt ? formatDate(d.lastActiveAt) : '—'}</TD>
             </TR>
           ))}
         </TBody>
@@ -758,7 +758,7 @@ function DeviceForensicModal({
                       <TD>{v.provider}</TD>
                       <TD><Badge>{v.status}</Badge></TD>
                       <TD className="font-mono text-xs">{v.providerReference ?? '—'}</TD>
-                      <TD className="text-zinc-400">{v.verifiedAt ? formatDate(v.verifiedAt) : '—'}</TD>
+                      <TD className="text-ink-secondary">{v.verifiedAt ? formatDate(v.verifiedAt) : '—'}</TD>
                     </TR>
                   ))}
                 </TBody>
@@ -768,7 +768,7 @@ function DeviceForensicModal({
 
           <ForensicSection title={`Security events (${data.securityEvents.length})`}>
             {data.securityEvents.length === 0 ? (
-              <p className="text-zinc-500">No security events linked to this device.</p>
+              <p className="text-ink-tertiary">No security events linked to this device.</p>
             ) : (
               <Table>
                 <THead>
@@ -785,7 +785,7 @@ function DeviceForensicModal({
                       <TD>{e.action}</TD>
                       <TD className="font-mono text-xs">{e.ipAddress ?? '—'}</TD>
                       <TD>{e.deviceModel ?? e.deviceId ?? '—'}</TD>
-                      <TD className="text-zinc-400">{formatDate(e.createdAt)}</TD>
+                      <TD className="text-ink-secondary">{formatDate(e.createdAt)}</TD>
                     </TR>
                   ))}
                 </TBody>
@@ -795,7 +795,7 @@ function DeviceForensicModal({
 
           <ForensicSection title={`Recent audit log (${data.auditLogs.length})`}>
             {data.auditLogs.length === 0 ? (
-              <p className="text-zinc-500">No audit log entries.</p>
+              <p className="text-ink-tertiary">No audit log entries.</p>
             ) : (
               <Table>
                 <THead>
@@ -812,7 +812,7 @@ function DeviceForensicModal({
                       <TD>{log.action}</TD>
                       <TD>{log.entityType ?? '—'}</TD>
                       <TD className="font-mono text-xs">{log.ipAddress ?? '—'}</TD>
-                      <TD className="text-zinc-400">{formatDate(log.createdAt)}</TD>
+                      <TD className="text-ink-secondary">{formatDate(log.createdAt)}</TD>
                     </TR>
                   ))}
                 </TBody>
@@ -828,7 +828,7 @@ function DeviceForensicModal({
 function ForensicSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h3 className="mb-3 border-b border-zinc-800 pb-2 font-medium text-white">{title}</h3>
+      <h3 className="mb-3 border-b border-border pb-2 font-medium text-foreground">{title}</h3>
       {children}
     </section>
   );
@@ -851,8 +851,8 @@ function ForensicField({
 }) {
   return (
     <div className={full ? 'sm:col-span-2' : undefined}>
-      <dt className="text-zinc-500">{label}</dt>
-      <dd className={`mt-0.5 break-all text-zinc-200 ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd>
+      <dt className="text-ink-tertiary">{label}</dt>
+      <dd className={`mt-0.5 break-all text-foreground ${mono ? 'font-mono text-xs' : ''}`}>{value}</dd>
     </div>
   );
 }
@@ -893,7 +893,7 @@ function UserSecurityTab({ userId }: { userId: string }) {
           <TD>{event.deviceModel ?? event.deviceId ?? '—'}</TD>
           <TD>{event.osVersion ?? event.platform ?? '—'}</TD>
           <TD>{event.appVersion ?? '—'}</TD>
-          <TD className="text-zinc-400">{formatDate(event.createdAt)}</TD>
+          <TD className="text-ink-secondary">{formatDate(event.createdAt)}</TD>
         </TR>
       )}
     />
@@ -914,27 +914,27 @@ function UserBlocksTab({ userId }: { userId: string }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
-        <h3 className="font-medium text-white">Blocked by this user</h3>
+        <h3 className="font-medium text-foreground">Blocked by this user</h3>
         <ul className="mt-3 space-y-2 text-sm">
           {data.initiated.map((b) => (
             <li key={b.userId} className="flex justify-between">
-              <Link href={`/users/${b.userId}`} className="text-violet-300 hover:underline">{b.displayName ?? b.userId}</Link>
-              <span className="text-zinc-500">{formatDate(b.createdAt)}</span>
+              <Link href={`/users/${b.userId}`} className="text-accent hover:underline">{b.displayName ?? b.userId}</Link>
+              <span className="text-ink-tertiary">{formatDate(b.createdAt)}</span>
             </li>
           ))}
-          {data.initiated.length === 0 ? <li className="text-zinc-500">None</li> : null}
+          {data.initiated.length === 0 ? <li className="text-ink-tertiary">None</li> : null}
         </ul>
       </Card>
       <Card>
-        <h3 className="font-medium text-white">Blocked this user</h3>
+        <h3 className="font-medium text-foreground">Blocked this user</h3>
         <ul className="mt-3 space-y-2 text-sm">
           {data.received.map((b) => (
             <li key={b.userId} className="flex justify-between">
-              <Link href={`/users/${b.userId}`} className="text-violet-300 hover:underline">{b.displayName ?? b.userId}</Link>
-              <span className="text-zinc-500">{formatDate(b.createdAt)}</span>
+              <Link href={`/users/${b.userId}`} className="text-accent hover:underline">{b.displayName ?? b.userId}</Link>
+              <span className="text-ink-tertiary">{formatDate(b.createdAt)}</span>
             </li>
           ))}
-          {data.received.length === 0 ? <li className="text-zinc-500">None</li> : null}
+          {data.received.length === 0 ? <li className="text-ink-tertiary">None</li> : null}
         </ul>
       </Card>
     </div>
@@ -971,8 +971,8 @@ function UserAuditTab({ userId }: { userId: string }) {
           <TD>{log.action}</TD>
           <TD>{log.entityType ?? '—'}</TD>
           <TD className="font-mono text-xs">{log.ipAddress ?? '—'}</TD>
-          <TD className="max-w-md truncate text-xs text-zinc-400">{log.userAgent ?? '—'}</TD>
-          <TD className="text-zinc-400">{formatDate(log.createdAt)}</TD>
+          <TD className="max-w-md truncate text-xs text-ink-secondary">{log.userAgent ?? '—'}</TD>
+          <TD className="text-ink-secondary">{formatDate(log.createdAt)}</TD>
         </TR>
       )}
     />
@@ -993,7 +993,7 @@ function ActivityTable<T>({
   renderRow: (item: T) => React.ReactNode;
 }) {
   if (!data) return <LoadingBlock />;
-  if (!data.items.length) return <Card><p className="text-sm text-zinc-500">No records.</p></Card>;
+  if (!data.items.length) return <Card><p className="text-sm text-ink-tertiary">No records.</p></Card>;
 
   return (
     <>

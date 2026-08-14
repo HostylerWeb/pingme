@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -177,6 +178,16 @@ export default function PostDetailScreen() {
     enabled: !!id,
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteWallPost(id!),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+      showToast('Post deleted', 'success');
+      router.back();
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+
   const requestMatchMutation = useMutation({
     mutationFn: (replyId: string) =>
       api.requestMatch({ source: 'wall_reply', sourceReferenceId: replyId }),
@@ -220,6 +231,17 @@ export default function PostDetailScreen() {
     requestMatchMutation.mutate(replyId);
   };
 
+  const onDeletePost = () => {
+    Alert.alert('Delete post?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => deleteMutation.mutate(),
+      },
+    ]);
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -250,7 +272,29 @@ export default function PostDetailScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <AppHeader title="Post" showBrand={false} onBack={() => router.back()} centerTitle />
+      <AppHeader
+        title="Post"
+        showBrand={false}
+        onBack={() => router.back()}
+        centerTitle
+        right={
+          post.author.isYou ? (
+            <Pressable
+              onPress={onDeletePost}
+              hitSlop={8}
+              disabled={deleteMutation.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Delete post"
+            >
+              {deleteMutation.isPending ? (
+                <ActivityIndicator size="small" color={colors.error} />
+              ) : (
+                <Ionicons name="trash-outline" size={22} color={colors.error} />
+              )}
+            </Pressable>
+          ) : undefined
+        }
+      />
 
       <FlatList
         data={post.replies}

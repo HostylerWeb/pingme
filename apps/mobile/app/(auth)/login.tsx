@@ -1,4 +1,4 @@
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { ApiError } from '../../src/lib/api';
@@ -8,7 +8,6 @@ import { Button, Input, PasswordInput, Screen, SegmentedControl } from '../../sr
 import { radius, spacing, typography, useThemedStyles } from '../../src/theme';
 
 export default function LoginScreen() {
-  const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const isLoading = useAuthStore((s) => s.isLoading);
   const [mode, setMode] = useState<'email' | 'phone'>('email');
@@ -64,7 +63,6 @@ export default function LoginScreen() {
       } else {
         await login(email.trim(), password, 'email');
       }
-      router.replace('/(tabs)/home');
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Login failed';
       showToast(message, 'error');

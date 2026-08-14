@@ -3,6 +3,7 @@ import { genderLabel, type GenderValue } from '@pingme/shared';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { api } from '../../src/lib/api';
 import { showToast } from '../../src/stores/toast-store';
@@ -35,7 +36,11 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const refreshMe = useAuthStore((s) => s.refreshMe);
-  const isPremium = user?.subscription?.isPremium ?? false;
+  const { data: subscriptionData } = useQuery({
+    queryKey: ['subscription'],
+    queryFn: () => api.getSubscription(),
+  });
+  const isPremium = subscriptionData?.data?.isPremium ?? user?.subscription?.isPremium ?? false;
   const avatarTheme =
     (user?.profile as { avatarConfig?: { theme?: string } } | null | undefined)?.avatarConfig?.theme ??
     null;
@@ -164,6 +169,39 @@ export default function ProfileScreen() {
       ...typography.caption,
       color: colors.premiumOnSurfaceMuted,
       marginTop: 2,
+    },
+    premiumMemberCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.onlineSoft,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.online,
+      gap: spacing.md,
+    },
+    premiumMemberCtaPressed: { opacity: 0.92 },
+    premiumMemberIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.online,
+    },
+    premiumMemberTitle: {
+      ...typography.bodySemiBold,
+      color: colors.online,
+      fontSize: 16,
+    },
+    premiumMemberHint: {
+      ...typography.caption,
+      color: colors.inkSecondary,
+      marginTop: 4,
+      lineHeight: 18,
     },
     cta: { marginBottom: spacing.md },
     sectionLabel: {
@@ -310,7 +348,23 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {!isPremium ? (
+        {isPremium ? (
+          <Pressable
+            style={({ pressed }) => [styles.premiumMemberCta, pressed && styles.premiumMemberCtaPressed]}
+            onPress={() => router.push('/premium')}
+          >
+            <View style={styles.premiumMemberIcon}>
+              <Ionicons name="star" size={20} color={colors.online} />
+            </View>
+            <View style={styles.premiumCopy}>
+              <Text style={styles.premiumMemberTitle}>You&apos;re a Premium member</Text>
+              <Text style={styles.premiumMemberHint}>
+                Tap to pick your profile ring, turn read receipts on or off, and manage your perks.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.online} />
+          </Pressable>
+        ) : (
           <Pressable
             style={({ pressed }) => [styles.premiumCta, pressed && styles.premiumCtaPressed]}
             onPress={() => router.push('/premium')}
@@ -324,7 +378,7 @@ export default function ProfileScreen() {
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.premiumOnSurfaceMuted} />
           </Pressable>
-        ) : null}
+        )}
 
         {!user?.livenessVerified ? (
           <Button

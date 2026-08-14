@@ -133,11 +133,11 @@ export default function AdminsPage() {
           <TBody>
             {items.map((admin) => (
               <TR key={admin.id}>
-                <TD className="font-medium text-white">{admin.email}</TD>
+                <TD className="font-medium text-foreground">{admin.email}</TD>
                 <TD><Badge color="violet">{admin.role}</Badge></TD>
                 <TD>{admin.actionCount}</TD>
                 <TD>{admin.assignedReportCount}</TD>
-                <TD className="text-zinc-400">{formatDate(admin.createdAt)}</TD>
+                <TD className="text-ink-secondary">{formatDate(admin.createdAt)}</TD>
                 <TD>
                   <div className="flex gap-2">
                     <Button

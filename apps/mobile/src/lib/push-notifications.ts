@@ -26,13 +26,13 @@ async function getStableDeviceId() {
   }
 }
 
-export async function registerForPushNotifications() {
+export async function registerForPushNotifications(options?: { skipPermissionRequest?: boolean }) {
   if (!Device.isDevice) return null;
 
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     let finalStatus = existing;
-    if (existing !== 'granted') {
+    if (existing !== 'granted' && !options?.skipPermissionRequest) {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }

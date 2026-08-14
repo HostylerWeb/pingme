@@ -36,14 +36,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-white">PingMe Admin</h1>
-        <p className="mt-1 text-sm text-zinc-400">Sign in to the moderation dashboard</p>
+        <div className="mb-6 flex items-center gap-2">
+          <span className="inline-block h-2 w-2 rounded-full bg-accent" />
+          <h1 className="font-display text-2xl font-semibold text-foreground">PingMe Admin</h1>
+        </div>
+        <p className="text-sm text-ink-secondary">Sign in to the moderation dashboard</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
-            <label className="mb-1 block text-sm text-zinc-400" htmlFor="email">
+            <label className="mb-1 block text-sm text-ink-secondary" htmlFor="email">
               Email
             </label>
             <Input
@@ -57,7 +60,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm text-zinc-400" htmlFor="password">
+            <label className="mb-1 block text-sm text-ink-secondary" htmlFor="password">
               Password
             </label>
             <Input
@@ -70,7 +73,7 @@ export default function LoginPage() {
             />
           </div>
 
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-error">{error}</p> : null}
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign in'}

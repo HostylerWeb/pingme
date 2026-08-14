@@ -15,8 +15,8 @@ export function Pagination({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="flex items-center justify-between gap-4 pt-4">
-      <p className="text-sm text-zinc-500">
+    <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-sm text-ink-tertiary">
         Page {page} of {totalPages} · {total} total
       </p>
       <div className="flex gap-2">
