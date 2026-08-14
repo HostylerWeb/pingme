@@ -39,4 +39,16 @@ echo "=== Wall posts ==="
 curl -sf -H "Authorization: Bearer $USER_TOKEN" "$API_URL/wall/posts" | head -c 120
 echo
 
+echo "=== Subscription plans ==="
+curl -sf -H "Authorization: Bearer $USER_TOKEN" "$API_URL/subscriptions/plans" | head -c 160
+echo
+
+echo "=== Subscription me ==="
+curl -sf -H "Authorization: Bearer $USER_TOKEN" "$API_URL/subscriptions/me" | head -c 160
+echo
+
+echo "=== Health (redis) ==="
+curl -sf "$API_URL/health" | python3 -c "import sys,json; d=json.load(sys.stdin)['data']; assert d.get('redis')=='connected', d; print('redis ok')"
+echo
+
 echo "=== All smoke checks passed ==="

@@ -11,11 +11,18 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { createCorsOriginDelegate, parseCorsOrigins } from '../common/utils/cors.util';
 import { ChatService } from './chat.service';
+
+const wsNodeEnv = process.env.NODE_ENV ?? 'development';
+const wsAllowedOrigins = parseCorsOrigins(process.env.CORS_ORIGINS, wsNodeEnv);
 
 @WebSocketGateway({
   namespace: '/ws',
-  cors: { origin: '*' },
+  cors: {
+    origin: createCorsOriginDelegate(wsAllowedOrigins, wsNodeEnv),
+    credentials: true,
+  },
 })
 @Injectable()
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {

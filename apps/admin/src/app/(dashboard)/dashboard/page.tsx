@@ -37,7 +37,14 @@ interface DashboardStats {
   }>;
 }
 
+import { useAdminSession } from '@/hooks/use-admin-session';
+
+function canModerate(role?: string) {
+  return role === 'moderator' || role === 'super_admin';
+}
+
 export default function DashboardPage() {
+  const { session, mounted } = useAdminSession();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState('');
 
@@ -49,20 +56,24 @@ export default function DashboardPage() {
 
   if (!stats && !error) return <LoadingBlock label="Loading dashboard…" />;
 
+  const showModeration = mounted && canModerate(session?.admin.role);
+
   return (
     <div>
       <PageHeader
         title="Dashboard"
         description="Platform overview and recent moderation activity"
         actions={
-          <>
-            <Link href="/reports" className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-500">
-              View reports
-            </Link>
-            <Link href="/content" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900">
-              Moderate content
-            </Link>
-          </>
+          showModeration ? (
+            <>
+              <Link href="/reports" className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white hover:bg-violet-500">
+                View reports
+              </Link>
+              <Link href="/content" className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900">
+                Moderate content
+              </Link>
+            </>
+          ) : undefined
         }
       />
 

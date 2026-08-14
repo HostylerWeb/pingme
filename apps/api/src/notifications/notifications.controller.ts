@@ -1,4 +1,5 @@
-import { Controller, Post, UseGuards } from '@nestjs/common';
+import { Controller, ForbiddenException, Post, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NOTIFICATION_TYPES } from '@pingme/shared';
 import { User } from '@pingme/db';
@@ -11,11 +12,20 @@ import { NotificationService } from './notification.service';
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notifications: NotificationService) {}
+  constructor(
+    private readonly notifications: NotificationService,
+    private readonly config: ConfigService,
+  ) {}
 
   @Post('test')
-  @ApiOperation({ summary: 'Send a test push notification to the current user' })
+  @ApiOperation({ summary: 'Send a test push notification to the current user (non-production only)' })
   async sendTest(@CurrentUser() user: User) {
+    const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
+    const testEnabled = this.config.get<string>('NOTIFICATIONS_TEST_ENABLED', 'false') === 'true';
+
+    if (nodeEnv === 'production' && !testEnabled) {
+      throw new ForbiddenException('Test notifications are disabled in production');
+    }
     await this.notifications.sendToUser(user.id, {
       type: NOTIFICATION_TYPES.CHAT_MESSAGE,
       title: 'PingMe test',

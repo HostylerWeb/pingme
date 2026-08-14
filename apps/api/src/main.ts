@@ -4,12 +4,16 @@ import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { createCorsOriginDelegate, parseCorsOrigins } from './common/utils/cors.util';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const config = app.get(ConfigService);
+  const nodeEnv = config.get<string>('NODE_ENV', 'development');
+  const allowedOrigins = parseCorsOrigins(config.get<string>('CORS_ORIGINS'), nodeEnv);
 
   app.enableCors({
-    origin: true,
+    origin: createCorsOriginDelegate(allowedOrigins, nodeEnv),
     credentials: true,
   });
 
@@ -31,7 +35,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
 
-  const config = app.get(ConfigService);
   const port = config.get<number>('PORT', 3000);
   const host = config.get<string>('HOST', '0.0.0.0');
   await app.listen(port, host);
