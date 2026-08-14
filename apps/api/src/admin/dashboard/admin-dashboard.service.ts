@@ -62,7 +62,23 @@ export class AdminDashboardService {
         reportedUserDisplayName: r.reportedUser.profile?.displayName ?? null,
       })),
       flaggedUsers: await this.getFlaggedUsers(),
+      verificationReviewUsers: await this.getVerificationReviewUsers(),
     };
+  }
+
+  private async getVerificationReviewUsers() {
+    const users = await this.prisma.user.findMany({
+      where: { requiresAdminReview: true, deletedAt: null },
+      take: 10,
+      orderBy: { updatedAt: 'desc' },
+      include: { profile: { select: { displayName: true } } },
+    });
+
+    return users.map((user) => ({
+      userId: user.id,
+      displayName: user.profile?.displayName ?? null,
+      status: user.status,
+    }));
   }
 
   private async getFlaggedUsers() {

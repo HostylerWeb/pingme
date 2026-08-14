@@ -1,61 +1,35 @@
-import { useEffect, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
-import { getAccessToken } from '../lib/auth-storage';
+import { useEffect } from 'react';
 import { ChatMessage } from '../lib/api';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
-
-function wsBaseUrl() {
-  const explicit = process.env.EXPO_PUBLIC_WS_URL;
-  if (explicit) {
-    return explicit.replace(/\/ws\/?$/, '');
-  }
-  const httpBase = API_URL.replace(/\/v1\/?$/, '');
-  if (httpBase.startsWith('https://')) {
-    return httpBase.replace('https://', 'wss://');
-  }
-  return httpBase.replace('http://', 'ws://');
-}
+import { useAppSocket } from '../lib/app-socket';
 
 export function useChatSocket(
   chatId: string | undefined,
   onMessage: (message: ChatMessage) => void,
+  onRead?: (payload: { chatId: string; messageIds: string[] }) => void,
 ) {
-  const socketRef = useRef<Socket | null>(null);
-  const onMessageRef = useRef(onMessage);
-  onMessageRef.current = onMessage;
+  const { socket } = useAppSocket();
 
   useEffect(() => {
-    if (!chatId) return;
+    if (!socket || !chatId) return;
 
-    let active = true;
+    const handleMessage = (payload: { chatId: string; message: ChatMessage }) => {
+      if (payload.chatId === chatId) {
+        onMessage(payload.message);
+      }
+    };
 
-    void (async () => {
-      const token = await getAccessToken();
-      if (!token || !active) return;
+    const handleRead = (payload: { chatId: string; messageIds: string[] }) => {
+      if (payload.chatId === chatId) {
+        onRead?.(payload);
+      }
+    };
 
-      const socket = io(`${wsBaseUrl()}/ws`, {
-        auth: { token },
-        transports: ['websocket'],
-      });
-
-      socketRef.current = socket;
-
-      socket.on('connect', () => {
-        socket.emit('ping');
-      });
-
-      socket.on('message.new', (payload: { chatId: string; message: ChatMessage }) => {
-        if (payload.chatId === chatId) {
-          onMessageRef.current(payload.message);
-        }
-      });
-    })();
+    socket.on('message.new', handleMessage);
+    socket.on('message.read', handleRead);
 
     return () => {
-      active = false;
-      socketRef.current?.disconnect();
-      socketRef.current = null;
+      socket.off('message.new', handleMessage);
+      socket.off('message.read', handleRead);
     };
-  }, [chatId]);
+  }, [socket, chatId, onMessage, onRead]);
 }

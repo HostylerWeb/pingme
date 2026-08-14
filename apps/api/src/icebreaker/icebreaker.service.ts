@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IcebreakerSessionStatus } from '@pingme/db';
@@ -12,6 +14,7 @@ import {
   NOTIFICATION_TYPES,
 } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
+import { ChatGateway } from '../chat/chat.gateway';
 import { BlocksService } from '../common/services/blocks.service';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { NotificationService } from '../notifications/notification.service';
@@ -34,6 +37,8 @@ export class IcebreakerService {
     private readonly blocks: BlocksService,
     private readonly rateLimit: RateLimitService,
     private readonly notifications: NotificationService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly gateway: ChatGateway,
   ) {}
 
   async start(userId: string) {
@@ -271,6 +276,17 @@ export class IcebreakerService {
         title: 'Someone nearby wants to connect',
         body: 'Open PingMe to accept or decline.',
         data: { type: NOTIFICATION_TYPES.ICEBREAKER_MATCH, matchId: match.id },
+      });
+
+      this.gateway.emitMatchUpdated(pair.user_a_id, {
+        matchId: match.id,
+        status: 'pending',
+        chatId: null,
+      });
+      this.gateway.emitMatchUpdated(pair.user_b_id, {
+        matchId: match.id,
+        status: 'pending',
+        chatId: null,
       });
     }
 

@@ -1,15 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, usePathname, useRouter, type Href } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import '../src/lib/background-location';
+import { AppSocketProvider } from '../src/lib/app-socket';
 import { hasForegroundLocationPermission, locationSetupStorage } from '../src/lib/location-setup-storage';
 import { onboardingStorage } from '../src/lib/onboarding-storage';
 import { addNotificationResponseListener, registerForPushNotifications } from '../src/lib/push-notifications';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
 
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 initSentry();
 
 const queryClient = new QueryClient();
@@ -72,7 +75,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       target = '/(onboarding)';
     } else if (!user) {
       target = '/(auth)/login';
-    } else if (user.email && !user.emailVerified) {
+    } else if ((user.email && !user.emailVerified) || (user.phone && !user.phoneVerified)) {
       target = '/(setup)/verify';
     } else if (locationReady === null) {
       return;
@@ -92,6 +95,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     router.replace(target as Href);
   }, [user, isHydrated, pathname, router, onboardingComplete, locationReady]);
 
+  useEffect(() => {
+    if (isHydrated && onboardingComplete !== null) {
+      void SplashScreen.hideAsync();
+    }
+  }, [isHydrated, onboardingComplete]);
+
   if (!isHydrated || onboardingComplete === null) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -107,8 +116,9 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <StatusBar style="auto" />
-      <AuthGate>
-        <Stack screenOptions={{ headerShown: false }}>
+      <AppSocketProvider>
+        <AuthGate>
+          <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="(onboarding)" />
           <Stack.Screen name="(auth)" />
@@ -119,7 +129,8 @@ export default function RootLayout() {
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
         </Stack>
-      </AuthGate>
+        </AuthGate>
+      </AppSocketProvider>
     </QueryClientProvider>
   );
 }

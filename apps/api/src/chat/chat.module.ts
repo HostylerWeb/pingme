@@ -11,6 +11,6 @@ import { ChatService } from './chat.service';
   imports: [NotificationsModule, AuthModule, VerificationModule],
   controllers: [ChatController],
   providers: [ChatService, BlocksService, ChatGateway],
-  exports: [ChatService],
+  exports: [ChatService, ChatGateway],
 })
 export class ChatModule {}

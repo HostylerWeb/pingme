@@ -9,38 +9,40 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { ApiError } from '../../src/lib/api';
-import { useAuthStore } from '../../src/stores/auth-store';
+import { api, ApiError } from '../../src/lib/api';
 
-export default function RegisterScreen() {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const register = useAuthStore((s) => s.register);
-  const isLoading = useAuthStore((s) => s.isLoading);
   const [usePhone, setUsePhone] = useState(false);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('1995-01-01');
+  const [loading, setLoading] = useState(false);
 
   const onSubmit = async () => {
+    setLoading(true);
     try {
-      await register({
-        ...(usePhone ? { phone: phone.trim() } : { email: email.trim() }),
-        password,
-        dateOfBirth,
-        displayName: displayName.trim() || undefined,
+      const result = await api.forgotPassword(
+        usePhone ? { phone: phone.trim() } : { email: email.trim() },
+      );
+      Alert.alert('Check your inbox', result.message);
+      router.push({
+        pathname: '/(auth)/reset-password',
+        params: usePhone ? { phone: phone.trim() } : { email: email.trim() },
       });
-      router.replace('/(setup)/verify');
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Registration failed';
-      Alert.alert('Sign up failed', message);
+      const message = error instanceof ApiError ? error.message : 'Request failed';
+      Alert.alert('Error', message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create account</Text>
+      <Text style={styles.title}>Reset password</Text>
+      <Text style={styles.hint}>
+        Enter your account email or phone. In development, check the API logs for the reset token.
+      </Text>
 
       <View style={styles.toggleRow}>
         <Pressable onPress={() => setUsePhone(false)}>
@@ -51,12 +53,6 @@ export default function RegisterScreen() {
         </Pressable>
       </View>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Display name"
-        value={displayName}
-        onChangeText={setDisplayName}
-      />
       {usePhone ? (
         <TextInput
           style={styles.input}
@@ -75,28 +71,13 @@ export default function RegisterScreen() {
           onChangeText={setEmail}
         />
       )}
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Date of birth (YYYY-MM-DD)"
-        value={dateOfBirth}
-        onChangeText={setDateOfBirth}
-      />
-      <Pressable style={styles.button} onPress={onSubmit} disabled={isLoading}>
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Sign up</Text>
-        )}
+
+      <Pressable style={styles.button} onPress={onSubmit} disabled={loading}>
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send reset link</Text>}
       </Pressable>
+
       <Link href="/(auth)/login" style={styles.link}>
-        Already have an account?
+        Back to login
       </Link>
     </View>
   );
@@ -104,7 +85,8 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 16 },
+  title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
+  hint: { color: '#666', marginBottom: 20, lineHeight: 20 },
   toggleRow: { flexDirection: 'row', gap: 16, marginBottom: 12 },
   toggle: { color: '#64748b', fontWeight: '600' },
   toggleActive: { color: '#2563eb' },
@@ -113,7 +95,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     borderRadius: 12,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: 16,
     fontSize: 16,
   },
   button: {
@@ -121,7 +103,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    marginTop: 8,
   },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   link: { marginTop: 20, textAlign: 'center', color: '#2563eb' },

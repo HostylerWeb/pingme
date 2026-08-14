@@ -1,12 +1,15 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { MatchSource, MatchStatus } from '@pingme/db';
 import { MATCH_EXPIRY_MINUTES, MatchRequestInput, NOTIFICATION_TYPES } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
+import { ChatGateway } from '../chat/chat.gateway';
 import { BlocksService } from '../common/services/blocks.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,6 +22,8 @@ export class MatchesService {
     private readonly audit: AuditService,
     private readonly blocks: BlocksService,
     private readonly notifications: NotificationService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly gateway: ChatGateway,
   ) {}
 
   async list(userId: string) {
@@ -97,6 +102,9 @@ export class MatchesService {
         },
       });
 
+      this.emitMatchUpdate(userId, activated);
+      this.emitMatchUpdate(otherUserId, activated);
+
       return { success: true, data: this.serializeMatch(activated, userId, true) };
     }
 
@@ -113,6 +121,9 @@ export class MatchesService {
       entityType: 'match',
       entityId: matchId,
     });
+
+    this.emitMatchUpdate(userId, updated);
+    this.emitMatchUpdate(otherUserId, updated);
 
     return { success: true, data: this.serializeMatch(updated, userId, true) };
   }
@@ -248,6 +259,17 @@ export class MatchesService {
       throw new ForbiddenException('Not your match');
     }
     return match;
+  }
+
+  private emitMatchUpdate(
+    userId: string,
+    match: { id: string; status: MatchStatus; chat?: { id: string } | null },
+  ) {
+    this.gateway.emitMatchUpdated(userId, {
+      matchId: match.id,
+      status: match.status,
+      chatId: match.chat?.id ?? null,
+    });
   }
 
   private serializeMatch(

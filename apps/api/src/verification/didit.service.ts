@@ -38,6 +38,15 @@ export class DiditService {
     return this.config.get<string>('DIDIT_WORKFLOW_ID_LIVENESS', '');
   }
 
+  getWorkflowIdKyc(): string | null {
+    const workflowId = this.config.get<string>('DIDIT_WORKFLOW_ID_KYC');
+    return workflowId || null;
+  }
+
+  isKycEnabled(): boolean {
+    return this.isEnabled() && !!this.getWorkflowIdKyc();
+  }
+
   private getBaseUrl(): string {
     return this.config.get<string>(
       'DIDIT_API_BASE_URL',
@@ -45,9 +54,24 @@ export class DiditService {
     ).replace(/\/$/, '');
   }
 
-  async createSession(userId: string, email?: string | null): Promise<DiditSessionResponse> {
+  async createSession(
+    userId: string,
+    email?: string | null,
+    workflowType: 'liveness' | 'kyc' = 'liveness',
+  ): Promise<DiditSessionResponse> {
     const apiKey = this.config.get<string>('DIDIT_API_KEY');
-    const workflowId = this.getWorkflowIdLiveness();
+    const workflowId =
+      workflowType === 'kyc'
+        ? this.getWorkflowIdKyc()
+        : this.getWorkflowIdLiveness();
+
+    if (!workflowId) {
+      throw new Error(
+        workflowType === 'kyc'
+          ? 'KYC workflow is not configured'
+          : 'Liveness workflow is not configured',
+      );
+    }
     const callback =
       this.config.get<string>('DIDIT_CALLBACK_URL') ?? 'pingme://verification-complete';
 
@@ -62,7 +86,7 @@ export class DiditService {
         workflow_id: workflowId,
         vendor_data: userId,
         callback,
-        metadata: { user_id: userId, email: email ?? undefined },
+        metadata: { user_id: userId, email: email ?? undefined, workflow_type: workflowType },
       }),
     });
 
@@ -197,5 +221,72 @@ export class DiditService {
     }
 
     return payload.status === 'Declined' ? 'Verification was declined' : null;
+  }
+
+  detectUnderage(decision: Record<string, unknown> | null | undefined): boolean {
+    if (!decision) return false;
+
+    const idVerifications = decision.id_verifications;
+    if (!Array.isArray(idVerifications)) return false;
+
+    for (const item of idVerifications) {
+      if (!item || typeof item !== 'object') continue;
+      const age = (item as { age?: number | string }).age;
+      if (typeof age === 'number' && age < 18) return true;
+      if (typeof age === 'string' && Number.parseInt(age, 10) < 18) return true;
+      const status = (item as { status?: string }).status;
+      if (status === 'Underage') return true;
+    }
+
+    const warnings = this.collectWarnings(decision);
+    return warnings.some((warning) => /under\s*age|minor|below\s*18/i.test(warning));
+  }
+
+  detectDuplicateFace(decision: Record<string, unknown> | null | undefined): boolean {
+    if (!decision) return false;
+
+    const faceMatches = decision.face_matches;
+    if (!Array.isArray(faceMatches)) return false;
+
+    for (const item of faceMatches) {
+      if (!item || typeof item !== 'object') continue;
+      const status = (item as { status?: string }).status;
+      if (status === 'Declined' || status === 'Rejected') return true;
+      const warnings = (item as { warnings?: unknown[] }).warnings;
+      if (!Array.isArray(warnings)) continue;
+      for (const warning of warnings) {
+        const text =
+          typeof warning === 'string'
+            ? warning
+            : warning && typeof warning === 'object' && 'message' in warning
+              ? String((warning as { message: string }).message)
+              : '';
+        if (/duplicate|blocklist|face\s*match/i.test(text)) return true;
+      }
+    }
+
+    return this.collectWarnings(decision).some((warning) =>
+      /duplicate|blocklist|face\s*match/i.test(warning),
+    );
+  }
+
+  private collectWarnings(decision: Record<string, unknown>): string[] {
+    const warnings: string[] = [];
+    for (const section of ['id_verifications', 'liveness_checks', 'face_matches'] as const) {
+      const items = decision[section];
+      if (!Array.isArray(items)) continue;
+      for (const item of items) {
+        if (!item || typeof item !== 'object') continue;
+        const itemWarnings = (item as { warnings?: unknown[] }).warnings;
+        if (!Array.isArray(itemWarnings)) continue;
+        for (const warning of itemWarnings) {
+          if (typeof warning === 'string') warnings.push(warning);
+          else if (warning && typeof warning === 'object' && 'message' in warning) {
+            warnings.push(String((warning as { message: string }).message));
+          }
+        }
+      }
+    }
+    return warnings;
   }
 }

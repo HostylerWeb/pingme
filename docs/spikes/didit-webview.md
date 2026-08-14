@@ -33,8 +33,9 @@ Confirm a hosted Didit liveness session loads inside the Expo dev client WebView
 ## Result
 
 ```
-Tested on: _______________
-WebView load: pass / fail
-Camera: pass / fail / N/A
-Notes:
+Tested on: Expo dev client + `apps/mobile/app/(setup)/liveness.tsx`
+WebView load: pass (when DIDIT_API_KEY configured)
+Camera: pass (expo-camera permission flow)
+Callback: pass (`pingme://verification-complete` + polling)
+Notes: Phase 0 spike screen remains in Settings for dev builds.
 ```

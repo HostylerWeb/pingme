@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -106,6 +106,16 @@ export default function ChatThreadScreen() {
   );
 
   useChatSocket(id, onRealtimeMessage);
+
+  useEffect(() => {
+    if (!id || !messagesData?.data.length) return;
+    const unreadIds = messagesData.data
+      .filter((message) => !message.isYou && message.status !== 'read')
+      .map((message) => message.id);
+    if (unreadIds.length) {
+      void api.markChatRead(id, unreadIds);
+    }
+  }, [id, messagesData]);
 
   const onBlock = () => {
     if (!chat) return;

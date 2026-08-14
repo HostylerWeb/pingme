@@ -6,6 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import {
+  UserStatus,
   VerificationProvider,
   VerificationStatus,
   VerificationType,
@@ -179,6 +180,51 @@ export class VerificationService {
     };
   }
 
+  async startKycForUser(userId: string, email?: string | null) {
+    if (!this.didit.isKycEnabled()) {
+      throw new ServiceUnavailableException('Full KYC workflow is not configured on this server');
+    }
+
+    const session = await this.didit.createSession(userId, email, 'kyc');
+    const metadata = {
+      session_id: session.session_id,
+      session_token: session.session_token ?? null,
+      url: session.url,
+      workflow_id: session.workflow_id,
+      workflow_type: 'kyc',
+      didit_status: session.status,
+      started_at: new Date().toISOString(),
+    };
+
+    const verification = await this.prisma.verification.create({
+      data: {
+        userId,
+        type: VerificationType.document,
+        provider: VerificationProvider.didit,
+        providerReference: session.session_id,
+        status: VerificationStatus.pending,
+        metadata,
+      },
+    });
+
+    await this.audit.log({
+      userId,
+      action: 'verification.kyc_start',
+      entityType: 'verification',
+      entityId: verification.id,
+      metadata: { provider: 'didit', sessionId: session.session_id },
+    });
+
+    return {
+      success: true,
+      data: {
+        verificationUrl: session.url,
+        sessionId: session.session_id,
+        status: VerificationStatus.pending,
+      },
+    };
+  }
+
   async handleWebhook(payload: DiditWebhookPayload, headers: Record<string, string | string[] | undefined>) {
     if (!this.didit.isEnabled()) {
       return { success: false, message: 'Verification disabled' };
@@ -320,6 +366,51 @@ export class VerificationService {
         entityType: 'verification',
         entityId: updated.id,
         metadata: { provider: 'didit', sessionId, reason: rejectionReason },
+      });
+    }
+
+    await this.applySafetyActions(userId, decision, finalStatus);
+  }
+
+  private async applySafetyActions(
+    userId: string,
+    decision: Record<string, unknown> | null | undefined,
+    finalStatus: 'pending' | 'passed' | 'failed',
+  ) {
+    if (!decision) return;
+
+    if (this.didit.detectUnderage(decision)) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          status: UserStatus.suspended,
+          requiresAdminReview: true,
+          isAvailable: false,
+        },
+      });
+
+      await this.audit.log({
+        userId,
+        action: 'verification.underage_suspend',
+        entityType: 'user',
+        entityId: userId,
+        metadata: { source: 'didit' },
+      });
+      return;
+    }
+
+    if (this.didit.detectDuplicateFace(decision)) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { requiresAdminReview: true },
+      });
+
+      await this.audit.log({
+        userId,
+        action: 'verification.duplicate_face_flag',
+        entityType: 'user',
+        entityId: userId,
+        metadata: { source: 'didit', status: finalStatus },
       });
     }
   }

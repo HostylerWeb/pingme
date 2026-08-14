@@ -164,16 +164,19 @@ export class ChatService {
       metadata: { chatId },
     });
 
-    await this.notifications.sendToUser(otherUserId, {
-      type: NOTIFICATION_TYPES.CHAT_MESSAGE,
-      title: 'New message',
-      body: content.trim().slice(0, 100),
-      data: {
+    const recipientOnline = this.gateway.isUserOnline(otherUserId);
+    if (!recipientOnline) {
+      await this.notifications.sendToUser(otherUserId, {
         type: NOTIFICATION_TYPES.CHAT_MESSAGE,
-        chatId,
-        messageId: message.id,
-      },
-    });
+        title: 'New message',
+        body: content.trim().slice(0, 100),
+        data: {
+          type: NOTIFICATION_TYPES.CHAT_MESSAGE,
+          chatId,
+          messageId: message.id,
+        },
+      });
+    }
 
     const messagePayload = {
       id: message.id,
@@ -216,6 +219,34 @@ export class ChatService {
     });
 
     return { success: true, data: { id: updated.id, status: updated.status } };
+  }
+
+  async markMessagesRead(userId: string, chatId: string, messageIds?: string[]) {
+    await this.getChatForUser(userId, chatId);
+
+    const where = {
+      chatId,
+      senderId: { not: userId },
+      status: { not: MessageStatus.deleted },
+      ...(messageIds?.length ? { id: { in: messageIds } } : {}),
+    };
+
+    const result = await this.prisma.message.updateMany({
+      where,
+      data: { status: MessageStatus.read },
+    });
+
+    const chat = await this.getChatForUser(userId, chatId);
+    const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
+
+    this.gateway.emitMessageRead(otherUserId, {
+      chatId,
+      messageIds: messageIds ?? [],
+      readBy: userId,
+      readCount: result.count,
+    });
+
+    return { updated: result.count };
   }
 
   private async getChatForUser(userId: string, chatId: string) {

@@ -7,9 +7,10 @@ interface AuthState {
   isLoading: boolean;
   isHydrated: boolean;
   hydrate: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string, mode?: 'email' | 'phone') => Promise<void>;
   register: (input: {
-    email: string;
+    email?: string;
+    phone?: string;
     password: string;
     dateOfBirth: string;
     displayName?: string;
@@ -38,10 +39,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  login: async (email, password) => {
+  login: async (identifier, password, mode = 'email') => {
     set({ isLoading: true });
     try {
-      const result = await api.login({ email, password });
+      const result = await api.login(
+        mode === 'phone'
+          ? { phone: identifier, password }
+          : { email: identifier, password },
+      );
       await saveTokens(result.accessToken, result.refreshToken);
       set({ user: result.user as AuthUser, isLoading: false });
     } catch (error) {

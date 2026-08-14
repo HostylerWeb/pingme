@@ -102,4 +102,55 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.server.to(socketId).emit('message.new', payload);
     }
   }
+
+  isUserOnline(userId: string): boolean {
+    const sockets = this.userSockets.get(userId);
+    return !!sockets?.size;
+  }
+
+  emitMatchUpdated(userId: string, payload: { matchId: string; status: string; chatId?: string | null }) {
+    const sockets = this.userSockets.get(userId);
+    if (!sockets?.size) return;
+
+    for (const socketId of sockets) {
+      this.server.to(socketId).emit('match.updated', payload);
+    }
+  }
+
+  emitMessageRead(
+    userId: string,
+    payload: { chatId: string; messageIds: string[]; readBy: string; readCount: number },
+  ) {
+    const sockets = this.userSockets.get(userId);
+    if (!sockets?.size) return;
+
+    for (const socketId of sockets) {
+      this.server.to(socketId).emit('message.read', payload);
+    }
+  }
+
+  @SubscribeMessage('message.read')
+  async handleMessageRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { chatId?: string; messageIds?: string[] },
+  ) {
+    const userId = client.data.userId as string | undefined;
+    if (!userId || !body.chatId) {
+      return { success: false };
+    }
+
+    try {
+      const result = await this.chatService.markMessagesRead(
+        userId,
+        body.chatId,
+        body.messageIds,
+      );
+      return { success: true, data: result };
+    } catch (error) {
+      this.logger.warn(
+        `WS message.read failed: ${error instanceof Error ? error.message : error}`,
+      );
+      return { success: false };
+    }
+  }
 }

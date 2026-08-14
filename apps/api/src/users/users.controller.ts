@@ -66,6 +66,13 @@ export class UsersController {
     return { success: true, data };
   }
 
+  @Get('users/me/export')
+  @ApiOperation({ summary: 'Export user data (GDPR)' })
+  async exportData(@CurrentUser() user: User): Promise<{ success: boolean; data: unknown }> {
+    const data = await this.usersService.exportUserData(user.id);
+    return { success: true, data };
+  }
+
   @Post('media/presign')
   @ApiOperation({ summary: 'Get avatar upload URL' })
   async presign(

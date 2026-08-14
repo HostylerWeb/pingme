@@ -120,4 +120,41 @@ export class UsersService {
       },
     });
   }
+
+  async exportUserData(userId: string): Promise<{
+    exportedAt: string;
+    user: Record<string, unknown>;
+  }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        settings: true,
+        wallPosts: { take: 500, orderBy: { createdAt: 'desc' } },
+        wallReplies: { take: 500, orderBy: { createdAt: 'desc' } },
+        messagesSent: { take: 500, orderBy: { createdAt: 'desc' } },
+        reportsFiled: { take: 100, orderBy: { createdAt: 'desc' } },
+        verifications: { orderBy: { createdAt: 'desc' } },
+        devices: { select: { id: true, platform: true, createdAt: true } },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+
+    await this.audit.log({
+      userId,
+      action: 'user.export',
+      entityType: 'user',
+      entityId: userId,
+    });
+
+    return {
+      exportedAt: new Date().toISOString(),
+      user: safeUser as Record<string, unknown>,
+    };
+  }
 }

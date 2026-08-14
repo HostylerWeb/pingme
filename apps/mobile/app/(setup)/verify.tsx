@@ -6,13 +6,19 @@ import { useAuthStore } from '../../src/stores/auth-store';
 
 export default function VerifyScreen() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [code, setCode] = useState('');
+  const usePhone = !!user?.phone && !user.phoneVerified;
 
   const resend = async () => {
     try {
-      await api.sendEmailOtp();
-      Alert.alert('Code sent', 'Check the API server logs in development.');
+      if (usePhone) {
+        await api.sendPhoneOtp();
+      } else {
+        await api.sendEmailOtp();
+      }
+      Alert.alert('Code sent', usePhone ? 'Check your SMS messages.' : 'Check the API server logs in development.');
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Could not send code';
       Alert.alert('Error', message);
@@ -21,7 +27,11 @@ export default function VerifyScreen() {
 
   const verify = async () => {
     try {
-      await api.verifyEmail(code.trim());
+      if (usePhone) {
+        await api.verifyPhone(code.trim());
+      } else {
+        await api.verifyEmail(code.trim());
+      }
       await refreshMe();
       router.replace('/(setup)/profile');
     } catch (error) {
@@ -32,8 +42,10 @@ export default function VerifyScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Verify your email</Text>
-      <Text style={styles.hint}>Enter the 6-digit code. In dev, check the API terminal.</Text>
+      <Text style={styles.title}>{usePhone ? 'Verify your phone' : 'Verify your email'}</Text>
+      <Text style={styles.hint}>
+        Enter the 6-digit code sent to {usePhone ? user?.phone : user?.email}. In dev, check the API terminal.
+      </Text>
       <TextInput
         style={styles.input}
         placeholder="123456"

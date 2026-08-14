@@ -274,6 +274,43 @@ export class AdminUsersController {
     return result;
   }
 
+  @Post(':id/verification/start-kyc')
+  @Roles(AdminRole.moderator, AdminRole.super_admin)
+  async startKyc(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentAdmin() admin: { id: string },
+  ) {
+    const result = await this.users.startKyc(id);
+
+    await this.adminAudit.log({
+      adminUserId: admin.id,
+      action: 'user.start_kyc',
+      entityType: 'user',
+      entityId: id,
+      metadata: { sessionId: result.data.sessionId },
+    });
+
+    return result;
+  }
+
+  @Post(':id/verification/clear-review')
+  @Roles(AdminRole.moderator, AdminRole.super_admin)
+  async clearReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentAdmin() admin: { id: string },
+  ) {
+    const result = await this.users.clearAdminReview(id);
+
+    await this.adminAudit.log({
+      adminUserId: admin.id,
+      action: 'user.clear_admin_review',
+      entityType: 'user',
+      entityId: id,
+    });
+
+    return result;
+  }
+
   @Patch(':id/verification/liveness')
   @Roles(AdminRole.moderator, AdminRole.super_admin)
   async setLivenessStatus(

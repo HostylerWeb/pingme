@@ -210,6 +210,11 @@ export class AuthService {
       throw new BadRequestException('No phone on account');
     }
 
+    if (this.smsService.usesTwilioVerify()) {
+      await this.smsService.sendOtp(user.phone, '');
+      return { success: true, message: 'Verification code sent' };
+    }
+
     const code = await this.createOtp(userId, OtpType.phone_verify);
     await this.smsService.sendOtp(user.phone, code);
 
@@ -226,7 +231,20 @@ export class AuthService {
   }
 
   async verifyPhone(userId: string, dto: VerifyOtpInput) {
-    await this.verifyOtp(userId, OtpType.phone_verify, dto.code);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.phone) {
+      throw new BadRequestException('No phone on account');
+    }
+
+    if (this.smsService.usesTwilioVerify()) {
+      const approved = await this.smsService.verifyOtp(user.phone, dto.code);
+      if (!approved) {
+        throw new BadRequestException('Invalid or expired code');
+      }
+    } else {
+      await this.verifyOtp(userId, OtpType.phone_verify, dto.code);
+    }
+
     await this.prisma.user.update({
       where: { id: userId },
       data: { phoneVerified: true, status: UserStatus.active },

@@ -40,7 +40,7 @@ describe('AuthService', () => {
 
   const audit = { log: jest.fn() };
   const emailService = { sendOtp: jest.fn() };
-  const smsService = { sendOtp: jest.fn() };
+  const smsService = { sendOtp: jest.fn(), verifyOtp: jest.fn(), usesTwilioVerify: jest.fn().mockReturnValue(false) };
   const jwtService = { signAsync: jest.fn().mockResolvedValue('access-token') };
   const config = {
     get: jest.fn((key: string, fallback?: string) => {
@@ -108,5 +108,50 @@ describe('AuthService', () => {
         {},
       ),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('logs in with valid credentials', async () => {
+    prisma.user.findFirst.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      passwordHash: '$2b$12$hashed',
+      deletedAt: null,
+      status: 'active',
+      profile: {},
+      settings: {},
+    });
+    jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(true);
+    prisma.user.update.mockResolvedValue({});
+    prisma.refreshToken.create.mockResolvedValue({});
+
+    const result = await service.login(
+      { email: 'user@example.com', password: 'Password123!' },
+      {},
+    );
+
+    expect(result.accessToken).toBe('access-token');
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'auth.login', userId: 'user-1' }),
+    );
+  });
+
+  it('rejects invalid login credentials', async () => {
+    prisma.user.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.login({ email: 'missing@example.com', password: 'Password123!' }, {}),
+    ).rejects.toThrow('Invalid credentials');
+  });
+
+  it('verifies phone with Twilio Verify when configured', async () => {
+    smsService.usesTwilioVerify.mockReturnValue(true);
+    smsService.verifyOtp.mockResolvedValue(true);
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', phone: '+15551234567' });
+    prisma.user.update.mockResolvedValue({});
+
+    const result = await service.verifyPhone('user-1', { code: '123456' });
+
+    expect(result.verified).toBe(true);
+    expect(smsService.verifyOtp).toHaveBeenCalledWith('+15551234567', '123456');
   });
 });

@@ -273,6 +273,12 @@ export default function UserDetailPage() {
                   <Button variant="secondary" disabled={saving} onClick={() => verificationAction('/verification/reset-liveness')}>
                     Force re-verify
                   </Button>
+                  <Button variant="secondary" disabled={saving} onClick={() => verificationAction('/verification/start-kyc')}>
+                    Start full KYC
+                  </Button>
+                  <Button variant="secondary" disabled={saving} onClick={() => verificationAction('/verification/clear-review')}>
+                    Clear review flag
+                  </Button>
                   <Button disabled={saving} onClick={() => verificationAction('/verification/liveness', 'PATCH', { status: 'passed' })}>
                     Mark passed
                   </Button>

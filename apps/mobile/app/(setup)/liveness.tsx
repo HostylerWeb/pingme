@@ -140,9 +140,17 @@ export default function LivenessScreen() {
             <Text style={styles.buttonText}>Try again</Text>
           </Pressable>
           {error ? (
-            <Pressable style={styles.secondaryButton} onPress={() => void Linking.openSettings()}>
-              <Text style={styles.secondaryButtonText}>Open Settings</Text>
-            </Pressable>
+            <>
+              <Pressable style={styles.secondaryButton} onPress={() => void Linking.openSettings()}>
+                <Text style={styles.secondaryButtonText}>Open Settings</Text>
+              </Pressable>
+              <Pressable
+                style={styles.secondaryButton}
+                onPress={() => void Linking.openURL('mailto:support@hostyler.com?subject=PingMe%20verification%20help')}
+              >
+                <Text style={styles.secondaryButtonText}>Contact support</Text>
+              </Pressable>
+            </>
           ) : null}
         </View>
       ) : null}

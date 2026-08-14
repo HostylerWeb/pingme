@@ -34,8 +34,9 @@ Confirm background location pings work on a **physical device** with the Expo de
 - Document actual ping intervals observed on your device model here:
 
 ```
-Device: _______________
-OS version: ___________
-Foreground interval: ~____s
-Background interval: ~____min
+Device: Physical iOS or Android phone (required)
+OS version: Latest stable on test device
+Foreground interval: ~60s (expected)
+Background interval: ~3min (expected)
+Status: Run `pnpm --filter @pingme/mobile eas:build:dev` and complete on device before Phase 3+
 ```

@@ -123,6 +123,47 @@ export const api = {
       body: JSON.stringify({ code }),
     }),
 
+  sendPhoneOtp: () => apiFetch('/auth/verify-phone/send', { method: 'POST' }),
+
+  verifyPhone: (code: string) =>
+    apiFetch('/auth/verify-phone', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  forgotPassword: (payload: { email?: string; phone?: string }) =>
+    apiFetch<{ success: boolean; message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  resetPassword: (payload: { token: string; password: string }) =>
+    apiFetch<{ success: boolean }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  presignAvatar: (payload: { fileName: string; contentType: string }) =>
+    apiFetch<{
+      success: boolean;
+      data: { uploadUrl: string; key: string; publicUrl: string };
+    }>('/media/presign', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  confirmAvatar: (payload: { key: string }) =>
+    apiFetch<{ success: boolean; data: { avatarUrl: string | null } }>('/media/confirm', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  markChatRead: (chatId: string, messageIds?: string[]) =>
+    apiFetch(`/chats/${chatId}/read`, {
+      method: 'POST',
+      body: JSON.stringify({ messageIds }),
+    }),
+
   startVerification: () =>
     apiFetch<{
       success: boolean;

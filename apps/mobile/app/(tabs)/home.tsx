@@ -1,8 +1,9 @@
 import { distanceLabel } from '@pingme/shared';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Modal,
   Pressable,
@@ -96,6 +97,32 @@ export default function WallScreen() {
   const pendingMatch = matchesData?.data.find((m) => m.status === 'pending');
   const icebreakerActive = icebreakerData?.data?.status === 'active';
   const icebreakerMatched = icebreakerData?.data?.status === 'matched';
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!icebreakerActive && !icebreakerMatched) return;
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.4, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [icebreakerActive, icebreakerMatched, pulseAnim]);
+
+  useEffect(() => {
+    if (!icebreakerMatched) return;
+    const matchId = icebreakerData?.data?.matchedSessionId;
+    if (matchId) {
+      router.push(`/match/${matchId}`);
+      return;
+    }
+    if (pendingMatch) {
+      router.push(`/match/${pendingMatch.id}`);
+    }
+  }, [icebreakerMatched, icebreakerData?.data?.matchedSessionId, pendingMatch, router]);
 
   const onCreatePost = useCallback(async () => {
     if (!coords || !draft.trim()) return;
@@ -165,14 +192,14 @@ export default function WallScreen() {
           <>
             <Text style={styles.icebreakerHint}>Match found — opening...</Text>
             <View style={styles.pulseRow}>
-              <View style={styles.pulseDot} />
+              <Animated.View style={[styles.pulseDot, { transform: [{ scale: pulseAnim }] }]} />
               <Text style={styles.icebreakerHint}>Waiting for match details...</Text>
             </View>
           </>
         ) : icebreakerActive ? (
           <>
             <View style={styles.pulseRow}>
-              <View style={styles.pulseDot} />
+              <Animated.View style={[styles.pulseDot, { transform: [{ scale: pulseAnim }] }]} />
               <Text style={styles.icebreakerHint}>Waiting for someone nearby...</Text>
             </View>
             <Pressable

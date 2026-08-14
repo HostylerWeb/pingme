@@ -13,6 +13,7 @@ import {
 } from '@pingme/db';
 import { AuthService } from '../../auth/auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { VerificationService } from '../../verification/verification.service';
 
 export interface UpdateAdminUserInput {
   email?: string | null;
@@ -33,6 +34,7 @@ export class AdminUsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
+    private readonly verificationService: VerificationService,
   ) {}
 
   async list(params: { q?: string; status?: UserStatus; page?: number; limit?: number }) {
@@ -137,6 +139,7 @@ export class AdminUsersService {
         emailVerified: user.emailVerified,
         phoneVerified: user.phoneVerified,
         livenessVerified,
+        requiresAdminReview: user.requiresAdminReview,
         isAvailable: user.isAvailable,
         createdAt: user.createdAt,
         lastSeenAt: user.lastSeenAt,
@@ -233,6 +236,20 @@ export class AdminUsersService {
     });
 
     return { success: true, message: 'Liveness verification reset — user must re-verify' };
+  }
+
+  async startKyc(id: string) {
+    const user = await this.requireUser(id);
+    return this.verificationService.startKycForUser(user.id, user.email);
+  }
+
+  async clearAdminReview(id: string) {
+    await this.requireUser(id);
+    return this.prisma.user.update({
+      where: { id },
+      data: { requiresAdminReview: false },
+      select: { id: true, requiresAdminReview: true },
+    });
   }
 
   async setLivenessStatus(id: string, status: VerificationStatus) {

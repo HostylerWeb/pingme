@@ -30,6 +30,11 @@ interface DashboardStats {
     displayName: string | null;
     status: string | null;
   }>;
+  verificationReviewUsers: Array<{
+    userId: string;
+    displayName: string | null;
+    status: string | null;
+  }>;
 }
 
 export default function DashboardPage() {
@@ -118,6 +123,29 @@ export default function DashboardPage() {
                             <p className="text-sm text-red-300">{u.reportCount} reports in 24h</p>
                           </div>
                           <Badge color="red">{u.status ?? 'unknown'}</Badge>
+                        </div>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h2 className="mb-3 text-lg font-medium text-white">Verification review queue</h2>
+              {stats.verificationReviewUsers.length === 0 ? (
+                <Card><p className="text-sm text-zinc-400">No users flagged by Didit review.</p></Card>
+              ) : (
+                <div className="space-y-2">
+                  {stats.verificationReviewUsers.map((u) => (
+                    <Link key={u.userId} href={`/users/${u.userId}`}>
+                      <Card className="transition hover:border-amber-500/40">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-white">{u.displayName ?? u.userId}</p>
+                            <p className="text-sm text-amber-300">Requires admin review</p>
+                          </div>
+                          <Badge color="yellow">{u.status ?? 'unknown'}</Badge>
                         </div>
                       </Card>
                     </Link>

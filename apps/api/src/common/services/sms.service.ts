@@ -7,6 +7,45 @@ export class SmsService {
 
   constructor(private readonly config: ConfigService) {}
 
+  usesTwilioVerify(): boolean {
+    return !!(
+      this.config.get<string>('TWILIO_ACCOUNT_SID') &&
+      this.config.get<string>('TWILIO_AUTH_TOKEN') &&
+      this.config.get<string>('TWILIO_VERIFY_SERVICE_SID')
+    );
+  }
+
+  async verifyOtp(to: string, code: string): Promise<boolean> {
+    const accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID');
+    const authToken = this.config.get<string>('TWILIO_AUTH_TOKEN');
+    const verifyServiceSid = this.config.get<string>('TWILIO_VERIFY_SERVICE_SID');
+
+    if (!accountSid || !authToken || !verifyServiceSid) {
+      return false;
+    }
+
+    const response = await fetch(
+      `https://verify.twilio.com/v2/Services/${verifyServiceSid}/VerificationCheck`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ To: to, Code: code }),
+      },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      this.logger.warn(`Twilio Verify check failed: ${response.status} ${text}`);
+      return false;
+    }
+
+    const body = (await response.json()) as { status?: string };
+    return body.status === 'approved';
+  }
+
   async sendOtp(to: string, code: string) {
     const accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID');
     const authToken = this.config.get<string>('TWILIO_AUTH_TOKEN');

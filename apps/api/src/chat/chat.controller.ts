@@ -59,4 +59,14 @@ export class ChatController {
   close(@CurrentUser() user: User, @Param('id') id: string) {
     return this.chatService.closeChat(user.id, id);
   }
+
+  @Post(':id/read')
+  @ApiOperation({ summary: 'Mark messages as read' })
+  markRead(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() body: { messageIds?: string[] },
+  ) {
+    return this.chatService.markMessagesRead(user.id, id, body.messageIds);
+  }
 }
