@@ -18,7 +18,7 @@ for kv in \
   "PAYMENT_PROVIDER=none" \
   "CORS_ORIGINS=https://admin.hostyler.cloud,https://pingme.hostyler.cloud" \
   "API_PUBLIC_URL=https://pingme.hostyler.cloud/v1" \
-  "UPLOADS_DIR=uploads" \
+  "UPLOADS_DIR=uploads"
 do
   key="${kv%%=*}"
   if grep -q "^${key}=" "$SITE_DIR/.env"; then
