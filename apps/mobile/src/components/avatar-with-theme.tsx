@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
-import { colors, fontFamilies, typography } from '../theme';
+import { fontFamilies, typography, useThemedStyles } from '../theme';
 
 type ThemeId = (typeof PREMIUM_AVATAR_THEMES)[number]['id'];
 
@@ -24,9 +24,43 @@ export function AvatarWithTheme({
   size?: number;
   showPremiumBadge?: boolean;
 }) {
-  const colors = getThemeColors(themeId);
+  const gradientColors = getThemeColors(themeId);
   const innerSize = size - 8;
   const initial = (displayName ?? 'U').charAt(0).toUpperCase();
+
+  const styles = useThemedStyles(({ colors }) => ({
+    ring: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    inner: {
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    placeholder: {
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    initial: {
+      fontFamily: fontFamilies.headline,
+      fontWeight: '700',
+      color: colors.inkSecondary,
+    },
+    premiumBadge: {
+      marginTop: 8,
+      backgroundColor: colors.premiumSurfaceMuted,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 999,
+    },
+    premiumBadgeText: {
+      ...typography.labelSm,
+      color: colors.premiumOnSurface,
+    },
+  }));
 
   const avatarContent = avatarUrl ? (
     <Image source={{ uri: avatarUrl }} style={{ width: innerSize, height: innerSize, borderRadius: innerSize / 2 }} />
@@ -38,8 +72,8 @@ export function AvatarWithTheme({
 
   return (
     <View style={{ alignItems: 'center' }}>
-      {colors ? (
-        <LinearGradient colors={colors as [string, string, ...string[]]} style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }]}>
+      {gradientColors ? (
+        <LinearGradient colors={gradientColors as [string, string, ...string[]]} style={[styles.ring, { width: size, height: size, borderRadius: size / 2 }]}>
           <View style={[styles.inner, { width: innerSize, height: innerSize, borderRadius: innerSize / 2 }]}>
             {avatarContent}
           </View>
@@ -55,39 +89,5 @@ export function AvatarWithTheme({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  ring: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inner: {
-    backgroundColor: colors.surfaceBright,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  placeholder: {
-    backgroundColor: colors.surfaceContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initial: {
-    fontFamily: fontFamilies.headline,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-  },
-  premiumBadge: {
-    marginTop: 8,
-    backgroundColor: colors.premiumSurfaceMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  premiumBadgeText: {
-    ...typography.labelSm,
-    color: colors.premiumOnSurface,
-  },
-});
 
 export type { ThemeId };

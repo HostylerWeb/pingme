@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -17,12 +16,22 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../src/lib/api';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
-import { Button, Card, DistancePill, EmptyState, PostDetailSkeleton } from '../../src/components/ui';
-import { colors, radius, spacing, typography } from '../../src/theme';
+import { showToast } from '../../src/stores/toast-store';
+import {
+  AppHeader,
+  Avatar,
+  Button,
+  Card,
+  DistancePill,
+  EmptyState,
+  PostDetailSkeleton,
+  SectionLabel,
+} from '../../src/components/ui';
+import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
-function distanceTone(bucket: string): 'neutral' | 'near' | 'tertiary' {
+function distanceTone(bucket: string): 'neutral' | 'near' | 'accent' {
   if (bucket === 'very_near') return 'near';
-  if (bucket === '~200m' || bucket === '~300m') return 'tertiary';
+  if (bucket === '~200m' || bucket === '~300m') return 'accent';
   return 'neutral';
 }
 
@@ -31,12 +40,137 @@ export default function PostDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const [reply, setReply] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [connectingReplyId, setConnectingReplyId] = useState<string | null>(null);
   const { ensureVerified, handleLivenessError } = useLivenessGate();
 
-  const { data, isLoading } = useQuery({
+  const styles = useThemedStyles(({ colors }) => ({
+    container: { flex: 1, backgroundColor: colors.background },
+    list: {
+      paddingHorizontal: spacing.container,
+      paddingBottom: 100,
+    },
+    postCard: {
+      marginTop: spacing.md,
+      marginBottom: spacing.xl,
+      padding: spacing.xl,
+    },
+    postHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginBottom: spacing.lg,
+    },
+    postMeta: { flex: 1, gap: 4 },
+    author: {
+      ...typography.headlineMd,
+      color: colors.ink,
+      fontSize: 17,
+    },
+    content: {
+      ...typography.bodyLg,
+      color: colors.ink,
+      lineHeight: 28,
+      letterSpacing: -0.1,
+    },
+    repliesHeader: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+      marginBottom: spacing.md,
+    },
+    replyCount: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+    },
+    replyThread: {
+      flexDirection: 'row',
+      gap: spacing.md,
+      marginBottom: spacing.md,
+    },
+    threadRail: {
+      width: 16,
+      alignItems: 'center',
+      paddingTop: spacing.lg,
+    },
+    threadDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.accentMuted,
+    },
+    threadLine: {
+      flex: 1,
+      width: 1.5,
+      backgroundColor: colors.divider,
+      marginTop: spacing.xs,
+      minHeight: 24,
+    },
+    replyCard: {
+      flex: 1,
+      padding: spacing.lg,
+    },
+    replyHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    replyMeta: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    replyAuthor: {
+      ...typography.bodySemiBold,
+      color: colors.ink,
+      flex: 1,
+    },
+    connectBtn: {
+      minWidth: 88,
+    },
+    replyContent: {
+      ...typography.bodyMd,
+      color: colors.inkSecondary,
+      lineHeight: 24,
+      paddingLeft: 44,
+    },
+    composer: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.container,
+      paddingTop: spacing.md,
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+    },
+    input: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.outlineVariant,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      ...typography.bodyMd,
+      backgroundColor: colors.surfaceMuted,
+      color: colors.ink,
+    },
+    sendButton: {
+      backgroundColor: colors.accent,
+      borderRadius: 22,
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sendDisabled: { opacity: 0.45 },
+  }));
+
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['wall-post', id],
     queryFn: () => api.getWallPost(id!),
     enabled: !!id,
@@ -51,7 +185,7 @@ export default function PostDetailScreen() {
     },
     onError: (error: Error) => {
       if (!handleLivenessError(error)) {
-        alert(error.message);
+        showToast(error.message, 'error');
       }
     },
     onSettled: () => setConnectingReplyId(null),
@@ -68,10 +202,11 @@ export default function PostDetailScreen() {
       setReply('');
       await queryClient.invalidateQueries({ queryKey: ['wall-post', id] });
       await queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+      showToast('Reply posted', 'success');
     } catch (error) {
       if (!handleLivenessError(error)) {
         const message = error instanceof ApiError ? error.message : 'Could not reply';
-        alert(message);
+        showToast(message, 'error');
       }
     } finally {
       setSubmitting(false);
@@ -84,7 +219,7 @@ export default function PostDetailScreen() {
     requestMatchMutation.mutate(replyId);
   };
 
-  if (isLoading || !post) {
+  if (isLoading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <PostDetailSkeleton />
@@ -92,40 +227,57 @@ export default function PostDetailScreen() {
     );
   }
 
+  if (isError || !post) {
+    return (
+      <View style={styles.container}>
+        <AppHeader title="Post" showBrand={false} onBack={() => router.back()} centerTitle />
+        <EmptyState
+          icon="document-text-outline"
+          title="Post not found"
+          message="This post may have been removed or is no longer nearby."
+          action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
+        />
+      </View>
+    );
+  }
+
+  const authorName = post.author.isYou ? 'You' : post.author.displayName;
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Post</Text>
-        <View style={styles.backBtn} />
-      </View>
-
-      <Card style={styles.postCard}>
-        <View style={styles.postHeader}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {(post.author.isYou ? 'Y' : post.author.displayName).charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <View>
-            <Text style={styles.author}>{post.author.isYou ? 'You' : post.author.displayName}</Text>
-            <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
-          </View>
-        </View>
-        <Text style={styles.content}>{post.content}</Text>
-      </Card>
+      <AppHeader title="Post" showBrand={false} onBack={() => router.back()} centerTitle />
 
       <FlatList
         data={post.replies}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.replies}
-        ListHeaderComponent={<Text style={styles.repliesTitle}>Replies</Text>}
+        contentContainerStyle={styles.list}
+        ListHeaderComponent={
+          <>
+            <Card style={styles.postCard} variant="elevated">
+              <View style={styles.postHeader}>
+                <Avatar uri={post.author.avatarUrl} name={authorName} size="md" />
+                <View style={styles.postMeta}>
+                  <Text style={styles.author}>{authorName}</Text>
+                  <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
+                </View>
+              </View>
+              <Text style={styles.content}>{post.content}</Text>
+            </Card>
+
+            <View style={styles.repliesHeader}>
+              <SectionLabel>Replies</SectionLabel>
+              {post.replies.length > 0 ? (
+                <Text style={styles.replyCount}>
+                  {post.replies.length} {post.replies.length === 1 ? 'reply' : 'replies'}
+                </Text>
+              ) : null}
+            </View>
+          </>
+        }
         ListEmptyComponent={
           <EmptyState
             icon="chatbubble-outline"
@@ -133,36 +285,45 @@ export default function PostDetailScreen() {
             message="Be the first to respond to this post."
           />
         }
-        renderItem={({ item }) => (
-          <Card style={styles.replyCard}>
-            <View style={styles.replyHeader}>
-              <Text style={styles.replyAuthor}>
-                {item.author.isYou ? 'You' : item.author.displayName}
-              </Text>
-              {!item.author.isYou ? (
-                <Pressable
-                  style={styles.connectButton}
-                  onPress={() => onConnect(item.id)}
-                  disabled={connectingReplyId === item.id}
-                >
-                  {connectingReplyId === item.id ? (
-                    <ActivityIndicator color={colors.primary} size="small" />
-                  ) : (
-                    <Text style={styles.connectText}>Connect</Text>
-                  )}
-                </Pressable>
-              ) : null}
+        renderItem={({ item, index }) => {
+          const replyName = item.author.isYou ? 'You' : item.author.displayName;
+          const isLast = index === post.replies.length - 1;
+
+          return (
+            <View style={styles.replyThread}>
+              <View style={styles.threadRail}>
+                <View style={styles.threadDot} />
+                {!isLast ? <View style={styles.threadLine} /> : null}
+              </View>
+              <Card style={styles.replyCard} variant="flat">
+                <View style={styles.replyHeader}>
+                  <Avatar uri={item.author.avatarUrl} name={replyName} size="sm" />
+                  <View style={styles.replyMeta}>
+                    <Text style={styles.replyAuthor}>{replyName}</Text>
+                    {!item.author.isYou ? (
+                      <Button
+                        label="Connect"
+                        variant="outline"
+                        size="sm"
+                        onPress={() => onConnect(item.id)}
+                        loading={connectingReplyId === item.id}
+                        style={styles.connectBtn}
+                      />
+                    ) : null}
+                  </View>
+                </View>
+                <Text style={styles.replyContent}>{item.content}</Text>
+              </Card>
             </View>
-            <Text style={styles.replyContent}>{item.content}</Text>
-          </Card>
-        )}
+          );
+        }}
       />
 
       <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.sm }]}>
         <TextInput
           style={styles.input}
           placeholder="Write a reply..."
-          placeholderTextColor={colors.outline}
+          placeholderTextColor={colors.inkMuted}
           value={reply}
           onChangeText={setReply}
           maxLength={300}
@@ -173,90 +334,12 @@ export default function PostDetailScreen() {
           disabled={submitting || !reply.trim()}
         >
           {submitting ? (
-            <ActivityIndicator color={colors.onPrimary} size="small" />
+            <ActivityIndicator color={colors.onAccent} size="small" />
           ) : (
-            <Ionicons name="send" size={18} color={colors.onPrimary} />
+            <Ionicons name="send" size={18} color={colors.onAccent} />
           )}
         </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.container,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surfaceBright,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-  },
-  backBtn: { width: 40 },
-  headerTitle: { flex: 1, ...typography.headlineMd, fontSize: 17, textAlign: 'center', color: colors.onSurface },
-  postCard: { margin: spacing.container, marginBottom: spacing.md },
-  postHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryFixed,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { ...typography.headlineMd, color: colors.primary, fontSize: 18 },
-  author: { ...typography.headlineMd, color: colors.onSurface, fontSize: 17, marginBottom: 4 },
-  content: { ...typography.bodyLg, color: colors.onSurface, lineHeight: 26 },
-  replies: { paddingHorizontal: spacing.container, paddingBottom: 100 },
-  repliesTitle: { ...typography.headlineMd, color: colors.onSurface, marginBottom: spacing.md },
-  replyCard: { marginBottom: spacing.md, padding: spacing.lg },
-  replyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  replyAuthor: { ...typography.bodySemiBold, color: colors.onSurface, flex: 1 },
-  connectButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  connectText: { ...typography.labelSm, color: colors.primary, textTransform: 'none', letterSpacing: 0 },
-  replyContent: { ...typography.bodyMd, color: colors.onSurfaceVariant, lineHeight: 22 },
-  composer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    padding: spacing.md,
-    backgroundColor: colors.surfaceBright,
-    borderTopWidth: 1,
-    borderTopColor: colors.cardBorder,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    borderRadius: radius.card,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    ...typography.bodyMd,
-    backgroundColor: colors.surfaceContainerLow,
-    color: colors.onSurface,
-  },
-  sendButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 22,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendDisabled: { opacity: 0.5 },
-});

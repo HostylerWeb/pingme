@@ -1,110 +1,163 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { GenderValue } from '@pingme/shared';
 import { ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
-import { Button, Input, Screen, SegmentedControl } from '../../src/components/ui';
-import { colors, radius, spacing, typography } from '../../src/theme';
+import { showToast } from '../../src/stores/toast-store';
+import { Button, DateOfBirthField, GenderPicker, Input, PasswordInput, Screen, SegmentedControl } from '../../src/components/ui';
+import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
+  const { colors } = useTheme();
   const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('1995-01-01');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [gender, setGender] = useState<GenderValue | null>(null);
+
+  const styles = useThemedStyles(({ colors }) => ({
+    flex: { flex: 1 },
+    scroll: { flexGrow: 1, padding: spacing.container, paddingTop: spacing.section },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: spacing.xl,
+    },
+    logoDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.accent,
+    },
+    brandText: {
+      ...typography.overline,
+      color: colors.inkTertiary,
+      fontSize: 10,
+    },
+    title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
+    subtitle: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xl },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.card,
+      padding: spacing.xl,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    notice: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+      backgroundColor: colors.accentSoft,
+      padding: spacing.md,
+      borderRadius: radius.md,
+      marginBottom: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.accentMuted,
+    },
+    noticeText: { ...typography.caption, color: colors.inkSecondary, flex: 1, lineHeight: 18 },
+    privacy: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.onlineSoft,
+      padding: spacing.md,
+      borderRadius: radius.md,
+      marginBottom: spacing.lg,
+    },
+    privacyText: { ...typography.bodyMd, color: colors.onSecondaryContainer, flex: 1 },
+    link: { ...typography.bodyMd, color: colors.accent, textAlign: 'center', marginTop: spacing.xl },
+  }));
 
   const onSubmit = async () => {
+    if (!gender) return;
     try {
       await register({
         ...(mode === 'phone' ? { phone: phone.trim() } : { email: email.trim() }),
         password,
         dateOfBirth,
+        gender,
         displayName: displayName.trim() || undefined,
       });
       router.replace('/(setup)/verify');
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Registration failed';
-      Alert.alert('Sign up failed', message);
+      showToast(message, 'error');
     }
   };
 
   return (
     <Screen padded={false} edges={['top', 'bottom']}>
-      <LinearGradient colors={[colors.background, colors.surfaceContainerLow, '#fff7ed']} style={styles.gradient}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-            <Text style={styles.brand}>PingMe</Text>
-            <Text style={styles.title}>Create account</Text>
-            <Text style={styles.subtitle}>Join your digital neighborhood.</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.brandRow}>
+            <View style={styles.logoDot} />
+            <Text style={styles.brandText}>PingMe</Text>
+          </View>
 
-            <View style={styles.card}>
-              <SegmentedControl
-                options={[
-                  { label: 'Email', value: 'email' },
-                  { label: 'Phone', value: 'phone' },
-                ]}
-                value={mode}
-                onChange={setMode}
-              />
+          <Text style={styles.title}>Create account</Text>
+          <Text style={styles.subtitle}>Join your digital neighborhood.</Text>
 
-              <Input label="Display name" placeholder="Jane Doe" value={displayName} onChangeText={setDisplayName} />
+          <View style={styles.card}>
+            <SegmentedControl
+              options={[
+                { label: 'Email', value: 'email' },
+                { label: 'Phone', value: 'phone' },
+              ]}
+              value={mode}
+              onChange={setMode}
+            />
 
-              {mode === 'phone' ? (
-                <Input label="Phone" placeholder="+15551234567" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
-              ) : (
-                <Input label="Email" placeholder="hello@example.com" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
-              )}
+            <Input label="Display name" placeholder="Jane Doe" value={displayName} onChangeText={setDisplayName} />
 
-              <Input label="Password" placeholder="Create a password" secureTextEntry value={password} onChangeText={setPassword} />
-              <Input label="Date of birth (18+)" placeholder="YYYY-MM-DD" value={dateOfBirth} onChangeText={setDateOfBirth} />
+            {mode === 'phone' ? (
+              <Input label="Phone" placeholder="+15551234567" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+            ) : (
+              <Input label="Email" placeholder="hello@example.com" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
+            )}
 
-              <View style={styles.privacy}>
-                <Ionicons name="shield-checkmark-outline" size={18} color={colors.secondary} />
-                <Text style={styles.privacyText}>Your exact location is never shared.</Text>
-              </View>
+            <PasswordInput label="Password" placeholder="Create a password" value={password} onChangeText={setPassword} />
+            <DateOfBirthField value={dateOfBirth} onChange={(apiValue) => setDateOfBirth(apiValue)} />
 
-              <Button label="Sign up" onPress={onSubmit} loading={isLoading} />
+            <GenderPicker value={gender} onChange={setGender} />
+
+            <View style={styles.notice}>
+              <Ionicons name="information-circle-outline" size={18} color={colors.accent} />
+              <Text style={styles.noticeText}>
+                Gender is required and cannot be changed later. Choose carefully before signing up.
+              </Text>
             </View>
 
-            <Link href="/(auth)/login" style={styles.link}>
-              Already have an account? Log in
-            </Link>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </LinearGradient>
+            <View style={styles.privacy}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.online} />
+              <Text style={styles.privacyText}>Your exact location is never shared.</Text>
+            </View>
+
+            <Button
+              label="Sign up"
+              onPress={onSubmit}
+              loading={isLoading}
+              disabled={
+                !gender ||
+                !password.trim() ||
+                !dateOfBirth.trim() ||
+                (mode === 'email' ? !email.trim() : !phone.trim())
+              }
+            />
+          </View>
+
+          <Link href="/(auth)/login" style={styles.link}>
+            Already have an account? Log in
+          </Link>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  gradient: { flex: 1 },
-  scroll: { flexGrow: 1, padding: spacing.container, paddingTop: spacing.section },
-  brand: { ...typography.headlineLg, color: colors.primary, marginBottom: spacing.xl },
-  title: { ...typography.display, color: colors.onSurface, marginBottom: spacing.sm },
-  subtitle: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.xl },
-  card: {
-    backgroundColor: colors.surfaceBright,
-    borderRadius: radius.card,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  privacy: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.surfaceContainerLow,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    marginBottom: spacing.lg,
-  },
-  privacyText: { ...typography.bodyMd, color: colors.onSecondaryContainer, flex: 1, fontSize: 14 },
-  link: { ...typography.bodyMd, color: colors.primary, textAlign: 'center', marginTop: spacing.xl },
-});

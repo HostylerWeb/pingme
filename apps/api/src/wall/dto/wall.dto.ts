@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateWallPostDto {
   @IsString()
@@ -20,6 +20,10 @@ export class CreateWallPostDto {
   @IsNumber()
   @Min(0)
   accuracy?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  showPhoto?: boolean;
 }
 
 export class CreateWallReplyDto {

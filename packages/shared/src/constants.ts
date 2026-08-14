@@ -4,6 +4,7 @@ export const MAX_RADIUS_METERS = 500;
 export const ICEBREAKER_RADIUS_METERS = 150;
 export const ICEBREAKER_WINDOW_MINUTES = 10;
 export const ICEBREAKER_HIDE_MINUTES = 10;
+export const ICEBREAKER_INTEREST_EXPIRY_MINUTES = 10;
 export const MATCH_EXPIRY_MINUTES = 30;
 export const ICEBREAKER_STARTS_PER_HOUR = 5;
 export const MAX_ICEBREAKER_INTRO_LENGTH = 100;
@@ -26,6 +27,19 @@ export const MAX_WALL_REPLY_LENGTH = 300;
 export const MAX_MESSAGE_LENGTH = 2000;
 
 export const MIN_AGE_YEARS = 18;
+
+export const GENDER_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'transgender', label: 'Transgender' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+export type GenderValue = (typeof GENDER_OPTIONS)[number]['value'];
+
+export function genderLabel(value: string | null | undefined): string {
+  return GENDER_OPTIONS.find((option) => option.value === value)?.label ?? '—';
+}
 
 export const SUBSCRIPTION_PLANS = {
   free: {

@@ -1,54 +1,75 @@
 import { TextStyle } from 'react-native';
 
 export const fontFamilies = {
-  display: 'PlusJakartaSans_700Bold',
-  headline: 'PlusJakartaSans_600SemiBold',
-  body: 'Inter_400Regular',
-  bodyMedium: 'Inter_500Medium',
-  bodySemiBold: 'Inter_600SemiBold',
+  display: 'Outfit_700Bold',
+  displayMedium: 'Outfit_600SemiBold',
+  headline: 'Outfit_600SemiBold',
+  body: 'DMSans_400Regular',
+  bodyMedium: 'DMSans_500Medium',
+  bodySemiBold: 'DMSans_600SemiBold',
 } as const;
 
 export const typography = {
   display: {
     fontFamily: fontFamilies.display,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.5,
+    fontSize: 32,
+    lineHeight: 38,
+    letterSpacing: -0.8,
   },
   headlineLg: {
     fontFamily: fontFamilies.headline,
     fontSize: 24,
-    lineHeight: 32,
+    lineHeight: 30,
+    letterSpacing: -0.4,
   },
   headlineMd: {
     fontFamily: fontFamilies.headline,
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: -0.2,
+  },
+  title: {
+    fontFamily: fontFamilies.displayMedium,
     fontSize: 20,
-    lineHeight: 28,
+    lineHeight: 26,
+    letterSpacing: -0.3,
   },
   bodyLg: {
     fontFamily: fontFamilies.body,
-    fontSize: 18,
-    lineHeight: 28,
+    fontSize: 17,
+    lineHeight: 26,
   },
   bodyMd: {
     fontFamily: fontFamilies.body,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
   bodySemiBold: {
     fontFamily: fontFamilies.bodySemiBold,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
   labelSm: {
     fontFamily: fontFamilies.bodyMedium,
     fontSize: 12,
     lineHeight: 16,
-    letterSpacing: 0.6,
+    letterSpacing: 0.2,
+  },
+  caption: {
+    fontFamily: fontFamilies.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  overline: {
+    fontFamily: fontFamilies.bodyMedium,
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase' as const,
   },
   distance: {
     fontFamily: fontFamilies.bodyMedium,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
   },
 } satisfies Record<string, TextStyle>;

@@ -1,14 +1,14 @@
 import { Camera } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { Button } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme';
+import { spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 15;
@@ -24,12 +24,36 @@ async function ensureCameraPermission(): Promise<boolean> {
 export default function LivenessScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('Starting verification...');
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+
+  const styles = useThemedStyles(({ colors }) => ({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: { paddingHorizontal: spacing.container, paddingBottom: spacing.md },
+    backBtn: { marginBottom: spacing.sm },
+    title: { ...typography.headlineLg, color: colors.onSurface, marginBottom: spacing.sm },
+    subtitle: { ...typography.bodyMd, color: colors.onSurfaceVariant, lineHeight: 22 },
+    status: {
+      paddingHorizontal: spacing.container,
+      paddingBottom: spacing.sm,
+      ...typography.bodyMd,
+      color: colors.onSurfaceVariant,
+    },
+    error: {
+      paddingHorizontal: spacing.container,
+      paddingBottom: spacing.sm,
+      ...typography.bodyMd,
+      color: colors.error,
+    },
+    webview: { flex: 1 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    actions: { padding: spacing.container, gap: spacing.sm },
+  }));
 
   const startSession = useCallback(async () => {
     setError(null);
@@ -99,7 +123,7 @@ export default function LivenessScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <Pressable onPress={() => router.back()} disabled={polling} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
+          <Ionicons name="arrow-back" size={22} color={colors.ink} />
         </Pressable>
         <Text style={styles.title}>Verify it&apos;s you</Text>
         <Text style={styles.subtitle}>
@@ -112,7 +136,7 @@ export default function LivenessScreen() {
 
       {polling ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : null}
 
@@ -159,26 +183,3 @@ export default function LivenessScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { paddingHorizontal: spacing.container, paddingBottom: spacing.md },
-  backBtn: { marginBottom: spacing.sm },
-  title: { ...typography.headlineLg, color: colors.onSurface, marginBottom: spacing.sm },
-  subtitle: { ...typography.bodyMd, color: colors.onSurfaceVariant, lineHeight: 22 },
-  status: {
-    paddingHorizontal: spacing.container,
-    paddingBottom: spacing.sm,
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-  },
-  error: {
-    paddingHorizontal: spacing.container,
-    paddingBottom: spacing.sm,
-    ...typography.bodyMd,
-    color: colors.error,
-  },
-  webview: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  actions: { padding: spacing.container, gap: spacing.sm },
-});

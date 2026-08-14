@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, spacing, typography } from '../../theme';
+import { Pressable, Text, View } from 'react-native';
+import { radius, spacing, typography } from '../../theme';
+import { useThemedStyles } from '../../theme/use-themed-styles';
 
 export function SegmentedControl<T extends string>({
   options,
@@ -10,6 +11,33 @@ export function SegmentedControl<T extends string>({
   value: T;
   onChange: (value: T) => void;
 }) {
+  const styles = useThemedStyles(({ colors }) => ({
+    wrap: {
+      flexDirection: 'row',
+      backgroundColor: colors.surfaceContainerLow,
+      borderRadius: radius.lg,
+      padding: 4,
+      marginBottom: spacing.lg,
+    },
+    item: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      borderRadius: radius.md,
+    },
+    itemActive: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    text: {
+      ...typography.bodySemiBold,
+      color: colors.inkSecondary,
+      fontSize: 14,
+    },
+    textActive: { color: colors.accent },
+  }));
+
   return (
     <View style={styles.wrap}>
       {options.map((option) => {
@@ -27,35 +55,3 @@ export function SegmentedControl<T extends string>({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: radius.lg,
-    padding: 4,
-    marginBottom: spacing.lg,
-  },
-  item: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-  },
-  itemActive: {
-    backgroundColor: colors.surfaceBright,
-    shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  text: {
-    ...typography.bodySemiBold,
-    color: colors.onSurfaceVariant,
-    fontSize: 14,
-  },
-  textActive: {
-    color: colors.primary,
-  },
-});

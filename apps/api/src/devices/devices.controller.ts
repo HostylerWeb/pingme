@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { RegisterDeviceSchema, RegisterDeviceInput } from '@pingme/shared';
 import { User } from '@pingme/db';
+import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { getRequestMeta } from '../common/utils/crypto.util';
 import { DevicesService } from './devices.service';
-import { RegisterDeviceDto } from './dto/devices.dto';
 
 @ApiTags('devices')
 @ApiBearerAuth()
@@ -15,8 +18,12 @@ export class DevicesController {
 
   @Post('register')
   @ApiOperation({ summary: 'Register push notification token' })
-  register(@CurrentUser() user: User, @Body() dto: RegisterDeviceDto) {
-    return this.devicesService.register(user.id, dto);
+  register(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(RegisterDeviceSchema)) dto: RegisterDeviceInput,
+    @Req() req: Request,
+  ) {
+    return this.devicesService.register(user.id, dto, getRequestMeta(req));
   }
 
   @Get()

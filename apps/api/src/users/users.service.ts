@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { Profile, Prisma, User, UserStatus } from '@pingme/db';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Profile, Prisma, UserStatus } from '@pingme/db';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { R2Service } from '../common/services/r2.service';
@@ -23,17 +23,35 @@ export class UsersService {
     private readonly subscriptions: SubscriptionsService,
   ) {}
 
-  async getMe(user: User) {
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { profile: true, settings: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     const [livenessVerified, subscription] = await Promise.all([
-      this.verification.hasPassedLiveness(user.id),
-      this.subscriptions.getSubscriptionView(user.id),
+      this.verification.hasPassedLiveness(userId),
+      this.subscriptions.getSubscriptionView(userId),
     ]);
     const { passwordHash: _passwordHash, ...safe } = user;
     return { ...safe, livenessVerified, subscription };
   }
 
-  async updateProfile(userId: string, dto: UpdateProfileInput): Promise<Profile> {
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileInput,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ): Promise<Profile> {
     let avatarConfig: Record<string, unknown> | undefined;
+    const existing = await this.prisma.profile.findUnique({ where: { userId } });
+
+    if (dto.gender !== undefined && existing?.gender != null) {
+      throw new ForbiddenException('Gender cannot be changed after it is set');
+    }
 
     if (dto.avatarTheme !== undefined) {
       const isPremium = await this.subscriptions.isPremium(userId);
@@ -46,41 +64,50 @@ export class UsersService {
         throw new ForbiddenException('Invalid avatar theme');
       }
 
-      const existing = await this.prisma.profile.findUnique({ where: { userId } });
       avatarConfig = {
         ...((existing?.avatarConfig as Record<string, unknown> | null) ?? {}),
         theme: dto.avatarTheme,
       };
     }
 
-    const profile = await this.prisma.profile.upsert({
-      where: { userId },
-      update: {
-        displayName: dto.displayName,
-        bio: dto.bio,
-        avatarType: dto.avatarType,
-        dateOfBirth: dto.dateOfBirth,
-        ...(avatarConfig !== undefined
-          ? { avatarConfig: avatarConfig as Prisma.InputJsonValue }
-          : {}),
-      },
-      create: {
-        userId,
-        displayName: dto.displayName ?? 'User',
-        bio: dto.bio,
-        avatarType: dto.avatarType,
-        dateOfBirth: dto.dateOfBirth ?? new Date('1995-01-01'),
-        ...(avatarConfig !== undefined
-          ? { avatarConfig: avatarConfig as Prisma.InputJsonValue }
-          : {}),
-      },
-    });
+    const updateData: Prisma.ProfileUpdateInput = {};
+    if (dto.displayName !== undefined) updateData.displayName = dto.displayName;
+    if (dto.bio !== undefined) updateData.bio = dto.bio;
+    if (dto.avatarType !== undefined) updateData.avatarType = dto.avatarType;
+    if (dto.dateOfBirth !== undefined) updateData.dateOfBirth = dto.dateOfBirth;
+    if (dto.gender !== undefined && (existing == null || existing.gender == null)) {
+      updateData.gender = dto.gender;
+    }
+    if (avatarConfig !== undefined) {
+      updateData.avatarConfig = avatarConfig as Prisma.InputJsonValue;
+    }
+
+    const profile = existing
+      ? await this.prisma.profile.update({
+          where: { userId },
+          data: updateData,
+        })
+      : await this.prisma.profile.create({
+          data: {
+            userId,
+            displayName: dto.displayName ?? 'User',
+            bio: dto.bio,
+            avatarType: dto.avatarType,
+            dateOfBirth: dto.dateOfBirth ?? new Date('1995-01-01'),
+            gender: dto.gender,
+            ...(avatarConfig !== undefined
+              ? { avatarConfig: avatarConfig as Prisma.InputJsonValue }
+              : {}),
+          },
+        });
 
     await this.audit.log({
       userId,
       action: 'profile.update',
       entityType: 'profile',
       entityId: profile.id,
+      ...meta,
+      ...(dto.gender !== undefined ? { metadata: { genderSet: true } } : {}),
     });
 
     return profile;
@@ -149,7 +176,39 @@ export class UsersService {
       throw new NotFoundException('Profile not found');
     }
 
+    if (!dto.key.startsWith(`avatars/${userId}/`)) {
+      throw new ForbiddenException('Invalid upload key');
+    }
+
     const publicUrl = this.r2.getPublicUrl(dto.key);
+
+    return this.prisma.profile.update({
+      where: { userId },
+      data: {
+        avatarUrl: publicUrl,
+        avatarType: 'photo',
+      },
+    });
+  }
+
+  async uploadAvatarDirect(
+    userId: string,
+    key: string,
+    file: { buffer: Buffer; mimetype: string },
+  ): Promise<Profile> {
+    if (this.r2.isConfigured()) {
+      throw new BadRequestException('Direct upload is only used when R2 is not configured');
+    }
+
+    if (!key.startsWith(`avatars/${userId}/`)) {
+      throw new ForbiddenException('Invalid upload key');
+    }
+
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('File must be an image');
+    }
+
+    const publicUrl = await this.r2.saveLocalFile(key, file.buffer);
 
     return this.prisma.profile.update({
       where: { userId },

@@ -13,6 +13,7 @@ interface AuthState {
     phone?: string;
     password: string;
     dateOfBirth: string;
+    gender: 'male' | 'female' | 'transgender' | 'other';
     displayName?: string;
   }) => Promise<void>;
   logout: () => Promise<void>;

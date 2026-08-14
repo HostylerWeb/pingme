@@ -4,14 +4,13 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { api, ChatSummary } from '../../src/lib/api';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
-import { AppHeader, Card, EmptyState, ListSkeleton, Screen } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme';
+import { AppHeader, Avatar, EmptyState, ListSkeleton, Screen } from '../../src/components/ui';
+import { spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 function formatTime(iso: string) {
   const date = new Date(iso);
@@ -23,26 +22,37 @@ function formatTime(iso: string) {
 }
 
 function ChatRow({ chat, onPress }: { chat: ChatSummary; onPress: () => void }) {
+  const styles = useThemedStyles(({ colors }) => ({
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.lg,
+    },
+    rowPressed: { opacity: 0.85 },
+    rowBody: { flex: 1 },
+    rowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+    name: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
+    time: { ...typography.caption, color: colors.inkTertiary },
+    preview: { ...typography.bodyMd, color: colors.inkSecondary, fontSize: 14 },
+  }));
+
   const preview = chat.lastMessage
     ? `${chat.lastMessage.isYou ? 'You: ' : ''}${chat.lastMessage.content}`
     : 'Say hello';
 
   return (
-    <Pressable onPress={onPress}>
-      <Card style={styles.row}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{chat.otherUser.displayName.charAt(0).toUpperCase()}</Text>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+      <Avatar name={chat.otherUser.displayName} size="md" />
+      <View style={styles.rowBody}>
+        <View style={styles.rowHeader}>
+          <Text style={styles.name}>{chat.otherUser.displayName}</Text>
+          {chat.lastMessage ? <Text style={styles.time}>{formatTime(chat.lastMessage.createdAt)}</Text> : null}
         </View>
-        <View style={styles.rowBody}>
-          <View style={styles.rowHeader}>
-            <Text style={styles.name}>{chat.otherUser.displayName}</Text>
-            {chat.lastMessage ? <Text style={styles.time}>{formatTime(chat.lastMessage.createdAt)}</Text> : null}
-          </View>
-          <Text style={styles.preview} numberOfLines={1}>
-            {preview}
-          </Text>
-        </View>
-      </Card>
+        <Text style={styles.preview} numberOfLines={1}>
+          {preview}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -50,6 +60,13 @@ function ChatRow({ chat, onPress }: { chat: ChatSummary; onPress: () => void }) 
 export default function ChatsScreen() {
   const router = useRouter();
   const { contentBottom } = useTabBarInsets();
+  const { colors } = useTheme();
+
+  const styles = useThemedStyles(({ colors }) => ({
+    skeletonWrap: { paddingHorizontal: spacing.container },
+    list: { paddingHorizontal: spacing.container },
+    separator: { height: 1, backgroundColor: colors.divider },
+  }));
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['chats'],
@@ -61,11 +78,12 @@ export default function ChatsScreen() {
 
   return (
     <Screen padded={false} edges={[]}>
-      <AppHeader title="Chats" showBrand={false} />
-
-      <View style={styles.header}>
-        <Text style={styles.subtitle}>Private conversations after you both accept a match.</Text>
-      </View>
+      <AppHeader
+        large
+        title="Chats"
+        showBrand={false}
+        subtitle="Private conversations after you both accept a match."
+      />
 
       {isLoading ? (
         <View style={[styles.skeletonWrap, { paddingBottom: contentBottom }]}>
@@ -75,8 +93,9 @@ export default function ChatsScreen() {
         <FlatList
           data={chats}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.accent} />}
           contentContainerStyle={[styles.list, { paddingBottom: contentBottom }]}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             <EmptyState
               icon="chatbubbles-outline"
@@ -92,31 +111,3 @@ export default function ChatsScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  header: { paddingHorizontal: spacing.container, paddingBottom: spacing.md },
-  subtitle: { ...typography.bodyMd, color: colors.onSurfaceVariant },
-  skeletonWrap: { paddingHorizontal: spacing.container },
-  list: { paddingHorizontal: spacing.container, gap: spacing.md },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primaryFixed,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  avatarText: { ...typography.headlineMd, color: colors.primary, fontSize: 18 },
-  rowBody: { flex: 1 },
-  rowHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  name: { ...typography.bodySemiBold, color: colors.onSurface, fontSize: 16 },
-  time: { ...typography.labelSm, color: colors.outline, textTransform: 'none', letterSpacing: 0 },
-  preview: { ...typography.bodyMd, color: colors.onSurfaceVariant, fontSize: 14 },
-});

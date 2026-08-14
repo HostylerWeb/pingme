@@ -2,6 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { mkdir, writeFile } from 'fs/promises';
+import { dirname, join } from 'path';
+
+export type PresignResult = {
+  uploadUrl: string | null;
+  key: string;
+  contentType: string;
+  directUpload?: boolean;
+  message?: string;
+};
 
 @Injectable()
 export class R2Service {
@@ -18,6 +28,14 @@ export class R2Service {
     );
   }
 
+  private getUploadsDir() {
+    return this.config.get<string>('UPLOADS_DIR', 'uploads');
+  }
+
+  getApiPublicBaseUrl() {
+    return this.config.get<string>('API_PUBLIC_URL', 'http://localhost:3000/v1').replace(/\/$/, '');
+  }
+
   private getClient() {
     const accountId = this.config.get<string>('R2_ACCOUNT_ID')!;
     return new S3Client({
@@ -30,13 +48,14 @@ export class R2Service {
     });
   }
 
-  async createPresignedUpload(key: string, contentType: string) {
+  async createPresignedUpload(key: string, contentType: string): Promise<PresignResult> {
     if (!this.isConfigured()) {
+      this.logger.warn('R2 not configured — using direct upload fallback');
       return {
-        uploadUrl: null as string | null,
+        uploadUrl: null,
         key,
         contentType,
-        message: 'R2 not configured — set R2_* env vars for avatar uploads',
+        directUpload: true,
       };
     }
 
@@ -52,7 +71,21 @@ export class R2Service {
     return { uploadUrl, key, contentType };
   }
 
+  async saveLocalFile(key: string, buffer: Buffer): Promise<string> {
+    const filePath = join(this.getUploadsDir(), key);
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, buffer);
+    return this.getLocalPublicUrl(key);
+  }
+
+  getLocalPublicUrl(key: string) {
+    return `${this.getApiPublicBaseUrl()}/uploads/${key}`;
+  }
+
   getPublicUrl(key: string) {
+    if (!this.isConfigured()) {
+      return this.getLocalPublicUrl(key);
+    }
     const base = this.config.get<string>('R2_PUBLIC_URL', 'https://cdn.example.com');
     return `${base.replace(/\/$/, '')}/${key}`;
   }

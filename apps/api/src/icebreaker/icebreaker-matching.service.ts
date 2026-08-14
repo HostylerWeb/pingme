@@ -25,9 +25,12 @@ export class IcebreakerMatchingService implements OnModuleInit, OnModuleDestroy 
     this.worker = new Worker(
       'icebreaker-matching',
       async () => {
-        const expired = await this.icebreaker.expireSessions();
-        if (expired > 0) {
-          this.logger.log(`Icebreaker tick: expired=${expired}`);
+        const expiredSessions = await this.icebreaker.expireSessions();
+        const expiredInterests = await this.icebreaker.expireInterests();
+        if (expiredSessions > 0 || expiredInterests > 0) {
+          this.logger.log(
+            `Icebreaker tick: expiredSessions=${expiredSessions} expiredInterests=${expiredInterests}`,
+          );
         }
       },
       { connection: this.connection },

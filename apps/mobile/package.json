@@ -15,7 +15,9 @@
     "eas:build:dev": "eas build --profile development --platform all"
   },
   "dependencies": {
+    "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/outfit": "^0.4.3",
     "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/metro-runtime": "~57.0.8",
     "@expo/vector-icons": "^15.1.1",
@@ -23,11 +25,13 @@
     "@sentry/react-native": "^7.11.0",
     "@tanstack/react-query": "^5.62.8",
     "expo": "~57.0.12",
+    "expo-application": "~57.0.2",
     "expo-camera": "~57.0.3",
     "expo-constants": "~57.0.10",
     "expo-dev-client": "~57.0.11",
     "expo-device": "~57.0.1",
     "expo-font": "^57.0.1",
+    "expo-haptics": "^57.0.1",
     "expo-image-picker": "^57.0.9",
     "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.5",

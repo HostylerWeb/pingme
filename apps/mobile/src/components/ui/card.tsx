@@ -1,18 +1,44 @@
 import { ReactNode } from 'react';
-import { Pressable, PressableProps, StyleSheet, View } from 'react-native';
-import { colors, radius, shadows, spacing } from '../../theme';
+import { Pressable, PressableProps, View, ViewStyle } from 'react-native';
+import { radius, spacing } from '../../theme';
+import { useThemedStyles } from '../../theme/use-themed-styles';
+
+type Variant = 'elevated' | 'flat' | 'muted';
 
 export function Card({
   children,
   style,
+  variant = 'elevated',
   onPress,
 }: {
   children: ReactNode;
-  style?: object;
+  style?: ViewStyle;
+  variant?: Variant;
   onPress?: PressableProps['onPress'];
 }) {
+  const styles = useThemedStyles(({ colors, shadows }) => ({
+    card: {
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    pressed: { opacity: 0.96 },
+    elevated: {
+      backgroundColor: colors.surface,
+      ...shadows.card,
+    },
+    flat: { backgroundColor: colors.surface },
+    muted: {
+      backgroundColor: colors.surfaceMuted,
+      borderColor: 'transparent',
+    },
+  }));
+
+  const variantStyle = { elevated: styles.elevated, flat: styles.flat, muted: styles.muted }[variant];
+
   const content = (
-    <View style={[styles.card, style]}>
+    <View style={[styles.card, variantStyle, style]}>
       {children}
     </View>
   );
@@ -27,17 +53,3 @@ export function Card({
 
   return content;
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surfaceBright,
-    borderRadius: radius.card,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    ...shadows.card,
-  },
-  pressed: {
-    opacity: 0.96,
-  },
-});

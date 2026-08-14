@@ -10,6 +10,7 @@ import { AuthProvider, OtpType, User, UserStatus } from '@pingme/db';
 import * as bcrypt from 'bcrypt';
 import { MIN_AGE_YEARS, SignUpInput, LoginInput, ForgotPasswordInput, ResetPasswordInput, VerifyOtpInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
+import { SecurityEventsService } from '../audit/security-events.service';
 import { EmailService } from '../common/services/email.service';
 import { SmsService } from '../common/services/sms.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,6 +39,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
+    private readonly securityEvents: SecurityEventsService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
   ) {}
@@ -79,6 +81,7 @@ export class AuthService {
           create: {
             displayName,
             dateOfBirth,
+            gender: dto.gender,
           },
         },
         settings: { create: {} },
@@ -91,6 +94,11 @@ export class AuthService {
       action: 'auth.register',
       entityType: 'user',
       entityId: user.id,
+      ...meta,
+    });
+    await this.securityEvents.log({
+      userId: user.id,
+      action: 'auth.register',
       ...meta,
     });
 
@@ -141,12 +149,17 @@ export class AuthService {
       entityId: user.id,
       ...meta,
     });
+    await this.securityEvents.log({
+      userId: user.id,
+      action: 'auth.login',
+      ...meta,
+    });
 
     const tokens = await this.issueTokens(user);
     return { user: this.sanitizeUser(user), ...tokens };
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const tokenHash = hashToken(refreshToken);
     const stored = await this.prisma.refreshToken.findFirst({
       where: {
@@ -169,6 +182,13 @@ export class AuthService {
     });
 
     const tokens = await this.issueTokens(stored.user);
+
+    await this.securityEvents.log({
+      userId: stored.user.id,
+      action: 'auth.refresh',
+      ...meta,
+    });
+
     return { user: this.sanitizeUser(stored.user), ...tokens };
   }
 
@@ -186,6 +206,11 @@ export class AuthService {
       action: 'auth.logout',
       entityType: 'user',
       entityId: userId,
+      ...meta,
+    });
+    await this.securityEvents.log({
+      userId,
+      action: 'auth.logout',
       ...meta,
     });
 

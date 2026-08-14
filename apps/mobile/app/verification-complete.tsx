@@ -1,12 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
-import { Button, Screen } from '../src/components/ui';
-import { colors, spacing, typography } from '../src/theme';
+import { Button, LoadingView, Screen } from '../src/components/ui';
+import { radius, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 15;
@@ -20,9 +19,36 @@ function isFailureStatus(status?: string) {
 export default function VerificationCompleteScreen() {
   const router = useRouter();
   const refreshMe = useAuthStore((s) => s.refreshMe);
+  const { colors } = useTheme();
   const { status } = useLocalSearchParams<{ status?: string; verificationSessionId?: string }>();
   const [message, setMessage] = useState('Finishing verification...');
   const [error, setError] = useState<string | null>(null);
+
+  const styles = useThemedStyles(({ colors }) => ({
+    content: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.container,
+    },
+    iconWrap: {
+      width: 80,
+      height: 80,
+      borderRadius: radius.xl,
+      backgroundColor: colors.errorContainer,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.lg,
+    },
+    error: {
+      ...typography.bodyLg,
+      color: colors.error,
+      textAlign: 'center',
+      lineHeight: 26,
+      marginBottom: spacing.xl,
+      maxWidth: 300,
+    },
+  }));
 
   useEffect(() => {
     if (isFailureStatus(status)) {
@@ -70,49 +96,19 @@ export default function VerificationCompleteScreen() {
 
   return (
     <Screen padded={false} edges={['top', 'bottom']}>
-      <LinearGradient colors={[colors.background, colors.surfaceContainerLow]} style={styles.gradient}>
-        <View style={styles.content}>
-          {error ? (
-            <>
-              <View style={styles.iconWrap}>
-                <Ionicons name="close-circle-outline" size={48} color={colors.error} />
-              </View>
-              <Text style={styles.error}>{error}</Text>
-              <Button label="Try again" onPress={() => router.replace('/(setup)/liveness')} />
-            </>
-          ) : (
-            <>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.message}>{message}</Text>
-            </>
-          )}
-        </View>
-      </LinearGradient>
+      <View style={styles.content}>
+        {error ? (
+          <>
+            <View style={styles.iconWrap}>
+              <Ionicons name="close-circle-outline" size={48} color={colors.error} />
+            </View>
+            <Text style={styles.error}>{error}</Text>
+            <Button label="Try again" onPress={() => router.replace('/(setup)/liveness')} />
+          </>
+        ) : (
+          <LoadingView message={message} />
+        )}
+      </View>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  gradient: { flex: 1 },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.container,
-  },
-  iconWrap: { marginBottom: spacing.lg },
-  message: {
-    marginTop: spacing.lg,
-    ...typography.bodyLg,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    lineHeight: 26,
-  },
-  error: {
-    ...typography.bodyLg,
-    color: colors.error,
-    textAlign: 'center',
-    lineHeight: 26,
-    marginBottom: spacing.xl,
-  },
-});

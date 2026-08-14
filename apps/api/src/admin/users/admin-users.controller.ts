@@ -148,6 +148,15 @@ export class AdminUsersController {
     return this.users.getDevices(id);
   }
 
+  @Get(':id/devices/:deviceId')
+  @Roles(AdminRole.support, AdminRole.moderator, AdminRole.super_admin)
+  getDeviceForensics(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('deviceId', ParseUUIDPipe) deviceId: string,
+  ) {
+    return this.users.getDeviceForensics(id, deviceId);
+  }
+
   @Get(':id/blocks')
   @Roles(AdminRole.support, AdminRole.moderator, AdminRole.super_admin)
   getBlocks(@Param('id', ParseUUIDPipe) id: string) {
@@ -162,6 +171,16 @@ export class AdminUsersController {
     @Query('limit') limit?: string,
   ) {
     return this.users.getMatches(id, page ? Number(page) : 1, limit ? Number(limit) : 20);
+  }
+
+  @Get(':id/security-events')
+  @Roles(AdminRole.support, AdminRole.moderator, AdminRole.super_admin)
+  getSecurityEvents(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.users.getSecurityEvents(id, page ? Number(page) : 1, limit ? Number(limit) : 50);
   }
 
   @Get(':id/audit-logs')

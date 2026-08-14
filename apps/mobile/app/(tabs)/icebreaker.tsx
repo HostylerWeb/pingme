@@ -1,16 +1,12 @@
 import { icebreakerRadiusLabel } from '@pingme/shared';
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Location from 'expo-location';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
-  StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -18,25 +14,136 @@ import { api, ApiError, IcebreakerNearbyUser } from '../../src/lib/api';
 import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
+import { showToast } from '../../src/stores/toast-store';
 import {
   AppHeader,
+  AppSwitch,
+  Avatar,
   BottomSheet,
   Button,
   Card,
   DistancePill,
   EmptyState,
+  hapticLight,
+  hapticSuccess,
   Input,
   LivenessBanner,
+  LoadingView,
   Screen,
+  SectionLabel,
 } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
+
+function distanceTone(bucket: string): 'neutral' | 'near' | 'accent' {
+  if (bucket === 'very_near') return 'near';
+  if (bucket === '~200m' || bucket === '~300m') return 'accent';
+  return 'neutral';
+}
 
 function HighlightBadge({ label }: { label: string }) {
+  const { colors } = useTheme();
+
+  const styles = useThemedStyles(({ colors }) => ({
+    badge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: 5,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: 5,
+      borderRadius: radius.full,
+      marginBottom: spacing.md,
+    },
+    badgeText: {
+      ...typography.labelSm,
+      color: colors.accent,
+      textTransform: 'none',
+      letterSpacing: 0,
+    },
+  }));
+
   return (
     <View style={styles.badge}>
-      <Ionicons name="sparkles" size={12} color={colors.icebreakerStart} />
+      <Ionicons name="sparkles" size={12} color={colors.accent} />
       <Text style={styles.badgeText}>{label}</Text>
     </View>
+  );
+}
+
+function ResponsePill({
+  label,
+  filled,
+  onPress,
+  disabled,
+  successHaptic,
+}: {
+  label: string;
+  filled: boolean;
+  onPress: () => void;
+  disabled?: boolean;
+  successHaptic?: boolean;
+}) {
+  const styles = useThemedStyles(({ colors }) => ({
+    pill: {
+      flex: 1,
+      paddingVertical: spacing.sm + 2,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: 42,
+    },
+    pillFilled: {
+      backgroundColor: colors.accent,
+    },
+    pillOutline: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    pillPressed: {
+      opacity: 0.88,
+      transform: [{ scale: 0.98 }],
+    },
+    pillDisabled: {
+      opacity: 0.5,
+    },
+    pillLabel: {
+      ...typography.bodySemiBold,
+      fontSize: 15,
+    },
+    pillLabelFilled: {
+      color: colors.onAccent,
+    },
+    pillLabelOutline: {
+      color: colors.inkSecondary,
+    },
+  }));
+
+  return (
+    <Pressable
+      onPress={async () => {
+        if (disabled) return;
+        if (successHaptic) {
+          await hapticSuccess();
+        } else {
+          await hapticLight();
+        }
+        onPress();
+      }}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.pill,
+        filled ? styles.pillFilled : styles.pillOutline,
+        pressed && !disabled && styles.pillPressed,
+        disabled && styles.pillDisabled,
+      ]}
+    >
+      <Text style={[styles.pillLabel, filled ? styles.pillLabelFilled : styles.pillLabelOutline]}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -55,11 +162,54 @@ function IcebreakerRow({
   onDecline: () => void;
   loading: boolean;
 }) {
+  const { colors } = useTheme();
   const featured = person.highlight !== null;
   const waiting = person.myResponse === 'yes' && person.highlight !== 'mutual_match';
 
+  const styles = useThemedStyles(({ colors }) => ({
+    personCard: { marginBottom: 0 },
+    personCardFeatured: {
+      borderColor: colors.accentMuted,
+      backgroundColor: colors.accentSoft,
+    },
+    personHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginBottom: spacing.sm,
+    },
+    personMeta: { flex: 1, gap: 4 },
+    personName: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
+    personIntro: {
+      ...typography.bodyMd,
+      color: colors.inkSecondary,
+      fontStyle: 'italic',
+      marginBottom: spacing.md,
+      lineHeight: 22,
+      paddingLeft: 2,
+    },
+    waitingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: spacing.sm,
+    },
+    waitingText: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+      letterSpacing: 0,
+    },
+    responseRow: { flexDirection: 'row', gap: spacing.sm },
+  }));
+
   return (
-    <Card style={[styles.personCard, featured && styles.personCardFeatured]}>
+    <Card
+      style={{
+        ...styles.personCard,
+        ...(featured ? styles.personCardFeatured : undefined),
+      }}
+    >
       {person.highlight === 'mutual_match' ? (
         <HighlightBadge label="You both said yes" />
       ) : person.highlight === 'interested_in_you' ? (
@@ -67,16 +217,13 @@ function IcebreakerRow({
       ) : null}
 
       <View style={styles.personHeader}>
-        <View style={styles.personAvatar}>
-          {person.avatarUrl ? (
-            <Image source={{ uri: person.avatarUrl }} style={styles.personAvatarImage} />
-          ) : (
-            <Text style={styles.personAvatarText}>{person.displayName.charAt(0).toUpperCase()}</Text>
-          )}
-        </View>
+        <Avatar uri={person.avatarUrl} name={person.displayName} size="md" />
         <View style={styles.personMeta}>
           <Text style={styles.personName}>{person.displayName}</Text>
-          <DistancePill label={icebreakerRadiusLabel()} tone="near" />
+          <DistancePill
+            label={icebreakerRadiusLabel()}
+            tone={distanceTone(person.distanceBucket)}
+          />
         </View>
       </View>
 
@@ -86,23 +233,24 @@ function IcebreakerRow({
 
       {person.highlight === 'mutual_match' && person.matchId ? (
         <View style={styles.responseRow}>
-          <Pressable style={[styles.responseBtn, styles.noBtn]} onPress={onDecline} disabled={loading}>
-            <Text style={styles.noBtnText}>Not now</Text>
-          </Pressable>
-          <Pressable style={[styles.responseBtn, styles.yesBtn]} onPress={onAccept} disabled={loading}>
-            <Text style={styles.yesBtnText}>Accept</Text>
-          </Pressable>
+          <ResponsePill label="Not now" filled={false} onPress={onDecline} disabled={loading} />
+          <ResponsePill
+            label="Accept"
+            filled
+            onPress={onAccept}
+            disabled={loading}
+            successHaptic
+          />
         </View>
       ) : waiting ? (
-        <Text style={styles.waitingText}>Waiting for their response…</Text>
+        <View style={styles.waitingRow}>
+          <Ionicons name="hourglass-outline" size={14} color={colors.inkTertiary} />
+          <Text style={styles.waitingText}>Waiting for their response — up to 10 min</Text>
+        </View>
       ) : (
         <View style={styles.responseRow}>
-          <Pressable style={[styles.responseBtn, styles.noBtn]} onPress={onNo} disabled={loading}>
-            <Text style={styles.noBtnText}>No</Text>
-          </Pressable>
-          <Pressable style={[styles.responseBtn, styles.yesBtn]} onPress={onYes} disabled={loading}>
-            <Text style={styles.yesBtnText}>Yes</Text>
-          </Pressable>
+          <ResponsePill label="No" filled={false} onPress={onNo} disabled={loading} />
+          <ResponsePill label="Yes" filled onPress={onYes} disabled={loading} />
         </View>
       )}
     </Card>
@@ -113,29 +261,109 @@ export default function IcebreakerScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { contentBottom } = useTabBarInsets();
-  const { coords } = useLocationPing(true);
+  const { colors } = useTheme();
+  const { coords, permissionGranted } = useLocationPing(true);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
   const [icebreakerSetupOpen, setIcebreakerSetupOpen] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
   const [introMessage, setIntroMessage] = useState('');
-  const [locationGranted, setLocationGranted] = useState<boolean | null>(null);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [icebreakerOn, setIcebreakerOn] = useState(false);
 
-  useEffect(() => {
-    void Location.getForegroundPermissionsAsync().then(({ status }) => {
-      setLocationGranted(status === 'granted');
-    });
-  }, []);
+  const styles = useThemedStyles(({ colors }) => ({
+    denied: { flex: 1, justifyContent: 'center', padding: spacing.container },
+    scroll: {
+      paddingHorizontal: spacing.container,
+      gap: spacing.lg,
+    },
+    unansweredCard: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    unansweredRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+    },
+    unansweredText: {
+      ...typography.caption,
+      color: colors.inkSecondary,
+      flex: 1,
+      lineHeight: 18,
+    },
+    dismissPressed: { opacity: 0.6 },
+    toggleCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    hint: {
+      ...typography.caption,
+      color: colors.inkSecondary,
+      lineHeight: 18,
+      marginTop: spacing.md,
+    },
+    icebreakerHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    icebreakerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
+    icebreakerIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: radius.md,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    icebreakerTitleBlock: { flex: 1 },
+    icebreakerTitle: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
+    icebreakerSubtitle: {
+      ...typography.caption,
+      color: colors.inkSecondary,
+      marginTop: 2,
+    },
+    browseSection: { gap: spacing.sm },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    nearbyLoader: { marginVertical: spacing.lg },
+    nearbyList: { gap: spacing.md },
+    sheetBody: {
+      ...typography.bodyMd,
+      color: colors.inkSecondary,
+      marginBottom: spacing.xl,
+      lineHeight: 24,
+    },
+    sheetButton: { marginBottom: spacing.md },
+    toggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: spacing.lg,
+    },
+    toggleLabel: { ...typography.bodyMd, color: colors.ink },
+  }));
 
-  const { data: icebreakerData, isLoading } = useQuery({
+  const { data: icebreakerData } = useQuery({
     queryKey: ['icebreaker-status'],
     queryFn: () => api.getIcebreakerStatus(),
-    enabled: !!coords,
-    refetchInterval: 15_000,
+    placeholderData: keepPreviousData,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 
-  const serverIcebreakerActive = icebreakerData?.data?.status === 'active';
+  const session = icebreakerData?.data?.session ?? null;
+  const unanswered = icebreakerData?.data?.unanswered ?? [];
+  const serverIcebreakerActive = session?.status === 'active';
 
   useEffect(() => {
     setIcebreakerOn(serverIcebreakerActive);
@@ -144,8 +372,10 @@ export default function IcebreakerScreen() {
   const { data: matchesData } = useQuery({
     queryKey: ['matches'],
     queryFn: () => api.getMatches(),
-    enabled: !!coords,
-    refetchInterval: 15_000,
+    placeholderData: keepPreviousData,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 
   const hasPendingMatch = (matchesData?.data ?? []).some(
@@ -154,11 +384,18 @@ export default function IcebreakerScreen() {
 
   const canBrowse = icebreakerOn || hasPendingMatch;
 
-  const { data: nearbyData, isLoading: nearbyLoading } = useQuery({
+  const {
+    data: nearbyData,
+    isLoading: nearbyInitialLoad,
+    isFetching: nearbyRefreshing,
+  } = useQuery({
     queryKey: ['icebreaker-nearby'],
     queryFn: () => api.getIcebreakerNearby(),
     enabled: !!coords && canBrowse,
-    refetchInterval: 15_000,
+    placeholderData: keepPreviousData,
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 
   const people = nearbyData?.data ?? [];
@@ -182,11 +419,12 @@ export default function IcebreakerScreen() {
       queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       setIcebreakerSetupOpen(false);
+      showToast('Break the ice is on', 'success');
     },
     onError: (error: ApiError) => {
       setIcebreakerOn(serverIcebreakerActive);
       if (!handleLivenessError(error)) {
-        alert(error.message);
+        showToast(error.message, 'error');
       }
     },
   });
@@ -203,7 +441,7 @@ export default function IcebreakerScreen() {
     },
     onError: (error: ApiError) => {
       if (!handleLivenessError(error)) {
-        alert(error.message);
+        showToast(error.message, 'error');
       }
     },
   });
@@ -216,12 +454,13 @@ export default function IcebreakerScreen() {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
       if (result.data.status === 'active' && result.data.chatId) {
+        showToast('Match accepted', 'success');
         router.push(`/chat/${result.data.chatId}`);
       }
     },
     onError: (error: ApiError) => {
       if (!handleLivenessError(error)) {
-        alert(error.message);
+        showToast(error.message, 'error');
       }
     },
   });
@@ -237,8 +476,16 @@ export default function IcebreakerScreen() {
     },
     onError: (error: ApiError) => {
       if (!handleLivenessError(error)) {
-        alert(error.message);
+        showToast(error.message, 'error');
       }
+    },
+  });
+
+  const acknowledgeMutation = useMutation({
+    mutationFn: (interestIds: string[]) =>
+      api.acknowledgeIcebreakerUnanswered({ interestIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
     },
   });
 
@@ -252,19 +499,27 @@ export default function IcebreakerScreen() {
     icebreakerMutation.mutate('cancel');
   };
 
-  if (isLoading || locationGranted === null) {
+  if (permissionGranted === null) {
     return (
       <Screen padded={false}>
-        <AppHeader title="Break the ice" showBrand={false} />
-        <ActivityIndicator style={styles.loader} color={colors.primary} />
+        <AppHeader
+          title="Break the ice"
+          showBrand={false}
+          subtitle="Browse people nearby and send a quick hello to start a match."
+        />
+        <LoadingView />
       </Screen>
     );
   }
 
-  if (locationGranted === false) {
+  if (permissionGranted === false) {
     return (
       <Screen padded={false} edges={[]}>
-        <AppHeader title="Break the ice" showBrand={false} />
+        <AppHeader
+          title="Break the ice"
+          showBrand={false}
+          subtitle="Browse people nearby and send a quick hello to start a match."
+        />
         <View style={[styles.denied, { paddingBottom: contentBottom }]}>
           <EmptyState
             icon="location-outline"
@@ -278,7 +533,11 @@ export default function IcebreakerScreen() {
 
   return (
     <Screen padded={false} edges={[]}>
-      <AppHeader title="Break the ice" showBrand={false} />
+      <AppHeader
+        title="Break the ice"
+        showBrand={false}
+        subtitle="Browse people nearby and send a quick hello to start a match."
+      />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: contentBottom }]}
@@ -286,10 +545,31 @@ export default function IcebreakerScreen() {
       >
         {!isVerified ? <LivenessBanner /> : null}
 
-        <Card style={styles.card}>
+        {unanswered.map((notice) => (
+          <Card key={notice.interestId} variant="muted" style={styles.unansweredCard}>
+            <View style={styles.unansweredRow}>
+              <Ionicons name="time-outline" size={18} color={colors.inkTertiary} />
+              <Text style={styles.unansweredText}>
+                {notice.displayName} didn&apos;t respond in time. Your request was removed.
+              </Text>
+              <Pressable
+                onPress={() => acknowledgeMutation.mutate([notice.interestId])}
+                disabled={acknowledgeMutation.isPending}
+                hitSlop={8}
+                style={({ pressed }) => pressed && styles.dismissPressed}
+              >
+                <Ionicons name="close" size={18} color={colors.inkTertiary} />
+              </Pressable>
+            </View>
+          </Card>
+        ))}
+
+        <View style={styles.toggleCard}>
           <View style={styles.icebreakerHeader}>
             <View style={styles.icebreakerTitleRow}>
-              <Ionicons name="flash" size={22} color={colors.icebreakerStart} />
+              <View style={styles.icebreakerIcon}>
+                <Ionicons name="flash" size={18} color={colors.accent} />
+              </View>
               <View style={styles.icebreakerTitleBlock}>
                 <Text style={styles.icebreakerTitle}>Break the ice</Text>
                 <Text style={styles.icebreakerSubtitle}>
@@ -297,11 +577,10 @@ export default function IcebreakerScreen() {
                 </Text>
               </View>
             </View>
-            <Switch
+            <AppSwitch
+              variant="online"
               value={icebreakerOn}
               onValueChange={handleToggle}
-              trackColor={{ false: colors.outlineVariant, true: colors.icebreakerStart }}
-              thumbColor="#fff"
               disabled={icebreakerMutation.isPending}
             />
           </View>
@@ -310,26 +589,28 @@ export default function IcebreakerScreen() {
               ? `People with Break the ice ON ${icebreakerRadiusLabel().toLowerCase()} show up below. Tap Yes to connect.`
               : 'Turn on to appear in the list. Interested people are shown first.'}
           </Text>
-        </Card>
+        </View>
 
         {canBrowse ? (
           <View style={styles.browseSection}>
-            <Text style={styles.sectionTitle}>
-              {featuredCount > 0
-                ? `${featuredCount} ${featuredCount === 1 ? 'person' : 'people'} to review`
-                : 'Nearby now'}
-            </Text>
-            {nearbyLoading ? (
-              <ActivityIndicator color={colors.primary} style={styles.nearbyLoader} />
+            <View style={styles.sectionHeader}>
+              <SectionLabel>
+                {featuredCount > 0
+                  ? `${featuredCount} ${featuredCount === 1 ? 'person' : 'people'} to review`
+                  : 'Nearby now'}
+              </SectionLabel>
+              {nearbyRefreshing && !nearbyInitialLoad ? (
+                <ActivityIndicator size="small" color={colors.inkTertiary} />
+              ) : null}
+            </View>
+            {nearbyInitialLoad ? (
+              <ActivityIndicator color={colors.accent} style={styles.nearbyLoader} />
             ) : people.length === 0 ? (
-              <Card style={styles.emptyCard}>
-                <Ionicons name="people-outline" size={32} color={colors.onSurfaceVariant} />
-                <Text style={styles.emptyTitle}>No one else yet</Text>
-                <Text style={styles.emptyHint}>
-                  Keep Break the ice on — someone {icebreakerRadiusLabel().toLowerCase()} may appear
-                  soon.
-                </Text>
-              </Card>
+              <EmptyState
+                icon="people-outline"
+                title="No one else yet"
+                message={`Keep Break the ice on — someone ${icebreakerRadiusLabel().toLowerCase()} may appear soon.`}
+              />
             ) : (
               <View style={styles.nearbyList}>
                 {people.map((person) => (
@@ -375,12 +656,7 @@ export default function IcebreakerScreen() {
         </Text>
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Show my photo</Text>
-          <Switch
-            value={showPhoto}
-            onValueChange={setShowPhoto}
-            trackColor={{ false: colors.outlineVariant, true: colors.icebreakerStart }}
-            thumbColor="#fff"
-          />
+          <AppSwitch variant="accent" value={showPhoto} onValueChange={setShowPhoto} />
         </View>
         <Input
           label="Intro (optional)"
@@ -402,135 +678,3 @@ export default function IcebreakerScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  loader: { marginTop: spacing.section },
-  denied: { flex: 1, justifyContent: 'center', padding: spacing.container },
-  scroll: {
-    paddingHorizontal: spacing.container,
-    paddingTop: spacing.sm,
-    gap: spacing.lg,
-  },
-  card: { alignItems: 'stretch' },
-  hint: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    lineHeight: 22,
-  },
-  icebreakerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-    gap: spacing.md,
-  },
-  icebreakerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
-  icebreakerTitleBlock: { flex: 1 },
-  icebreakerTitle: { ...typography.headlineMd, color: colors.onSurface },
-  icebreakerSubtitle: {
-    ...typography.labelSm,
-    color: colors.onSurfaceVariant,
-    textTransform: 'none',
-    letterSpacing: 0,
-    marginTop: 2,
-  },
-  browseSection: { gap: spacing.md },
-  sectionTitle: {
-    ...typography.labelSm,
-    color: colors.onSurfaceVariant,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    backgroundColor: 'rgba(255, 122, 69, 0.15)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 999,
-    marginBottom: spacing.sm,
-  },
-  badgeText: {
-    ...typography.labelSm,
-    color: colors.icebreakerStart,
-    textTransform: 'none',
-    letterSpacing: 0,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-    gap: spacing.sm,
-  },
-  emptyTitle: { ...typography.headlineMd, color: colors.onSurface, marginTop: spacing.sm },
-  emptyHint: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: spacing.md,
-  },
-  nearbyLoader: { marginVertical: spacing.lg },
-  nearbyList: { gap: spacing.md },
-  personCard: { marginBottom: 0 },
-  personCardFeatured: {
-    borderColor: colors.icebreakerStart,
-    borderWidth: 1,
-    backgroundColor: 'rgba(255, 122, 69, 0.04)',
-  },
-  personHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
-  personAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primaryFixed,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  personAvatarImage: { width: 48, height: 48 },
-  personAvatarText: { ...typography.headlineMd, color: colors.primary, fontSize: 18 },
-  personMeta: { flex: 1, gap: 4 },
-  personName: { ...typography.headlineMd, color: colors.onSurface, fontSize: 17 },
-  personIntro: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    fontStyle: 'italic',
-    marginBottom: spacing.md,
-    lineHeight: 22,
-  },
-  waitingText: {
-    ...typography.labelSm,
-    color: colors.secondary,
-    textTransform: 'none',
-    letterSpacing: 0,
-    textAlign: 'center',
-    paddingVertical: spacing.sm,
-  },
-  responseRow: { flexDirection: 'row', gap: spacing.md },
-  responseBtn: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  noBtn: { backgroundColor: colors.surfaceContainerLow },
-  yesBtn: { backgroundColor: colors.icebreakerStart },
-  noBtnText: { ...typography.bodySemiBold, color: colors.onSurfaceVariant },
-  yesBtnText: { ...typography.bodySemiBold, color: '#fff' },
-  sheetBody: {
-    ...typography.bodyMd,
-    color: colors.onSurfaceVariant,
-    marginBottom: spacing.xl,
-    lineHeight: 24,
-  },
-  sheetButton: { marginBottom: spacing.md },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  toggleLabel: { ...typography.bodyMd, color: colors.onSurface },
-});

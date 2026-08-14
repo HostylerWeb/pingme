@@ -1,23 +1,135 @@
 import { icebreakerRadiusLabel } from '@pingme/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/lib/api';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { clearDismissedMatchPrompt, dismissMatchPrompt } from '../../src/lib/match-prompt-dismiss';
-import { Button, Card, EmptyState, Screen } from '../../src/components/ui';
-import { colors, spacing, typography } from '../../src/theme';
+import { showToast } from '../../src/stores/toast-store';
+import { AppHeader, Avatar, Button, DistancePill, EmptyState, LoadingView, Screen } from '../../src/components/ui';
+import { spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 export default function MatchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const { ensureVerified, handleLivenessError } = useLivenessGate();
 
-  const { data, isLoading } = useQuery({
+  const styles = useThemedStyles(({ colors }) => ({
+    page: {
+      flex: 1,
+      paddingHorizontal: spacing.container,
+      justifyContent: 'space-between',
+    },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: spacing.container,
+    },
+    hero: {
+      alignItems: 'center',
+      paddingTop: spacing.xxl,
+    },
+    overline: {
+      ...typography.overline,
+      color: colors.inkTertiary,
+      marginBottom: spacing.sm,
+    },
+    heroTitle: {
+      ...typography.display,
+      fontSize: 28,
+      lineHeight: 34,
+      color: colors.ink,
+      textAlign: 'center',
+      marginBottom: spacing.xxl,
+    },
+    heroBody: {
+      ...typography.bodyLg,
+      color: colors.inkSecondary,
+      textAlign: 'center',
+      lineHeight: 26,
+      maxWidth: 300,
+      marginBottom: spacing.xl,
+    },
+    connection: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      marginBottom: spacing.xl,
+      gap: spacing.md,
+    },
+    avatarWrap: {
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    avatarLabel: {
+      ...typography.labelSm,
+      color: colors.inkTertiary,
+      textTransform: 'none',
+      letterSpacing: 0,
+    },
+    connector: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingTop: 28,
+      gap: 4,
+    },
+    connectorLine: {
+      width: 20,
+      height: 1.5,
+      backgroundColor: colors.accentMuted,
+    },
+    connectorDot: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    copyBlock: {
+      paddingVertical: spacing.lg,
+    },
+    body: {
+      ...typography.bodyMd,
+      color: colors.inkSecondary,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+    actions: {
+      gap: spacing.sm,
+    },
+    cta: {
+      width: '100%',
+    },
+    trust: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginTop: spacing.xl,
+    },
+    trustText: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+    },
+    successIcon: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xl,
+    },
+  }));
+
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['match', id],
     queryFn: () => api.getMatch(id!),
     enabled: !!id,
@@ -43,7 +155,7 @@ export default function MatchScreen() {
     },
     onError: (error: Error) => {
       if (!handleLivenessError(error)) {
-        alert(error.message);
+        showToast(error.message, 'error');
       }
     },
   });
@@ -57,113 +169,156 @@ export default function MatchScreen() {
     },
     onError: (error: Error) => {
       if (!handleLivenessError(error)) {
-        alert(error.message);
+        showToast(error.message, 'error');
       }
     },
   });
 
   const match = data?.data;
 
-  if (isLoading || !match) {
+  if (isLoading) {
     return (
       <Screen>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <LoadingView message="Loading match…" />
+      </Screen>
+    );
+  }
+
+  if (isError || !match) {
+    return (
+      <Screen padded={false} edges={[]}>
+        <AppHeader title="Match" showBrand={false} onBack={() => router.back()} centerTitle />
+        <View style={styles.centered}>
+          <EmptyState
+            icon="heart-dislike-outline"
+            title="Match not found"
+            message="This match may have expired or been removed."
+            action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
+          />
+        </View>
       </Screen>
     );
   }
 
   if (match.status === 'active') {
     return (
-      <Screen style={styles.centered} edges={['top', 'bottom']}>
-        <Text style={styles.emoji}>🎉</Text>
-        <Text style={styles.title}>You&apos;re connected!</Text>
-        <Text style={styles.body}>Start chatting with your match.</Text>
-        <Button
-          label="Open chat"
-          variant="secondary"
-          onPress={() =>
-            match.chatId ? router.replace(`/chat/${match.chatId}`) : router.replace('/(tabs)/chats')
-          }
-          style={styles.cta}
-        />
+      <Screen padded={false} edges={[]}>
+        <AppHeader title="Connected" showBrand={false} onBack={goHome} centerTitle />
+        <View style={styles.centered}>
+          <View style={styles.successIcon}>
+            <Ionicons name="heart" size={32} color={colors.accent} />
+          </View>
+          <Text style={styles.heroTitle}>You&apos;re connected!</Text>
+          <Text style={styles.heroBody}>Your private chat is ready. Say hello when you&apos;re ready.</Text>
+          <Button
+            label="Open chat"
+            variant="primary"
+            size="lg"
+            onPress={() =>
+              match.chatId ? router.replace(`/chat/${match.chatId}`) : router.replace('/(tabs)/chats')
+            }
+            style={styles.cta}
+          />
+        </View>
       </Screen>
     );
   }
 
   if (match.status === 'declined') {
     return (
-      <Screen style={styles.centered} edges={['top', 'bottom']}>
-        <EmptyState
-          icon="close-circle-outline"
-          title="Match declined"
-          message="This connection request was declined. You can keep browsing the wall or try Break the ice again."
-        />
-        <Button label="Back to wall" onPress={() => router.replace('/(tabs)/home')} style={styles.cta} />
+      <Screen padded={false} edges={[]}>
+        <AppHeader title="Match" showBrand={false} onBack={() => router.replace('/(tabs)/home')} centerTitle />
+        <View style={styles.centered}>
+          <EmptyState
+            icon="close-circle-outline"
+            title="Match declined"
+            message="This connection request was declined. You can keep browsing the wall or try Break the ice again."
+            action={
+              <Button label="Back to wall" variant="outline" onPress={() => router.replace('/(tabs)/home')} />
+            }
+          />
+        </View>
       </Screen>
     );
   }
 
   if (match.status === 'expired') {
     return (
-      <Screen style={styles.centered} edges={['top', 'bottom']}>
-        <EmptyState
-          icon="time-outline"
-          title="Match expired"
-          message="This request timed out before both people accepted. Try Break the ice again when you're ready."
-        />
-        <Button label="Back to wall" onPress={() => router.replace('/(tabs)/home')} style={styles.cta} />
+      <Screen padded={false} edges={[]}>
+        <AppHeader title="Match" showBrand={false} onBack={() => router.replace('/(tabs)/home')} centerTitle />
+        <View style={styles.centered}>
+          <EmptyState
+            icon="time-outline"
+            title="Match expired"
+            message="This request timed out before both people accepted. Try Break the ice again when you're ready."
+            action={
+              <Button label="Back to wall" variant="outline" onPress={() => router.replace('/(tabs)/home')} />
+            }
+          />
+        </View>
       </Screen>
     );
   }
 
   if (match.status !== 'pending') {
     return (
-      <Screen style={styles.centered} edges={['top', 'bottom']}>
-        <EmptyState
-          icon="alert-circle-outline"
-          title="Match unavailable"
-          message="This match is no longer available."
-        />
-        <Button label="Go back" variant="ghost" onPress={() => router.back()} />
+      <Screen padded={false} edges={[]}>
+        <AppHeader title="Match" showBrand={false} onBack={() => router.back()} centerTitle />
+        <View style={styles.centered}>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Match unavailable"
+            message="This match is no longer available."
+            action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
+          />
+        </View>
       </Screen>
     );
   }
 
   return (
     <Screen padded={false} edges={[]}>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={goHome} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.topTitle}>Match request</Text>
-        <View style={styles.backBtn} />
-      </View>
+      <AppHeader title="Match request" showBrand={false} onBack={goHome} centerTitle />
 
-      <View style={styles.page}>
-        <Card style={styles.card}>
-          <Text style={styles.title}>Someone nearby wants to connect!</Text>
+      <View style={[styles.page, { paddingBottom: spacing.section + insets.bottom }]}>
+        <View style={styles.hero}>
+          <Text style={styles.overline}>Someone nearby</Text>
+          <Text style={styles.heroTitle}>wants to connect</Text>
 
           <View style={styles.connection}>
-            <View style={styles.anonAvatar}>
-              <Ionicons name="person" size={32} color={colors.onSurfaceVariant} />
+            <View style={styles.avatarWrap}>
+              <Avatar name="?" size="xl" />
+              <Text style={styles.avatarLabel}>Them</Text>
             </View>
-            <View style={styles.line} />
-            <View style={styles.youAvatar}>
-              <Ionicons name="person" size={32} color={colors.primary} />
+
+            <View style={styles.connector}>
+              <View style={styles.connectorLine} />
+              <View style={styles.connectorDot}>
+                <Ionicons name="link" size={14} color={colors.accent} />
+              </View>
+              <View style={styles.connectorLine} />
+            </View>
+
+            <View style={styles.avatarWrap}>
+              <Avatar name="You" size="xl" />
+              <Text style={styles.avatarLabel}>You</Text>
             </View>
           </View>
 
-          <View style={styles.distancePill}>
-            <Text style={styles.distanceText}>{icebreakerRadiusLabel()}</Text>
-          </View>
+          <DistancePill label={icebreakerRadiusLabel()} tone="near" />
+        </View>
 
+        <View style={styles.copyBlock}>
           <Text style={styles.body}>
-            If you accept, a private chat will open. This stays anonymous until you both agree.
+            If you both accept, a private chat opens. You stay anonymous until you choose to share more.
           </Text>
+        </View>
 
+        <View style={styles.actions}>
           <Button
-            label={match.youAccepted ? 'Accepted — waiting for them' : 'Accept'}
-            variant="secondary"
+            label={match.youAccepted ? 'Accepted — waiting for them' : 'Accept connection'}
+            variant="primary"
+            size="lg"
             onPress={() => {
               if (!ensureVerified()) return;
               acceptMutation.mutate();
@@ -174,69 +329,18 @@ export default function MatchScreen() {
           />
           <Button
             label="Decline"
-            variant="ghost"
+            variant="outline"
             onPress={() => declineMutation.mutate()}
             loading={declineMutation.isPending}
           />
           <Button label="Not now" variant="ghost" onPress={goHome} />
-        </Card>
+        </View>
 
         <View style={styles.trust}>
-          <Ionicons name="lock-closed-outline" size={14} color={colors.outline} />
-          <Text style={styles.trustText}>Privacy: your profile is only visible to matches.</Text>
+          <Ionicons name="lock-closed-outline" size={14} color={colors.inkTertiary} />
+          <Text style={styles.trustText}>Your profile is only visible to matches.</Text>
         </View>
       </View>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.container,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surfaceBright,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-  },
-  backBtn: { width: 40 },
-  topTitle: { flex: 1, ...typography.headlineMd, fontSize: 17, textAlign: 'center', color: colors.onSurface },
-  page: { flex: 1, justifyContent: 'center', padding: spacing.container, paddingBottom: spacing.section },
-  centered: { justifyContent: 'center', alignItems: 'center' },
-  card: { alignItems: 'center' },
-  emoji: { fontSize: 48, marginBottom: spacing.lg, textAlign: 'center' },
-  title: { ...typography.headlineLg, color: colors.onSurface, textAlign: 'center', marginBottom: spacing.xl },
-  body: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 24, marginBottom: spacing.lg },
-  connection: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
-  anonAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.surfaceContainer,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.secondaryContainer,
-  },
-  line: { width: 48, height: 2, backgroundColor: colors.primaryFixedDim, marginHorizontal: spacing.md },
-  youAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primaryFixed,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  distancePill: {
-    backgroundColor: 'rgba(100, 249, 188, 0.2)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginBottom: spacing.lg,
-  },
-  distanceText: { ...typography.distance, color: colors.onSecondaryContainer },
-  cta: { width: '100%', marginBottom: spacing.md, marginTop: spacing.sm },
-  trust: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: spacing.xl },
-  trustText: { ...typography.labelSm, color: colors.outline, textTransform: 'none', letterSpacing: 0 },
-});

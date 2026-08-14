@@ -26,6 +26,13 @@ enum AvatarType {
   generated
 }
 
+enum Gender {
+  male
+  female
+  transgender
+  other
+}
+
 model User {
   id            String       @id @default(uuid()) @db.Uuid
   email         String?      @unique
@@ -53,6 +60,7 @@ model User {
   blocksInitiated      Block[]            @relation("BlocksInitiated")
   blocksReceived       Block[]            @relation("BlocksReceived")
   devices              Device[]
+  securityEvents       UserSecurityEvent[]
   icebreakerSessions        IcebreakerSession[]
   icebreakerInterestsSent   IcebreakerInterest[] @relation("IcebreakerInterestFrom")
   icebreakerInterestsReceived IcebreakerInterest[] @relation("IcebreakerInterestTo")
@@ -76,6 +84,7 @@ model Profile {
   avatarUrl    String?    @map("avatar_url")
   avatarConfig Json?      @map("avatar_config")
   dateOfBirth  DateTime   @map("date_of_birth") @db.Date
+  gender       Gender?
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
@@ -209,6 +218,7 @@ model WallPost {
   content   String         @db.VarChar(500)
   latitude  Float
   longitude Float
+  showPhoto Boolean        @default(false) @map("show_photo")
   status    WallPostStatus @default(active)
   replyCount Int           @default(0) @map("reply_count")
   createdAt DateTime       @default(now()) @map("created_at")
@@ -252,20 +262,46 @@ model Block {
 }
 
 model Device {
-  id           String         @id @default(uuid()) @db.Uuid
-  userId       String         @map("user_id") @db.Uuid
-  platform     DevicePlatform
-  pushToken    String         @map("push_token")
-  deviceId     String?        @map("device_id")
-  appVersion   String?        @map("app_version")
-  lastActiveAt DateTime?      @map("last_active_at")
-  createdAt    DateTime       @default(now()) @map("created_at")
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  platform      DevicePlatform
+  pushToken     String         @map("push_token")
+  deviceId      String?        @map("device_id")
+  deviceModel   String?        @map("device_model")
+  osVersion     String?        @map("os_version")
+  userAgent     String?        @map("user_agent")
+  appVersion    String?        @map("app_version")
+  lastIpAddress String?        @map("last_ip_address")
+  lastActiveAt  DateTime?      @map("last_active_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, pushToken])
   @@index([userId])
   @@map("devices")
+}
+
+model UserSecurityEvent {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  action      String
+  ipAddress   String?         @map("ip_address")
+  userAgent   String?         @map("user_agent")
+  platform    DevicePlatform?
+  deviceModel String?         @map("device_model")
+  osVersion   String?         @map("os_version")
+  appVersion  String?         @map("app_version")
+  deviceId    String?         @map("device_id")
+  metadata    Json?
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("user_security_events")
 }
 
 enum IcebreakerSessionStatus {
@@ -315,13 +351,16 @@ model IcebreakerSession {
 }
 
 model IcebreakerInterest {
-  id          String    @id @default(uuid()) @db.Uuid
-  fromUserId  String    @map("from_user_id") @db.Uuid
-  toUserId    String    @map("to_user_id") @db.Uuid
-  interested  Boolean
-  hiddenUntil DateTime? @map("hidden_until")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id                       String    @id @default(uuid()) @db.Uuid
+  fromUserId               String    @map("from_user_id") @db.Uuid
+  toUserId                 String    @map("to_user_id") @db.Uuid
+  interested               Boolean
+  hiddenUntil              DateTime? @map("hidden_until")
+  expiresAt                DateTime? @map("expires_at")
+  expiredAt                DateTime? @map("expired_at")
+  unansweredAcknowledgedAt DateTime? @map("unanswered_acknowledged_at")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
 
   fromUser User @relation("IcebreakerInterestFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser   User @relation("IcebreakerInterestTo", fields: [toUserId], references: [id], onDelete: Cascade)
@@ -329,6 +368,7 @@ model IcebreakerInterest {
   @@unique([fromUserId, toUserId])
   @@index([fromUserId])
   @@index([toUserId])
+  @@index([interested, expiresAt])
   @@map("icebreaker_interests")
 }
 

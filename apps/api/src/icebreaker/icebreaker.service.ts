@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { IcebreakerSessionStatus, MatchStatus } from '@pingme/db';
 import {
   ICEBREAKER_HIDE_MINUTES,
+  ICEBREAKER_INTEREST_EXPIRY_MINUTES,
   ICEBREAKER_RADIUS_METERS,
   ICEBREAKER_STARTS_PER_HOUR,
   ICEBREAKER_WINDOW_MINUTES,
@@ -123,6 +124,8 @@ export class IcebreakerService {
   }
 
   async getStatus(userId: string) {
+    await this.expireInterests();
+
     const active = await this.prisma.icebreakerSession.findFirst({
       where: {
         userId,
@@ -147,23 +150,68 @@ export class IcebreakerService {
       }
     }
 
+    const unansweredRows = await this.prisma.icebreakerInterest.findMany({
+      where: {
+        fromUserId: userId,
+        expiredAt: { not: null },
+        unansweredAcknowledgedAt: null,
+      },
+      orderBy: { expiredAt: 'desc' },
+      take: 10,
+    });
+
+    const unansweredProfiles = unansweredRows.length
+      ? await this.prisma.profile.findMany({
+          where: { userId: { in: unansweredRows.map((row) => row.toUserId) } },
+          select: { userId: true, displayName: true },
+        })
+      : [];
+    const profileByUserId = new Map(unansweredProfiles.map((profile) => [profile.userId, profile]));
+
     return {
       success: true,
-      data: active
-        ? {
-            id: active.id,
-            status: active.status,
-            expiresAt: active.expiresAt,
-            matchedSessionId: active.matchedSessionId,
-            showPhoto: active.showPhoto,
-            introMessage: active.introMessage,
-          }
-        : null,
+      data: {
+        session: active
+          ? {
+              id: active.id,
+              status: active.status,
+              expiresAt: active.expiresAt,
+              matchedSessionId: active.matchedSessionId,
+              showPhoto: active.showPhoto,
+              introMessage: active.introMessage,
+            }
+          : null,
+        unanswered: unansweredRows.map((row) => ({
+          interestId: row.id,
+          targetUserId: row.toUserId,
+          displayName: profileByUserId.get(row.toUserId)?.displayName ?? 'Someone nearby',
+          expiredAt: row.expiredAt!,
+        })),
+      },
     };
+  }
+
+  async acknowledgeUnanswered(userId: string, interestIds: string[]) {
+    if (interestIds.length === 0) {
+      return { success: true };
+    }
+
+    await this.prisma.icebreakerInterest.updateMany({
+      where: {
+        id: { in: interestIds },
+        fromUserId: userId,
+        expiredAt: { not: null },
+        unansweredAcknowledgedAt: null,
+      },
+      data: { unansweredAcknowledgedAt: new Date() },
+    });
+
+    return { success: true };
   }
 
   async getNearby(userId: string) {
     const now = new Date();
+    await this.expireInterests(now);
     const presence = await this.prisma.presenceSession.findUnique({ where: { userId } });
 
     const mySession = await this.prisma.icebreakerSession.findFirst({
@@ -235,7 +283,11 @@ export class IcebreakerService {
     const theirInterests = await this.prisma.icebreakerInterest.findMany({
       where: { toUserId: userId, interested: true },
     });
-    const interestedInMe = new Set(theirInterests.map((row) => row.fromUserId));
+    const interestedInMe = new Set(
+      theirInterests
+        .filter((row) => isActiveYesInterest(row, now))
+        .map((row) => row.fromUserId),
+    );
 
     const pendingMatchByUserId = new Map(
       pendingMatches.map((match) => [
@@ -266,7 +318,7 @@ export class IcebreakerService {
     const data = visibleRows.map((row) => {
       const profile = profileByUserId.get(row.user_id);
       const myInterest = interestByTarget.get(row.user_id);
-      const myResponse = myInterest?.interested ? 'yes' : null;
+      const myResponse = isActiveYesInterest(myInterest, now) ? 'yes' : null;
       const matchId = pendingMatchByUserId.get(row.user_id);
       const highlight = matchId
         ? ('mutual_match' as const)
@@ -351,9 +403,15 @@ export class IcebreakerService {
     const hideMinutes = Number(
       this.config.get('ICEBREAKER_HIDE_MINUTES', ICEBREAKER_HIDE_MINUTES),
     );
+    const interestExpiryMinutes = Number(
+      this.config.get('ICEBREAKER_INTEREST_EXPIRY_MINUTES', ICEBREAKER_INTEREST_EXPIRY_MINUTES),
+    );
     const hiddenUntil = interested
       ? null
       : new Date(Date.now() + hideMinutes * 60 * 1000);
+    const expiresAt = interested
+      ? new Date(Date.now() + interestExpiryMinutes * 60 * 1000)
+      : null;
 
     await this.prisma.icebreakerInterest.upsert({
       where: {
@@ -364,10 +422,16 @@ export class IcebreakerService {
         toUserId: targetUserId,
         interested,
         hiddenUntil,
+        expiresAt,
+        expiredAt: null,
+        unansweredAcknowledgedAt: null,
       },
       update: {
         interested,
         hiddenUntil,
+        expiresAt,
+        expiredAt: null,
+        unansweredAcknowledgedAt: null,
       },
     });
 
@@ -381,7 +445,7 @@ export class IcebreakerService {
       },
     });
 
-    if (!reverse?.interested) {
+    if (!isActiveYesInterest(reverse, new Date())) {
       return { success: true, data: { matched: false, waiting: true } };
     }
 
@@ -425,6 +489,16 @@ export class IcebreakerService {
           status: IcebreakerSessionStatus.matched,
           matchedSessionId: mySession.id,
         },
+      });
+
+      await tx.icebreakerInterest.updateMany({
+        where: {
+          OR: [
+            { fromUserId: userId, toUserId: targetUserId },
+            { fromUserId: targetUserId, toUserId: userId },
+          ],
+        },
+        data: { expiresAt: null, expiredAt: null },
       });
 
       return createdMatch;
@@ -476,6 +550,62 @@ export class IcebreakerService {
     });
     return result.count;
   }
+
+  async expireInterests(now = new Date()) {
+    const pending = await this.prisma.icebreakerInterest.findMany({
+      where: {
+        interested: true,
+        expiresAt: { lt: now },
+      },
+    });
+
+    let expiredCount = 0;
+
+    for (const interest of pending) {
+      const reverse = await this.prisma.icebreakerInterest.findUnique({
+        where: {
+          fromUserId_toUserId: {
+            fromUserId: interest.toUserId,
+            toUserId: interest.fromUserId,
+          },
+        },
+      });
+
+      if (isActiveYesInterest(reverse, now)) {
+        continue;
+      }
+
+      await this.prisma.icebreakerInterest.update({
+        where: { id: interest.id },
+        data: {
+          interested: false,
+          expiresAt: null,
+          expiredAt: now,
+          hiddenUntil: null,
+        },
+      });
+      expiredCount += 1;
+    }
+
+    return expiredCount;
+  }
+}
+
+function isActiveYesInterest(
+  interest:
+    | {
+        interested: boolean;
+        expiresAt: Date | null;
+        expiredAt?: Date | null;
+      }
+    | null
+    | undefined,
+  now: Date,
+): boolean {
+  if (!interest?.interested) return false;
+  if (interest.expiredAt) return false;
+  if (!interest.expiresAt) return true;
+  return interest.expiresAt > now;
 }
 
 function orderUserIds(a: string, b: string): [string, string] {

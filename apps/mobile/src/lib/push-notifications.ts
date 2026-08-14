@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -13,6 +14,17 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+async function getStableDeviceId() {
+  try {
+    if (Platform.OS === 'android') {
+      return Application.getAndroidId() ?? undefined;
+    }
+    return (await Application.getIosIdForVendorAsync()) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export async function registerForPushNotifications() {
   if (!Device.isDevice) return null;
@@ -34,9 +46,17 @@ export async function registerForPushNotifications() {
       projectId ? { projectId } : undefined,
     );
 
+    const deviceId = await getStableDeviceId();
+    const deviceModel = [Device.brand, Device.modelName].filter(Boolean).join(' ').trim() || undefined;
+    const osVersion = Device.osVersion ? `${Device.osName ?? Platform.OS} ${Device.osVersion}` : Device.osName ?? undefined;
+
     await api.registerDevice({
       platform: Platform.OS === 'ios' ? 'ios' : 'android',
       pushToken: tokenData.data,
+      deviceId,
+      deviceModel,
+      osVersion,
+      userAgent: `${Device.osName ?? Platform.OS} ${Device.osVersion ?? ''}`.trim(),
       appVersion: Constants.expoConfig?.version,
     });
 

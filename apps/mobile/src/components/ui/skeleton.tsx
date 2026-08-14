@@ -1,15 +1,22 @@
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, ViewStyle } from 'react-native';
-import { colors, radius, spacing } from '../../theme';
+import { Animated, View, ViewStyle } from 'react-native';
+import { radius, spacing } from '../../theme';
+import { useThemedStyles } from '../../theme/use-themed-styles';
 
 function SkeletonBox({ style }: { style?: ViewStyle }) {
-  const opacity = useRef(new Animated.Value(0.45)).current;
+  const opacity = useRef(new Animated.Value(0.35)).current;
+  const styles = useThemedStyles(({ colors }) => ({
+    box: {
+      backgroundColor: colors.surfaceMuted,
+      borderRadius: radius.md,
+    },
+  }));
 
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.45, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.75, duration: 900, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.35, duration: 900, useNativeDriver: true }),
       ]),
     );
     animation.start();
@@ -20,9 +27,20 @@ function SkeletonBox({ style }: { style?: ViewStyle }) {
 }
 
 export function PostCardSkeleton() {
+  const styles = useThemedStyles(({ colors }) => ({
+    postRow: { paddingVertical: spacing.sm },
+    postTop: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
+    avatar: { width: 36, height: 36, borderRadius: 18 },
+    postMeta: { flex: 1, gap: spacing.sm },
+    nameLine: { width: 100, height: 14, borderRadius: radius.sm },
+    pillLine: { width: 72, height: 18, borderRadius: radius.full },
+    contentLine: { height: 14, marginBottom: spacing.sm, marginLeft: 52 },
+    contentLineShort: { width: '65%', height: 14, marginLeft: 52 },
+  }));
+
   return (
-    <View style={styles.postCard}>
-      <View style={styles.postHeader}>
+    <View style={styles.postRow}>
+      <View style={styles.postTop}>
         <SkeletonBox style={styles.avatar} />
         <View style={styles.postMeta}>
           <SkeletonBox style={styles.nameLine} />
@@ -31,12 +49,25 @@ export function PostCardSkeleton() {
       </View>
       <SkeletonBox style={styles.contentLine} />
       <SkeletonBox style={styles.contentLineShort} />
-      <SkeletonBox style={styles.footerLine} />
     </View>
   );
 }
 
 export function ChatRowSkeleton() {
+  const styles = useThemedStyles(({ colors }) => ({
+    chatRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    chatAvatar: { width: 44, height: 44, borderRadius: 22, marginRight: spacing.md },
+    chatBody: { flex: 1, gap: spacing.sm },
+    chatTitle: { width: '40%', height: 14 },
+    chatPreview: { width: '75%', height: 12 },
+  }));
+
   return (
     <View style={styles.chatRow}>
       <SkeletonBox style={styles.chatAvatar} />
@@ -49,23 +80,43 @@ export function ChatRowSkeleton() {
 }
 
 export function PostDetailSkeleton() {
+  const styles = useThemedStyles(() => ({
+    detail: { padding: spacing.container, gap: spacing.lg },
+    sectionTitle: { width: 72, height: 12, borderRadius: radius.sm },
+    replyRow: { flexDirection: 'row', gap: spacing.md },
+    replyDot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
+    replyBody: { flex: 1, gap: spacing.sm },
+    replyAuthor: { width: 96, height: 12 },
+    replyContent: { width: '88%', height: 12 },
+  }));
+
   return (
     <View style={styles.detail}>
       <PostCardSkeleton />
       <SkeletonBox style={styles.sectionTitle} />
-      <View style={styles.replyCard}>
-        <SkeletonBox style={styles.replyAuthor} />
-        <SkeletonBox style={styles.replyContent} />
+      <View style={styles.replyRow}>
+        <SkeletonBox style={styles.replyDot} />
+        <View style={styles.replyBody}>
+          <SkeletonBox style={styles.replyAuthor} />
+          <SkeletonBox style={styles.replyContent} />
+        </View>
       </View>
-      <View style={styles.replyCard}>
-        <SkeletonBox style={styles.replyAuthor} />
-        <SkeletonBox style={styles.replyContent} />
+      <View style={styles.replyRow}>
+        <SkeletonBox style={styles.replyDot} />
+        <View style={styles.replyBody}>
+          <SkeletonBox style={styles.replyAuthor} />
+          <SkeletonBox style={styles.replyContent} />
+        </View>
       </View>
     </View>
   );
 }
 
 export function ListSkeleton({ count = 3, variant = 'post' }: { count?: number; variant?: 'post' | 'chat' }) {
+  const styles = useThemedStyles(() => ({
+    list: { gap: spacing.lg },
+  }));
+
   return (
     <View style={styles.list}>
       {Array.from({ length: count }).map((_, index) =>
@@ -74,52 +125,3 @@ export function ListSkeleton({ count = 3, variant = 'post' }: { count?: number; 
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  box: {
-    backgroundColor: colors.surfaceContainer,
-    borderRadius: radius.md,
-  },
-  list: { gap: spacing.lg },
-  postCard: {
-    backgroundColor: colors.surfaceBright,
-    borderRadius: radius.card,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  postHeader: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
-  avatar: { width: 44, height: 44, borderRadius: 22 },
-  postMeta: { flex: 1, gap: spacing.sm },
-  nameLine: { width: 120, height: 16, borderRadius: radius.sm },
-  pillLine: { width: 88, height: 22, borderRadius: radius.full },
-  contentLine: { height: 14, marginBottom: spacing.sm },
-  contentLineShort: { width: '72%', height: 14, marginBottom: spacing.lg },
-  footerLine: { width: 72, height: 12 },
-  chatRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceBright,
-    borderRadius: radius.card,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    marginBottom: spacing.md,
-  },
-  chatAvatar: { width: 48, height: 48, borderRadius: 24, marginRight: spacing.md },
-  chatBody: { flex: 1, gap: spacing.sm },
-  chatTitle: { width: '45%', height: 14 },
-  chatPreview: { width: '80%', height: 12 },
-  detail: { padding: spacing.container, gap: spacing.lg },
-  sectionTitle: { width: 80, height: 18, marginTop: spacing.sm },
-  replyCard: {
-    backgroundColor: colors.surfaceBright,
-    borderRadius: radius.card,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    gap: spacing.sm,
-  },
-  replyAuthor: { width: 100, height: 14 },
-  replyContent: { width: '90%', height: 12 },
-});

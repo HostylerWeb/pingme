@@ -1,126 +1,135 @@
-import { ActivityIndicator, Pressable, PressableProps, StyleSheet, Text, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radius, spacing, typography } from '../../theme';
+import * as Haptics from 'expo-haptics';
+import { ActivityIndicator, Pressable, PressableProps, Text, ViewStyle } from 'react-native';
+import { radius, spacing, typography } from '../../theme';
+import { useTheme } from '../../theme/theme-context';
+import { useThemedStyles } from '../../theme/use-themed-styles';
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'icebreaker' | 'premium';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'icebreaker' | 'premium' | 'outline';
 
 export function Button({
   label,
   variant = 'primary',
+  size = 'md',
   loading,
   style,
   disabled,
+  onPress,
   ...props
 }: PressableProps & {
   label: string;
   variant?: Variant;
+  size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   style?: ViewStyle;
 }) {
+  const { colors } = useTheme();
   const isDisabled = disabled || loading;
 
-  if (variant === 'icebreaker') {
-    return (
-      <Pressable disabled={isDisabled} style={[styles.base, style]} {...props}>
-        <LinearGradient
-          colors={[colors.icebreakerStart, colors.icebreakerEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.gradient, isDisabled && styles.disabled]}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.icebreakerText}>{label}</Text>
-          )}
-        </LinearGradient>
-      </Pressable>
-    );
-  }
+  const styles = useThemedStyles(({ colors }) => ({
+    base: {
+      borderRadius: radius.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+    },
+    pressed: {
+      opacity: 0.92,
+      transform: [{ scale: 0.98 }],
+    },
+    disabled: {
+      opacity: 0.5,
+    },
+    label: {
+      ...typography.bodySemiBold,
+      fontSize: 16,
+    },
+    labelSm: {
+      fontSize: 14,
+    },
+    primary: { backgroundColor: colors.accent },
+    secondary: { backgroundColor: colors.online },
+    ghost: { backgroundColor: colors.accentSoft },
+    danger: { backgroundColor: colors.errorContainer },
+    icebreaker: { backgroundColor: colors.icebreaker },
+    premium: { backgroundColor: colors.premiumStart },
+    outline: {
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderColor: colors.border,
+    },
+    textPrimary: { color: colors.onAccent },
+    textSecondary: { color: colors.onOnline },
+    textGhost: { color: colors.accent },
+    textDanger: { color: colors.onErrorContainer },
+    textIcebreaker: { color: colors.onAccent },
+    textPremium: { color: colors.onPrimary },
+    textOutline: { color: colors.ink },
+    sm: { paddingVertical: 10, paddingHorizontal: spacing.lg, minHeight: 40 },
+    md: { paddingVertical: spacing.md + 2, paddingHorizontal: spacing.xl, minHeight: 50 },
+    lg: { paddingVertical: spacing.lg, paddingHorizontal: spacing.xxl, minHeight: 56 },
+  }));
 
-  if (variant === 'premium') {
-    return (
-      <Pressable disabled={isDisabled} style={[styles.base, style]} {...props}>
-        <LinearGradient
-          colors={[colors.premiumStart, colors.premiumEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.gradient, isDisabled && styles.disabled]}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.primaryText}>{label}</Text>
-          )}
-        </LinearGradient>
-      </Pressable>
-    );
-  }
+  const variantStyle = {
+    primary: styles.primary,
+    secondary: styles.secondary,
+    ghost: styles.ghost,
+    danger: styles.danger,
+    icebreaker: styles.icebreaker,
+    premium: styles.premium,
+    outline: styles.outline,
+  }[variant];
+
+  const textStyle = {
+    primary: styles.textPrimary,
+    secondary: styles.textSecondary,
+    ghost: styles.textGhost,
+    danger: styles.textDanger,
+    icebreaker: styles.textIcebreaker,
+    premium: styles.textPremium,
+    outline: styles.textOutline,
+  }[variant];
+
+  const loaderColor = {
+    primary: colors.onAccent,
+    secondary: colors.onOnline,
+    ghost: colors.accent,
+    danger: colors.onErrorContainer,
+    icebreaker: colors.onAccent,
+    premium: colors.onPrimary,
+    outline: colors.ink,
+  }[variant];
+
+  const sizeStyle = { sm: styles.sm, md: styles.md, lg: styles.lg }[size];
+
+  const handlePress = async (e: Parameters<NonNullable<PressableProps['onPress']>>[0]) => {
+    if (isDisabled) return;
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      /* noop */
+    }
+    onPress?.(e);
+  };
 
   return (
     <Pressable
       disabled={isDisabled}
-      style={[
+      onPress={handlePress}
+      style={({ pressed }) => [
         styles.base,
-        variantStyles[variant],
+        sizeStyle,
+        variantStyle,
+        pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
         style,
       ]}
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'ghost' ? colors.primary : '#fff'} />
+        <ActivityIndicator color={loaderColor} />
       ) : (
-        <Text style={textStyles[variant]}>{label}</Text>
+        <Text style={[styles.label, textStyle, size === 'sm' && styles.labelSm]}>{label}</Text>
       )}
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-  },
-  gradient: {
-    borderRadius: radius.lg,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-    width: '100%',
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-  primaryText: {
-    ...typography.bodySemiBold,
-    color: colors.onPrimary,
-    fontSize: 16,
-  },
-  icebreakerText: {
-    ...typography.labelSm,
-    color: '#fff',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-});
-
-const variantStyles = StyleSheet.create({
-  primary: { backgroundColor: colors.primary },
-  secondary: { backgroundColor: colors.secondary },
-  ghost: { backgroundColor: colors.primaryFixed },
-  danger: { backgroundColor: colors.errorContainer },
-});
-
-const textStyles = StyleSheet.create({
-  primary: { ...typography.bodySemiBold, color: colors.onPrimary, fontSize: 16 },
-  secondary: { ...typography.bodySemiBold, color: colors.onSecondary, fontSize: 16 },
-  ghost: { ...typography.bodySemiBold, color: colors.primary, fontSize: 16 },
-  danger: { ...typography.bodySemiBold, color: colors.onErrorContainer, fontSize: 16 },
-});

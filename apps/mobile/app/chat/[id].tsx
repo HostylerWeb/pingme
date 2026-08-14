@@ -3,36 +3,93 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, ChatMessage, ApiError } from '../../src/lib/api';
+import { api, ChatMessage } from '../../src/lib/api';
 import { useChatSocket } from '../../src/hooks/use-chat-socket';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
-import { colors, radius, spacing, typography } from '../../src/theme';
+import { showToast } from '../../src/stores/toast-store';
+import {
+  ActionSheet,
+  AppHeader,
+  Avatar,
+  Button,
+  EmptyState,
+  hapticLight,
+  LoadingView,
+  Screen,
+} from '../../src/components/ui';
+import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 function MessageBubble({ message }: { message: ChatMessage }) {
+  const isYou = message.isYou;
+
+  const styles = useThemedStyles(({ colors }) => ({
+    bubbleRow: {
+      flexDirection: 'row',
+      marginBottom: spacing.xs,
+    },
+    bubbleRowYou: {
+      justifyContent: 'flex-end',
+    },
+    bubble: {
+      maxWidth: '82%',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      borderRadius: radius.xl,
+    },
+    bubbleYou: {
+      backgroundColor: colors.accent,
+      borderBottomRightRadius: radius.sm,
+    },
+    bubbleThem: {
+      backgroundColor: colors.surface,
+      borderBottomLeftRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    bubbleText: { ...typography.bodyMd, lineHeight: 22 },
+    bubbleTextYou: { color: colors.onAccent },
+    bubbleTextThem: { color: colors.ink },
+    bubbleMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 4,
+    },
+    bubbleTime: { ...typography.labelSm, fontSize: 11, textTransform: 'none', letterSpacing: 0 },
+    bubbleTimeYou: { color: colors.onAccent, opacity: 0.7 },
+    bubbleTimeThem: { color: colors.inkMuted },
+    readReceipt: {
+      ...typography.labelSm,
+      fontSize: 10,
+      color: colors.onAccent,
+      opacity: 0.85,
+      textTransform: 'none',
+      letterSpacing: 0,
+    },
+  }));
+
   return (
-    <View style={[styles.bubble, message.isYou ? styles.bubbleYou : styles.bubbleThem]}>
-      <Text style={[styles.bubbleText, message.isYou ? styles.bubbleTextYou : styles.bubbleTextThem]}>
-        {message.content}
-      </Text>
-      <View style={styles.bubbleMeta}>
-        <Text style={[styles.bubbleTime, message.isYou ? styles.bubbleTimeYou : styles.bubbleTimeThem]}>
-          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+    <View style={[styles.bubbleRow, isYou && styles.bubbleRowYou]}>
+      <View style={[styles.bubble, isYou ? styles.bubbleYou : styles.bubbleThem]}>
+        <Text style={[styles.bubbleText, isYou ? styles.bubbleTextYou : styles.bubbleTextThem]}>
+          {message.content}
         </Text>
-        {message.isYou && message.read ? (
-          <Text style={styles.readReceipt}>Read</Text>
-        ) : null}
+        <View style={styles.bubbleMeta}>
+          <Text style={[styles.bubbleTime, isYou ? styles.bubbleTimeYou : styles.bubbleTimeThem]}>
+            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+          {isYou && message.read ? <Text style={styles.readReceipt}>Read</Text> : null}
+        </View>
       </View>
     </View>
   );
@@ -43,17 +100,83 @@ export default function ChatThreadScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [draft, setDraft] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
   const { ensureVerified, handleLivenessError } = useLivenessGate();
 
-  const { data: chatData, isLoading: chatLoading } = useQuery({
+  const styles = useThemedStyles(({ colors }) => ({
+    container: { flex: 1, backgroundColor: colors.background },
+    menuBtn: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    threadHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      paddingHorizontal: spacing.container,
+      paddingBottom: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    threadHint: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+      flex: 1,
+    },
+    messages: {
+      paddingHorizontal: spacing.container,
+      paddingVertical: spacing.lg,
+      flexGrow: 1,
+      gap: spacing.sm,
+    },
+    composer: {
+      flexDirection: 'row',
+      alignItems: 'flex-end',
+      paddingHorizontal: spacing.container,
+      paddingTop: spacing.md,
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      gap: spacing.sm,
+    },
+    input: {
+      flex: 1,
+      minHeight: 44,
+      maxHeight: 120,
+      borderWidth: 1,
+      borderColor: colors.outlineVariant,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      ...typography.bodyMd,
+      backgroundColor: colors.surfaceMuted,
+      color: colors.ink,
+    },
+    sendButton: {
+      backgroundColor: colors.accent,
+      borderRadius: 22,
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sendButtonDisabled: { opacity: 0.45 },
+  }));
+
+  const { data: chatData, isLoading: chatLoading, isError: chatError } = useQuery({
     queryKey: ['chat', id],
     queryFn: () => api.getChat(id!),
     enabled: !!id,
   });
 
-  const { data: messagesData, isLoading: messagesLoading } = useQuery({
+  const { data: messagesData, isLoading: messagesLoading, isError: messagesError } = useQuery({
     queryKey: ['chat-messages', id],
     queryFn: () => api.getChatMessages(id!),
     enabled: !!id,
@@ -70,7 +193,7 @@ export default function ChatThreadScreen() {
     },
     onError: (error: Error) => {
       if (!handleLivenessError(error)) {
-        alert(error.message);
+        showToast(error.message, 'error');
       }
     },
   });
@@ -81,7 +204,7 @@ export default function ChatThreadScreen() {
       queryClient.invalidateQueries({ queryKey: ['chats'] });
       router.back();
     },
-    onError: (error: Error) => alert(error.message),
+    onError: (error: Error) => showToast(error.message, 'error'),
   });
 
   const reportMutation = useMutation({
@@ -91,8 +214,8 @@ export default function ChatThreadScreen() {
       targetId: string;
       reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other';
     }) => api.reportUser(payload),
-    onSuccess: () => alert('Report submitted. Thank you.'),
-    onError: (error: Error) => alert(error.message),
+    onSuccess: () => showToast('Report submitted. Thank you.', 'success'),
+    onError: (error: Error) => showToast(error.message, 'error'),
   });
 
   const chat = chatData?.data;
@@ -147,56 +270,43 @@ export default function ChatThreadScreen() {
     }
   }, [id, messagesData]);
 
-  const onBlock = () => {
+  const submitReport = (reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other') => {
     if (!chat) return;
-    Alert.alert(
-      'Block user',
-      `Block ${chat.otherUser.displayName}? You won't be able to message each other.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Block',
-          style: 'destructive',
-          onPress: () => blockMutation.mutate(chat.otherUser.id),
-        },
-      ],
-    );
+    reportMutation.mutate({
+      reportedUserId: chat.otherUser.id,
+      targetType: 'user',
+      targetId: chat.otherUser.id,
+      reason,
+    });
   };
 
-  const onReport = () => {
-    if (!chat) return;
-
-    const submitReport = (reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other') => {
-      reportMutation.mutate({
-        reportedUserId: chat.otherUser.id,
-        targetType: 'user',
-        targetId: chat.otherUser.id,
-        reason,
-      });
-    };
-
-    Alert.alert('Report user', 'Why are you reporting this user?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Harassment', onPress: () => submitReport('harassment') },
-      { text: 'Spam', onPress: () => submitReport('spam') },
-      { text: 'Inappropriate', onPress: () => submitReport('inappropriate') },
-      { text: 'Underage', onPress: () => submitReport('underage') },
-      { text: 'Other', onPress: () => submitReport('other') },
-    ]);
-  };
-
-  const onSend = () => {
+  const onSend = async () => {
     const content = draft.trim();
     if (!content || sendMutation.isPending) return;
     if (!ensureVerified()) return;
+    await hapticLight();
     sendMutation.mutate(content);
   };
 
-  if (chatLoading || messagesLoading || !chat) {
+  if (chatLoading || messagesLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
+      <Screen>
+        <LoadingView />
+      </Screen>
+    );
+  }
+
+  if (chatError || messagesError || !chat) {
+    return (
+      <Screen>
+        <AppHeader title="Chat" showBrand={false} onBack={() => router.back()} centerTitle />
+        <EmptyState
+          icon="chatbubble-outline"
+          title="Chat unavailable"
+          message="This conversation could not be loaded."
+          action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
+        />
+      </Screen>
     );
   }
 
@@ -206,23 +316,21 @@ export default function ChatThreadScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
-        </Pressable>
-        <Text style={styles.headerTitle}>{chat.otherUser.displayName}</Text>
-        <Pressable
-          onPress={() =>
-            Alert.alert('Chat options', undefined, [
-              { text: 'Report', onPress: onReport },
-              { text: 'Block', style: 'destructive', onPress: onBlock },
-              { text: 'Cancel', style: 'cancel' },
-            ])
-          }
-          hitSlop={8}
-        >
-          <Ionicons name="ellipsis-vertical" size={20} color={colors.onSurfaceVariant} />
-        </Pressable>
+      <AppHeader
+        title={chat.otherUser.displayName}
+        showBrand={false}
+        onBack={() => router.back()}
+        centerTitle
+        right={
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={styles.menuBtn}>
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.inkSecondary} />
+          </Pressable>
+        }
+      />
+
+      <View style={styles.threadHeader}>
+        <Avatar name={chat.otherUser.displayName} size="sm" />
+        <Text style={styles.threadHint}>Private · Anonymous until you both agree</Text>
       </View>
 
       <FlatList
@@ -233,9 +341,11 @@ export default function ChatThreadScreen() {
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item }) => <MessageBubble message={item} />}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No messages yet. Say hello!</Text>
-          </View>
+          <EmptyState
+            icon="chatbubble-outline"
+            title="No messages yet"
+            message="Say hello — your conversation starts here."
+          />
         }
       />
 
@@ -245,7 +355,7 @@ export default function ChatThreadScreen() {
           value={draft}
           onChangeText={setDraft}
           placeholder="Type a message..."
-          placeholderTextColor={colors.outline}
+          placeholderTextColor={colors.inkMuted}
           multiline
           maxLength={2000}
         />
@@ -255,89 +365,57 @@ export default function ChatThreadScreen() {
           disabled={!draft.trim() || sendMutation.isPending}
         >
           {sendMutation.isPending ? (
-            <ActivityIndicator color={colors.onPrimary} size="small" />
+            <ActivityIndicator color={colors.onAccent} size="small" />
           ) : (
-            <Ionicons name="send" size={18} color={colors.onPrimary} />
+            <Ionicons name="send" size={18} color={colors.onAccent} />
           )}
         </Pressable>
       </View>
+
+      <ActionSheet
+        visible={menuOpen}
+        title="Chat options"
+        onClose={() => setMenuOpen(false)}
+        options={[
+          {
+            label: 'Report user',
+            onPress: () => setTimeout(() => setReportOpen(true), 280),
+          },
+          {
+            label: 'Block user',
+            destructive: true,
+            onPress: () => setTimeout(() => setBlockOpen(true), 280),
+          },
+        ]}
+      />
+
+      <ActionSheet
+        visible={reportOpen}
+        title="Report user"
+        subtitle="Why are you reporting this person?"
+        onClose={() => setReportOpen(false)}
+        options={[
+          { label: 'Harassment', onPress: () => submitReport('harassment') },
+          { label: 'Spam', onPress: () => submitReport('spam') },
+          { label: 'Inappropriate content', onPress: () => submitReport('inappropriate') },
+          { label: 'Underage', onPress: () => submitReport('underage') },
+          { label: 'Other', onPress: () => submitReport('other') },
+        ]}
+      />
+
+      <ActionSheet
+        visible={blockOpen}
+        title="Block user?"
+        subtitle={`${chat.otherUser.displayName} won't be able to message you, and you won't see each other.`}
+        onClose={() => setBlockOpen(false)}
+        options={[
+          {
+            label: 'Block',
+            destructive: true,
+            onPress: () => blockMutation.mutate(chat.otherUser.id),
+          },
+        ]}
+      />
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
-  container: { flex: 1, backgroundColor: colors.surfaceContainerLow },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.container,
-    paddingBottom: spacing.md,
-    backgroundColor: colors.surfaceBright,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
-  },
-  backBtn: { width: 40 },
-  headerTitle: { flex: 1, ...typography.headlineMd, fontSize: 17, textAlign: 'center', color: colors.onSurface },
-  messages: { padding: spacing.lg, paddingBottom: spacing.sm, flexGrow: 1 },
-  bubble: {
-    maxWidth: '85%',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radius.xl,
-    marginBottom: spacing.sm,
-  },
-  bubbleYou: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: 4,
-  },
-  bubbleThem: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surfaceBright,
-    borderBottomLeftRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-  },
-  bubbleText: { ...typography.bodyMd },
-  bubbleTextYou: { color: colors.onPrimary },
-  bubbleTextThem: { color: colors.onSurface },
-  bubbleTime: { fontSize: 11 },
-  bubbleMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  bubbleTimeYou: { color: 'rgba(255,255,255,0.75)' },
-  bubbleTimeThem: { color: colors.outline },
-  readReceipt: { fontSize: 10, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 48 },
-  emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    padding: spacing.md,
-    backgroundColor: colors.surfaceBright,
-    borderTopWidth: 1,
-    borderTopColor: colors.cardBorder,
-    gap: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant,
-    borderRadius: radius.card,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    ...typography.bodyMd,
-    backgroundColor: colors.surfaceContainerLow,
-    color: colors.onSurface,
-  },
-  sendButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 22,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonDisabled: { opacity: 0.5 },
-});

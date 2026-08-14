@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuditService } from '../audit/audit.service';
+import { SecurityEventsService } from '../audit/security-events.service';
 import { EmailService } from '../common/services/email.service';
 import { SmsService } from '../common/services/sms.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,6 +40,7 @@ describe('AuthService', () => {
   };
 
   const audit = { log: jest.fn() };
+  const securityEvents = { log: jest.fn() };
   const emailService = { sendOtp: jest.fn() };
   const smsService = { sendOtp: jest.fn(), verifyOtp: jest.fn(), usesTwilioVerify: jest.fn().mockReturnValue(false) };
   const jwtService = { signAsync: jest.fn().mockResolvedValue('access-token') };
@@ -58,6 +60,7 @@ describe('AuthService', () => {
         AuthService,
         { provide: PrismaService, useValue: prisma },
         { provide: AuditService, useValue: audit },
+        { provide: SecurityEventsService, useValue: securityEvents },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: config },
         { provide: EmailService, useValue: emailService },
@@ -89,6 +92,7 @@ describe('AuthService', () => {
           email: 'young@example.com',
           password: 'Password123!',
           dateOfBirth: new Date(),
+          gender: 'male',
         },
         {},
       ),
@@ -104,6 +108,7 @@ describe('AuthService', () => {
           email: 'exists@example.com',
           password: 'Password123!',
           dateOfBirth: new Date('1995-01-01'),
+          gender: 'female',
         },
         {},
       ),

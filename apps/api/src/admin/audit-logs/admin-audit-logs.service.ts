@@ -46,7 +46,16 @@ export class AdminAuditLogsService {
       this.prisma.adminAuditLog.count({ where }),
     ]);
 
-    return { items, total, page, limit, type: 'admin' as const };
+    return {
+      items: items.map((log) => ({
+        ...log,
+        id: log.id.toString(),
+      })),
+      total,
+      page,
+      limit,
+      type: 'admin' as const,
+    };
   }
 
   async searchUser(params: {
@@ -86,6 +95,22 @@ export class AdminAuditLogsService {
       this.prisma.auditLog.count({ where }),
     ]);
 
-    return { items, total, page, limit, type: 'user' as const };
+    return {
+      items: items.map((log) => ({
+        id: log.id.toString(),
+        userId: log.userId,
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        ipAddress: log.ipAddress,
+        userAgent: log.userAgent,
+        metadata: log.metadata,
+        createdAt: log.createdAt,
+      })),
+      total,
+      page,
+      limit,
+      type: 'user' as const,
+    };
   }
 }

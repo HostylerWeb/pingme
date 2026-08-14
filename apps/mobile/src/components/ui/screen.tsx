@@ -1,7 +1,9 @@
 import { ReactNode } from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '../../theme';
+import { spacing } from '../../theme';
+import { useTheme } from '../../theme/theme-context';
+import { useThemedStyles } from '../../theme/use-themed-styles';
 
 export function Screen({
   children,
@@ -15,6 +17,15 @@ export function Screen({
   edges?: ('top' | 'bottom')[];
 }) {
   const insets = useSafeAreaInsets();
+  const styles = useThemedStyles(({ colors }) => ({
+    base: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    padded: {
+      paddingHorizontal: spacing.container,
+    },
+  }));
 
   return (
     <View
@@ -30,13 +41,3 @@ export function Screen({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  padded: {
-    paddingHorizontal: spacing.container,
-  },
-});

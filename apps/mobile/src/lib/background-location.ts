@@ -54,8 +54,8 @@ export async function startBackgroundLocation() {
     showsBackgroundLocationIndicator: true,
     foregroundService: {
       notificationTitle: 'PingMe',
-      notificationBody: "You're available nearby",
-      notificationColor: '#2563eb',
+      notificationBody: "You're online nearby",
+      notificationColor: '#E05A42',
     },
   });
 }
@@ -64,5 +64,24 @@ export async function stopBackgroundLocation() {
   const started = await Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
   if (started) {
     await Location.stopLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+  }
+}
+
+export async function isBackgroundLocationRunning() {
+  return Location.hasStartedLocationUpdatesAsync(BACKGROUND_LOCATION_TASK);
+}
+
+/** Keep the Android foreground notification in sync with server availability. */
+export async function syncBackgroundLocationWithAvailability(isAvailable: boolean) {
+  const started = await isBackgroundLocationRunning();
+
+  if (!isAvailable) {
+    if (started) await stopBackgroundLocation();
+    return;
+  }
+
+  if (!started) {
+    const backgroundGranted = await requestBackgroundPermissions();
+    if (backgroundGranted) await startBackgroundLocation();
   }
 }

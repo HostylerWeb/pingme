@@ -13,12 +13,22 @@ import { addNotificationResponseListener, registerForPushNotifications } from '.
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
 import { useAppFonts } from '../src/hooks/use-app-fonts';
-import { colors } from '../src/theme';
+import { ToastHost } from '../src/components/ui';
+import { ThemeProvider, useTheme } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 initSentry();
 
 const queryClient = new QueryClient();
+
+function BootstrapLoading() {
+  const { colors } = useTheme();
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+      <ActivityIndicator size="large" color={colors.accent} />
+    </View>
+  );
+}
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -105,48 +115,50 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [isHydrated, onboardingComplete]);
 
   if (!isHydrated || onboardingComplete === null) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <BootstrapLoading />;
   }
 
   return <>{children}</>;
 }
 
-export default function RootLayout() {
+function RootLayoutContent() {
+  const { isDark } = useTheme();
   const { loaded: fontsLoaded } = useAppFonts();
 
   if (!fontsLoaded) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <BootstrapLoading />;
   }
 
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <StatusBar style="dark" />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
         <AppSocketProvider>
           <AuthGate>
+            <ToastHost />
             <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(onboarding)" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(setup)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="premium" options={{ headerShown: false }} />
-            <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
-          </Stack>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(onboarding)" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(setup)" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="premium" options={{ headerShown: false }} />
+              <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
+            </Stack>
           </AuthGate>
         </AppSocketProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootLayoutContent />
+    </ThemeProvider>
   );
 }

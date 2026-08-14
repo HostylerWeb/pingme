@@ -70,12 +70,42 @@ export async function apiFetch<T>(
   return body as T;
 }
 
+export async function uploadAvatarFile(key: string, uri: string, fileName: string) {
+  const accessToken = await getAccessToken();
+  const formData = new FormData();
+  formData.append('key', key);
+  formData.append('file', {
+    uri,
+    name: fileName,
+    type: 'image/jpeg',
+  } as unknown as Blob);
+
+  const response = await fetch(`${API_URL}/media/upload`, {
+    method: 'POST',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    body: formData,
+  });
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new ApiError(
+      body?.error?.message ?? body?.message ?? 'Avatar upload failed',
+      response.status,
+      body?.error?.code ?? body?.code,
+    );
+  }
+
+  return body;
+}
+
 export const api = {
   register: (payload: {
     email?: string;
     phone?: string;
     password: string;
     dateOfBirth: string;
+    gender: 'male' | 'female' | 'transgender' | 'other';
     displayName?: string;
   }) =>
     apiFetch<{
@@ -109,10 +139,26 @@ export const api = {
     displayName?: string;
     bio?: string;
     dateOfBirth?: string;
+    gender?: 'male' | 'female' | 'transgender' | 'other';
     avatarTheme?: 'aurora' | 'sunset' | 'midnight' | 'forest';
   }) =>
-    apiFetch('/users/me/profile', {
+    apiFetch<{
+      success: boolean;
+      data: {
+        displayName: string;
+        bio?: string | null;
+        gender?: 'male' | 'female' | 'transgender' | 'other' | null;
+        avatarUrl?: string | null;
+        avatarConfig?: { theme?: string } | null;
+      };
+    }>('/users/me/profile', {
       method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  uploadAvatarBase64: (payload: { key: string; contentType: string; data: string }) =>
+    apiFetch('/media/upload-base64', {
+      method: 'POST',
       body: JSON.stringify(payload),
     }),
 
@@ -147,7 +193,13 @@ export const api = {
   presignAvatar: (payload: { fileName: string; contentType: string }) =>
     apiFetch<{
       success: boolean;
-      data: { uploadUrl: string; key: string; publicUrl: string };
+      data: {
+        uploadUrl: string | null;
+        key: string;
+        directUpload?: boolean;
+        message?: string;
+        publicUrl?: string;
+      };
     }>('/media/presign', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -234,6 +286,7 @@ export const api = {
     latitude: number;
     longitude: number;
     accuracy?: number;
+    showPhoto?: boolean;
   }) =>
     apiFetch('/wall/posts', {
       method: 'POST',
@@ -253,6 +306,9 @@ export const api = {
     platform: 'ios' | 'android';
     pushToken: string;
     deviceId?: string;
+    deviceModel?: string;
+    osVersion?: string;
+    userAgent?: string;
     appVersion?: string;
   }) =>
     apiFetch('/devices/register', {
@@ -309,14 +365,23 @@ export const api = {
     apiFetch<{
       success: boolean;
       data: {
-        id: string;
-        status: string;
-        expiresAt: string;
-        matchedSessionId?: string | null;
-        showPhoto?: boolean;
-        introMessage?: string | null;
-      } | null;
+        session: {
+          id: string;
+          status: string;
+          expiresAt: string;
+          matchedSessionId?: string | null;
+          showPhoto?: boolean;
+          introMessage?: string | null;
+        } | null;
+        unanswered: IcebreakerUnansweredNotice[];
+      };
     }>('/icebreaker/status'),
+
+  acknowledgeIcebreakerUnanswered: (payload: { interestIds: string[] }) =>
+    apiFetch('/icebreaker/acknowledge-unanswered', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   getIcebreakerNearby: () =>
     apiFetch<{ success: boolean; data: IcebreakerNearbyUser[] }>('/icebreaker/nearby'),
@@ -404,6 +469,13 @@ export interface NearbyAvailableUser {
   distanceBucket: string;
 }
 
+export interface IcebreakerUnansweredNotice {
+  interestId: string;
+  targetUserId: string;
+  displayName: string;
+  expiredAt: string;
+}
+
 export interface IcebreakerNearbyUser {
   userId: string;
   sessionId: string;
@@ -457,6 +529,7 @@ export interface AuthUser {
     displayName: string;
     bio?: string | null;
     dateOfBirth: string;
+    gender?: 'male' | 'female' | 'transgender' | 'other' | null;
     avatarUrl?: string | null;
     avatarConfig?: { theme?: string } | null;
   } | null;

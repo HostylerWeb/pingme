@@ -419,6 +419,109 @@ export class AdminUsersService {
     return { items: devices };
   }
 
+  async getDeviceForensics(userId: string, deviceId: string) {
+    await this.requireUser(userId);
+
+    const device = await this.prisma.device.findFirst({
+      where: { id: deviceId, userId },
+    });
+
+    if (!device) {
+      throw new NotFoundException('Device not found');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        presenceSession: true,
+        verifications: { orderBy: { createdAt: 'desc' }, take: 10 },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const securityEvents = await this.prisma.userSecurityEvent.findMany({
+      where: {
+        userId,
+        OR: [
+          ...(device.deviceId ? [{ deviceId: device.deviceId }] : []),
+          { metadata: { path: ['deviceRecordId'], equals: device.id } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    const auditLogs = await this.prisma.auditLog.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+
+    return {
+      device,
+      identity: {
+        userId: safeUser.id,
+        email: safeUser.email,
+        phone: safeUser.phone,
+        status: safeUser.status,
+        authProvider: safeUser.authProvider,
+        emailVerified: safeUser.emailVerified,
+        phoneVerified: safeUser.phoneVerified,
+        requiresAdminReview: safeUser.requiresAdminReview,
+        isAvailable: safeUser.isAvailable,
+        createdAt: safeUser.createdAt,
+        lastSeenAt: safeUser.lastSeenAt,
+        deletedAt: safeUser.deletedAt,
+      },
+      profile: safeUser.profile
+        ? {
+            displayName: safeUser.profile.displayName,
+            bio: safeUser.profile.bio,
+            dateOfBirth: safeUser.profile.dateOfBirth,
+            gender: safeUser.profile.gender,
+            avatarUrl: safeUser.profile.avatarUrl,
+          }
+        : null,
+      location: safeUser.presenceSession
+        ? {
+            fuzzyLat: safeUser.presenceSession.fuzzyLat,
+            fuzzyLng: safeUser.presenceSession.fuzzyLng,
+            latitude: safeUser.presenceSession.latitude,
+            longitude: safeUser.presenceSession.longitude,
+            locationAccuracy: safeUser.presenceSession.locationAccuracy,
+            locationUpdatedAt: safeUser.presenceSession.locationUpdatedAt,
+            isActive: safeUser.presenceSession.isActive,
+          }
+        : null,
+      verifications: safeUser.verifications.map((v) => ({
+        id: v.id,
+        type: v.type,
+        status: v.status,
+        provider: v.provider,
+        providerReference: v.providerReference,
+        verifiedAt: v.verifiedAt,
+        createdAt: v.createdAt,
+      })),
+      securityEvents,
+      auditLogs: auditLogs.map((log) => ({
+        id: log.id.toString(),
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        ipAddress: log.ipAddress,
+        userAgent: log.userAgent,
+        metadata: log.metadata,
+        createdAt: log.createdAt,
+      })),
+    };
+  }
+
   async getBlocks(userId: string) {
     await this.requireUser(userId);
 
@@ -509,6 +612,38 @@ export class AdminUsersService {
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.auditLog.count({ where: { userId } }),
+    ]);
+
+    return {
+      items: items.map((log) => ({
+        id: log.id.toString(),
+        userId: log.userId,
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        ipAddress: log.ipAddress,
+        userAgent: log.userAgent,
+        metadata: log.metadata,
+        createdAt: log.createdAt,
+      })),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  async getSecurityEvents(userId: string, page = 1, limit = 50) {
+    await this.requireUser(userId);
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.userSecurityEvent.findMany({
+        where: { userId },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.userSecurityEvent.count({ where: { userId } }),
     ]);
 
     return { items, total, page, limit };

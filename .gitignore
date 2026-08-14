@@ -10,6 +10,9 @@ build/
 web-build/
 *.tsbuildinfo
 
+# User uploads (local avatar fallback)
+uploads/
+
 # Environment
 .env
 .env.local

@@ -1,11 +1,10 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { onboardingStorage } from '../../src/lib/onboarding-storage';
 import { Button, Screen } from '../../src/components/ui';
-import { colors, radius, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 const SLIDES = [
   {
@@ -27,9 +26,53 @@ const SLIDES = [
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [step, setStep] = useState(0);
   const slide = SLIDES[step];
   const isLast = step === SLIDES.length - 1;
+
+  const styles = useThemedStyles(({ colors }) => ({
+    container: { flex: 1, padding: spacing.container },
+    topRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: spacing.md,
+    },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    logoDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.accent,
+    },
+    brandText: {
+      ...typography.overline,
+      color: colors.inkTertiary,
+      fontSize: 10,
+    },
+    skipTop: { ...typography.bodySemiBold, color: colors.accent },
+    hero: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.sm },
+    iconCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: radius.full,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xxl,
+    },
+    title: { ...typography.display, color: colors.ink, marginBottom: spacing.lg },
+    body: { ...typography.bodyLg, color: colors.inkSecondary },
+    footer: { paddingBottom: spacing.xl },
+    dots: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xl },
+    dot: { width: 8, height: 8, borderRadius: radius.full, backgroundColor: colors.outlineVariant },
+    dotActive: { width: 24, backgroundColor: colors.accent },
+  }));
 
   const finish = () => {
     onboardingStorage.markComplete();
@@ -46,9 +89,12 @@ export default function OnboardingScreen() {
 
   return (
     <Screen padded={false} edges={['top', 'bottom']}>
-      <LinearGradient colors={[colors.background, colors.surfaceContainerLow]} style={styles.gradient}>
+      <View style={styles.container}>
         <View style={styles.topRow}>
-          <Text style={styles.brand}>PingMe</Text>
+          <View style={styles.brandRow}>
+            <View style={styles.logoDot} />
+            <Text style={styles.brandText}>PingMe</Text>
+          </View>
           {!isLast ? (
             <Pressable onPress={finish}>
               <Text style={styles.skipTop}>Skip</Text>
@@ -58,7 +104,7 @@ export default function OnboardingScreen() {
 
         <View style={styles.hero}>
           <View style={styles.iconCircle}>
-            <Ionicons name={slide.icon} size={40} color={colors.primary} />
+            <Ionicons name={slide.icon} size={36} color={colors.accent} />
           </View>
           <Text style={styles.title}>{slide.title}</Text>
           <Text style={styles.body}>{slide.body}</Text>
@@ -72,35 +118,7 @@ export default function OnboardingScreen() {
           </View>
           <Button label={isLast ? 'Get started' : 'Next'} onPress={onNext} />
         </View>
-      </LinearGradient>
+      </View>
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  gradient: { flex: 1, padding: spacing.container },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  brand: { ...typography.headlineLg, color: colors.primary },
-  skipTop: { ...typography.bodySemiBold, color: colors.primary },
-  hero: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.md },
-  iconCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.primaryFixed,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.xxl,
-  },
-  title: { ...typography.display, color: colors.onSurface, textAlign: 'center', marginBottom: spacing.lg },
-  body: { ...typography.bodyLg, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 28 },
-  footer: { paddingBottom: spacing.xl },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing.xl },
-  dot: { width: 8, height: 8, borderRadius: radius.full, backgroundColor: colors.outlineVariant },
-  dotActive: { width: 28, backgroundColor: colors.primary },
-});

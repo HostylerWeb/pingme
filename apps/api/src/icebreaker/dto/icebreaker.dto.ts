@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { ArrayNotEmpty, IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { MAX_ICEBREAKER_INTRO_LENGTH } from '@pingme/shared';
 
 export class StartIcebreakerDto {
@@ -18,4 +18,10 @@ export class IcebreakerInterestDto {
 
   @IsBoolean()
   interested!: boolean;
+}
+
+export class AcknowledgeIcebreakerUnansweredDto {
+  @ArrayNotEmpty()
+  @IsUUID('4', { each: true })
+  interestIds!: string[];
 }

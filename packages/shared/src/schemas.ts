@@ -1,6 +1,13 @@
 import { z } from 'zod';
-import { MAX_BIO_LENGTH, MAX_DISPLAY_NAME_LENGTH, MIN_AGE_YEARS } from './constants';
+import { MAX_BIO_LENGTH, MAX_DISPLAY_NAME_LENGTH, MIN_AGE_YEARS, GENDER_OPTIONS } from './constants';
 import { AvatarType } from './enums';
+
+const genderSchema = z.enum(GENDER_OPTIONS.map((option) => option.value) as [
+  'male',
+  'female',
+  'transgender',
+  'other',
+]);
 
 const passwordSchema = z
   .string()
@@ -26,6 +33,7 @@ export const SignUpSchema = z
       .optional(),
     password: passwordSchema,
     dateOfBirth: dateOfBirthSchema,
+    gender: genderSchema,
     displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
   })
   .refine((data) => data.email || data.phone, {
@@ -52,6 +60,7 @@ export const UpdateProfileSchema = z.object({
   bio: z.string().max(MAX_BIO_LENGTH).optional(),
   avatarType: z.nativeEnum(AvatarType).optional(),
   dateOfBirth: dateOfBirthSchema.optional(),
+  gender: genderSchema.optional(),
   avatarTheme: z.enum(['aurora', 'sunset', 'midnight', 'forest']).optional(),
 });
 
@@ -98,6 +107,7 @@ export const CreateWallPostSchema = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   accuracy: z.number().positive().optional(),
+  showPhoto: z.boolean().optional(),
 });
 
 export const CreateWallReplySchema = z.object({
@@ -123,12 +133,30 @@ export const MediaConfirmSchema = z.object({
   key: z.string().min(1),
 });
 
+export const MediaUploadBase64Schema = z.object({
+  key: z.string().min(1),
+  contentType: z.string().regex(/^image\//, 'Content type must be an image'),
+  data: z.string().min(1),
+});
+
+export const RegisterDeviceSchema = z.object({
+  platform: z.enum(['ios', 'android']),
+  pushToken: z.string().min(10),
+  deviceId: z.string().optional(),
+  deviceModel: z.string().max(120).optional(),
+  osVersion: z.string().max(40).optional(),
+  userAgent: z.string().max(500).optional(),
+  appVersion: z.string().max(40).optional(),
+});
+
 export type CreateWallPostInput = z.infer<typeof CreateWallPostSchema>;
 export type CreateWallReplyInput = z.infer<typeof CreateWallReplySchema>;
 export type PresencePingInput = z.infer<typeof PresencePingSchema>;
 export type SetAvailableInput = z.infer<typeof SetAvailableSchema>;
 export type MediaPresignInput = z.infer<typeof MediaPresignSchema>;
 export type MediaConfirmInput = z.infer<typeof MediaConfirmSchema>;
+export type MediaUploadBase64Input = z.infer<typeof MediaUploadBase64Schema>;
+export type RegisterDeviceInput = z.infer<typeof RegisterDeviceSchema>;
 
 export const MatchRequestSchema = z.object({
   source: z.enum(['wall_reply', 'manual']),

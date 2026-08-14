@@ -19,6 +19,7 @@ interface WallPostRow {
   latitude: number;
   longitude: number;
   status: string;
+  show_photo: boolean;
   reply_count: number;
   created_at: Date;
   distance_meters: number;
@@ -61,6 +62,7 @@ export class WallService {
         wp.latitude,
         wp.longitude,
         wp.status,
+        wp.show_photo,
         wp.reply_count,
         wp.created_at,
         ST_Distance(
@@ -91,7 +93,7 @@ export class WallService {
       author: {
         id: row.user_id,
         displayName: row.display_name,
-        avatarUrl: row.avatar_url,
+        avatarUrl: row.show_photo ? row.avatar_url : null,
         isYou: row.user_id === userId,
       },
     }));
@@ -106,6 +108,7 @@ export class WallService {
         content: dto.content.trim(),
         latitude: dto.latitude,
         longitude: dto.longitude,
+        showPhoto: dto.showPhoto ?? false,
         status: WallPostStatus.active,
       },
     });
@@ -167,7 +170,7 @@ export class WallService {
         author: {
           id: post.userId,
           displayName: post.user.profile?.displayName,
-          avatarUrl: post.user.profile?.avatarUrl,
+          avatarUrl: post.showPhoto ? post.user.profile?.avatarUrl ?? null : null,
           isYou: post.userId === userId,
         },
         replies: post.replies.map((reply) => ({

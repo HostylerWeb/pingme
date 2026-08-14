@@ -1,12 +1,21 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { DevicePlatform } from '@pingme/db';
+import { RegisterDeviceInput } from '@pingme/shared';
+import { SecurityEventsService } from '../audit/security-events.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { RegisterDeviceDto } from './dto/devices.dto';
 
 @Injectable()
 export class DevicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly securityEvents: SecurityEventsService,
+  ) {}
 
-  async register(userId: string, dto: RegisterDeviceDto) {
+  async register(
+    userId: string,
+    dto: RegisterDeviceInput,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
     const device = await this.prisma.device.upsert({
       where: {
         userId_pushToken: {
@@ -15,19 +24,40 @@ export class DevicesService {
         },
       },
       update: {
-        platform: dto.platform,
+        platform: dto.platform as DevicePlatform,
         deviceId: dto.deviceId,
+        deviceModel: dto.deviceModel,
+        osVersion: dto.osVersion,
+        userAgent: dto.userAgent ?? meta.userAgent,
         appVersion: dto.appVersion,
+        lastIpAddress: meta.ipAddress,
         lastActiveAt: new Date(),
       },
       create: {
         userId,
-        platform: dto.platform,
+        platform: dto.platform as DevicePlatform,
         pushToken: dto.pushToken,
         deviceId: dto.deviceId,
+        deviceModel: dto.deviceModel,
+        osVersion: dto.osVersion,
+        userAgent: dto.userAgent ?? meta.userAgent,
         appVersion: dto.appVersion,
+        lastIpAddress: meta.ipAddress,
         lastActiveAt: new Date(),
       },
+    });
+
+    await this.securityEvents.log({
+      userId,
+      action: 'device.register',
+      ipAddress: meta.ipAddress,
+      userAgent: dto.userAgent ?? meta.userAgent,
+      platform: dto.platform as DevicePlatform,
+      deviceModel: dto.deviceModel,
+      osVersion: dto.osVersion,
+      appVersion: dto.appVersion,
+      deviceId: dto.deviceId,
+      metadata: { deviceRecordId: device.id },
     });
 
     return { success: true, data: device };
