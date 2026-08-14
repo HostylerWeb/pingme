@@ -5,11 +5,13 @@ import { typography, useTheme, useThemedStyles } from '../../theme';
 export function DisplayNameWithFlair({
   name,
   isPremium = false,
+  isVerified = false,
   style,
   numberOfLines,
 }: {
   name: string;
   isPremium?: boolean;
+  isVerified?: boolean;
   style?: TextStyle;
   numberOfLines?: number;
 }) {
@@ -33,6 +35,14 @@ export function DisplayNameWithFlair({
       <Text style={[styles.name, style]} numberOfLines={numberOfLines}>
         {name}
       </Text>
+      {isVerified ? (
+        <Ionicons
+          name="shield-checkmark"
+          size={13}
+          color={colors.online}
+          accessibilityLabel="Identity verified"
+        />
+      ) : null}
       {isPremium ? (
         <Ionicons name="star" size={13} color={colors.premiumStart} accessibilityLabel="Premium member" />
       ) : null}

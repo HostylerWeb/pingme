@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +9,7 @@ import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
 import { api, SubscriptionInfo } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
 import { showToast } from '../src/stores/toast-store';
-import { AppHeader, AppSwitch, Button, Card, Screen, SectionLabel } from '../src/components/ui';
+import { AppHeader, AppSwitch, BottomSheet, Button, Card, Screen, SectionLabel } from '../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
 export default function PremiumScreen() {
@@ -20,6 +21,8 @@ export default function PremiumScreen() {
   const insets = useSafeAreaInsets();
   const currentAvatarTheme =
     (user?.profile as { avatarConfig?: { theme?: string } } | null | undefined)?.avatarConfig?.theme ?? null;
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
 
   const styles = useThemedStyles(({ colors }) => ({
     content: { padding: spacing.container, paddingBottom: insets.bottom + 40 },
@@ -233,6 +236,28 @@ export default function PremiumScreen() {
 
   const checkoutMutation = useMutation({
     mutationFn: () => api.startSubscriptionCheckout(),
+    onSuccess: (result) => {
+      if (result.data.inAppCheckout && result.data.sessionId) {
+        setCheckoutSessionId(result.data.sessionId);
+        setCheckoutOpen(true);
+        return;
+      }
+      if (result.data.checkoutUrl) {
+        showToast('Opening checkout…', 'info');
+      }
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+
+  const confirmCheckoutMutation = useMutation({
+    mutationFn: (sessionId: string) => api.confirmSubscriptionCheckout(sessionId),
+    onSuccess: async () => {
+      setCheckoutOpen(false);
+      setCheckoutSessionId(null);
+      await refreshMe();
+      await queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      showToast('Welcome to Premium!', 'success');
+    },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
 
@@ -247,6 +272,8 @@ export default function PremiumScreen() {
   const subscription: SubscriptionInfo | undefined = subscriptionData?.data;
   const plans = plansData?.data;
   const isPremium = subscription?.isPremium ?? false;
+  const isDemoPayments = plans?.paymentProvider === 'demo';
+  const premiumPlan = plans?.plans.find((plan) => plan.id === 'premium');
   const settings = settingsData?.data;
 
   return (
@@ -295,7 +322,7 @@ export default function PremiumScreen() {
             ))}
 
             <Button
-              label={plans?.paymentsEnabled ? 'Subscribe to Premium' : 'Payments coming soon'}
+              label={plans?.paymentsEnabled ? (isDemoPayments ? 'Try Premium (demo)' : 'Subscribe to Premium') : 'Payments coming soon'}
               variant="premium"
               size="lg"
               disabled={!plans?.paymentsEnabled}
@@ -303,6 +330,11 @@ export default function PremiumScreen() {
               onPress={() => checkoutMutation.mutate()}
               style={styles.subscribeBtn}
             />
+            {isDemoPayments ? (
+              <Text style={styles.sectionHint}>
+                Demo checkout only — no real charge. Swap the payment provider later without changing the app flow.
+              </Text>
+            ) : null}
 
             <View style={styles.premiumSection}>
               <SectionLabel>Avatar themes</SectionLabel>
@@ -395,6 +427,56 @@ export default function PremiumScreen() {
           </>
         )}
       </ScrollView>
+
+      <BottomSheet
+        visible={checkoutOpen}
+        title="Confirm Premium"
+        subtitle={
+          isDemoPayments
+            ? `Demo payment for ${premiumPlan?.priceLabel ?? 'Premium'}. This activates Premium instantly for testing.`
+            : 'Complete your purchase to unlock Premium.'
+        }
+        onClose={() => {
+          setCheckoutOpen(false);
+          setCheckoutSessionId(null);
+        }}
+      >
+        {premiumPlan ? (
+          <Card style={styles.planCard} variant="flat">
+            <View style={styles.planHeader}>
+              <Text style={styles.planName}>{premiumPlan.name}</Text>
+              <Text style={styles.planPrice}>{premiumPlan.priceLabel}</Text>
+            </View>
+            {premiumPlan.features.slice(0, 3).map((feature) => (
+              <View key={feature} style={styles.featureRow}>
+                <Ionicons name="checkmark" size={16} color={colors.premiumStart} />
+                <Text style={styles.planFeature}>{feature}</Text>
+              </View>
+            ))}
+          </Card>
+        ) : null}
+        <Button
+          label={isDemoPayments ? 'Activate Premium (demo)' : 'Confirm purchase'}
+          variant="premium"
+          size="lg"
+          loading={confirmCheckoutMutation.isPending}
+          disabled={!checkoutSessionId}
+          onPress={() => {
+            if (checkoutSessionId) {
+              confirmCheckoutMutation.mutate(checkoutSessionId);
+            }
+          }}
+          style={styles.subscribeBtn}
+        />
+        <Button
+          label="Cancel"
+          variant="ghost"
+          onPress={() => {
+            setCheckoutOpen(false);
+            setCheckoutSessionId(null);
+          }}
+        />
+      </BottomSheet>
     </Screen>
   );
 }

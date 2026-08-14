@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -13,6 +14,7 @@ import { loadPublicProfileMap } from '../common/utils/public-profile.util';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
+import { VerificationService } from '../verification/verification.service';
 import { PresencePingInput, SetAvailableInput } from '@pingme/shared';
 
 const GEO_AVAILABLE_KEY = 'geo:available';
@@ -25,6 +27,7 @@ export class PresenceService {
     private readonly config: ConfigService,
     private readonly rateLimit: RateLimitService,
     private readonly blocks: BlocksService,
+    private readonly verification: VerificationService,
   ) {}
 
   async ping(userId: string, dto: PresencePingInput) {
@@ -89,6 +92,16 @@ export class PresenceService {
   }
 
   async setAvailable(userId: string, dto: SetAvailableInput) {
+    if (dto.isAvailable) {
+      const passed = await this.verification.hasPassedLiveness(userId);
+      if (!passed) {
+        throw new ForbiddenException({
+          code: 'LIVENESS_REQUIRED',
+          message: 'Complete liveness verification to use this feature',
+        });
+      }
+    }
+
     await this.prisma.user.update({
       where: { id: userId },
       data: { isAvailable: dto.isAvailable },

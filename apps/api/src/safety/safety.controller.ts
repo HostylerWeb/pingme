@@ -6,6 +6,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { BlocksService } from '../common/services/blocks.service';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { VerifiedGuard } from '../verification/guards/verified.guard';
 import { ReportsService } from './reports.service';
 
 @ApiTags('safety')
@@ -19,6 +20,7 @@ export class SafetyController {
   ) {}
 
   @Post('blocks')
+  @UseGuards(VerifiedGuard)
   @ApiOperation({ summary: 'Block a user' })
   block(
     @CurrentUser() user: User,
@@ -40,6 +42,7 @@ export class SafetyController {
   }
 
   @Post('reports')
+  @UseGuards(VerifiedGuard)
   @ApiOperation({ summary: 'Submit a report' })
   report(
     @CurrentUser() user: User,

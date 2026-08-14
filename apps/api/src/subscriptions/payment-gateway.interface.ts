@@ -1,6 +1,7 @@
 export interface CheckoutSessionResult {
   checkoutUrl: string | null;
   sessionId?: string;
+  inAppCheckout?: boolean;
 }
 
 export interface PaymentGateway {

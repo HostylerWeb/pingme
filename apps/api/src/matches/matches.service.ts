@@ -7,10 +7,11 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { MatchSource, MatchStatus } from '@pingme/db';
-import { MATCH_EXPIRY_MINUTES, MatchRequestInput, NOTIFICATION_TYPES } from '@pingme/shared';
+import { MATCH_EXPIRY_MINUTES, MatchRequestInput, NOTIFICATION_TYPES, isUserActiveNow } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { BlocksService } from '../common/services/blocks.service';
+import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { activateMatchIfReady, resetIcebreakerSessionsForMatch } from './match.utils';
@@ -32,19 +33,42 @@ export class MatchesService {
         OR: [{ userAId: userId }, { userBId: userId }],
         status: { in: [MatchStatus.pending, MatchStatus.active] },
       },
-      include: { chat: { select: { id: true } } },
+      include: {
+        chat: { select: { id: true } },
+        userA: {
+          select: {
+            id: true,
+            lastSeenAt: true,
+            profile: { select: { displayName: true, avatarUrl: true, avatarConfig: true } },
+            subscription: true,
+          },
+        },
+        userB: {
+          select: {
+            id: true,
+            lastSeenAt: true,
+            profile: { select: { displayName: true, avatarUrl: true, avatarConfig: true } },
+            subscription: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
+    const otherUserIds = matches.map((match) => (match.userAId === userId ? match.userBId : match.userAId));
+    const verifiedSet = await loadLivenessVerifiedSet(this.prisma, otherUserIds);
+
     return {
       success: true,
-      data: matches.map((match) => this.serializeMatch(match, userId)),
+      data: matches.map((match) => this.serializeMatch(match, userId, false, verifiedSet)),
     };
   }
 
   async getById(userId: string, matchId: string) {
     const match = await this.getMatchForUser(userId, matchId, true);
-    return { success: true, data: this.serializeMatch(match, userId, true) };
+    const otherUserId = match.userAId === userId ? match.userBId : match.userAId;
+    const verifiedSet = await loadLivenessVerifiedSet(this.prisma, [otherUserId]);
+    return { success: true, data: this.serializeMatch(match, userId, true, verifiedSet) };
   }
 
   async accept(userId: string, matchId: string) {
@@ -110,7 +134,7 @@ export class MatchesService {
 
     await this.notifications.sendToUser(otherUserId, {
       type: NOTIFICATION_TYPES.MATCH_REQUEST,
-      title: 'Someone accepted your match',
+      title: 'Someone accepted your connection',
       body: 'Open PingMe to accept and start chatting.',
       data: { type: NOTIFICATION_TYPES.MATCH_REQUEST, matchId },
     });
@@ -284,14 +308,43 @@ export class MatchesService {
       expiresAt: Date;
       createdAt: Date;
       chat?: { id: string } | null;
+      userA?: {
+        id: string;
+        lastSeenAt: Date | null;
+        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown } | null;
+        subscription: {
+          plan: string;
+          status: string;
+          currentPeriodEnd: Date | null;
+        } | null;
+      };
+      userB?: {
+        id: string;
+        lastSeenAt: Date | null;
+        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown } | null;
+        subscription: {
+          plan: string;
+          status: string;
+          currentPeriodEnd: Date | null;
+        } | null;
+      };
     },
     userId: string,
     includeAcceptance = false,
+    verifiedSet: Set<string> = new Set(),
   ) {
     const isUserA = match.userAId === userId;
     const myAccepted = isUserA ? match.userAAcceptedAt : match.userBAcceptedAt;
     const theirAccepted = isUserA ? match.userBAcceptedAt : match.userAAcceptedAt;
     const isActive = match.status === MatchStatus.active;
+    const otherRecord = isUserA ? match.userB : match.userA;
+    const otherUserId = isUserA ? match.userBId : match.userAId;
+    const otherFlair = getPublicProfileFields(
+      otherRecord?.profile,
+      otherRecord?.subscription,
+      verifiedSet.has(otherUserId),
+    );
+    const otherDisplayName = otherRecord?.profile?.displayName ?? 'Someone nearby';
 
     return {
       id: match.id,
@@ -303,8 +356,28 @@ export class MatchesService {
       myAccepted: !!myAccepted,
       theirAccepted: !!theirAccepted,
       otherUser: isActive
-        ? { anonymous: false, label: 'Connected' }
-        : { anonymous: true, label: 'Someone nearby' },
+        ? {
+            id: otherUserId,
+            displayName: otherDisplayName,
+            avatarUrl: otherRecord?.profile?.avatarUrl ?? null,
+            isPremium: otherFlair.isPremium,
+            avatarTheme: otherFlair.avatarTheme,
+            livenessVerified: otherFlair.livenessVerified,
+            activeNow: isUserActiveNow(otherRecord?.lastSeenAt),
+            anonymous: false,
+            label: 'Connected',
+          }
+        : {
+            id: otherUserId,
+            displayName: otherDisplayName,
+            avatarUrl: otherRecord?.profile?.avatarUrl ?? null,
+            isPremium: otherFlair.isPremium,
+            avatarTheme: otherFlair.avatarTheme,
+            livenessVerified: otherFlair.livenessVerified,
+            activeNow: isUserActiveNow(otherRecord?.lastSeenAt),
+            anonymous: false,
+            label: otherDisplayName,
+          },
       ...(includeAcceptance
         ? {
             youAccepted: !!myAccepted,

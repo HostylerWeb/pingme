@@ -1730,3 +1730,116 @@ NOTIFICATIONS_TEST_ENABLED=false
 - After device test checklist is completed
 - When Phase 9 venues are reconsidered
 
+---
+
+## Feature roadmap (product backlog)
+
+**Status legend**
+
+| Status | Meaning |
+|--------|---------|
+| **Done** | Shipped and usable end-to-end |
+| **Partial** | Started or backend-only; UX or polish still missing |
+| **Not started** | No meaningful implementation yet |
+
+*Last reviewed: 2026-08-15 (after Warm Ink admin redesign + mobile UX sprint).*
+
+### Do first (high impact, relatively small)
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 1 | **Clearer tab copy** — Wall vs Break the ice subtitles; rename Wall “online” toggle to “Visible on Wall” | **Done** | `WALL_SUBTITLE`, `ICEBREAKER_SUBTITLE`, presence bar copy. Tab bar label still says `iceBreaker` (minor). |
+| 2 | **Premium visible to others** — Avatar gradient rings on Wall, icebreaker, chats | **Done** | Rings + `DisplayNameWithFlair` across feed, icebreaker, chats, post detail. |
+| 3 | **Define “profile flair”** — One concrete Premium perk | **Done** | Premium star next to name + animated gradient avatar rings (picker on Premium page). |
+| 4 | **Empty states that teach** — One-line explanation + CTA per main tab | **Done** | Wall, Break the ice, Chats (and settings error state). |
+| 5 | **Onboarding recap** — 3 swipe cards after signup (Wall / Break the ice / Chats) | **Done** | Post-login: Location → Notifications → product tour (`tour.tsx`). Pre-login slides are separate (privacy/location). |
+
+**Also shipped in the same sprint (not on original list):**
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Post-login permission flow (no skip) | **Done** | Location → Notifications → tour → Wall |
+| Delete own Wall posts | **Done** | API + long-press / post detail |
+| Premium UX for existing members | **Done** | Profile, settings, premium page |
+| Notifications settings redesign | **Done** | Card layout + toggles |
+| Toast redesign | **Done** | Icons + themed styles |
+| Admin dashboard Warm Ink theme + mobile responsive | **Done** | Deployed to `admin.hostyler.cloud` |
+| Icebreaker match reset (staging ops) | **Done** | Manual DB/Redis cleanup as needed |
+
+### Premium & monetization
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 6 | **Stripe checkout** — Mobile opens checkout URL; webhook updates subscription | **Not started** | Checkout endpoint exists; `PAYMENT_PROVIDER=none`; unconfigured gateway stub |
+| 7 | **Premium pricing page** — Monthly price, free vs paid, cancel anytime | **Partial** | Page + plan cards from API; subscribe disabled until payments wired |
+| 8 | **Free trial** — e.g. 7 days | **Not started** | |
+| 9 | **Restore purchases** — App Store / Play IAP | **Not started** | |
+| 10 | **Admin: subscription history** — Who paid, refunds, grant/revoke audit | **Partial** | Grant/revoke on user page + audit logs; no payment/refund timeline |
+
+### Core product (stickiness)
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 11 | **Push when someone replies on Wall** | **Done** | Dedicated Android channel, cold-start deep link, foreground refresh |
+| 12 | **Connection celebration** — Modal/animation on mutual yes | **Done** | Animated modal on mutual yes + when both accept |
+| 13 | **Connection request inbox** — Pending connections with accept/decline | **Done** | Dedicated “Connection requests” section on Break the ice tab |
+| 14 | **Block/report from chat** | **Done** | Action sheet in `chat/[id].tsx` |
+| 15 | **Last active / “active now” on icebreaker** | **Done** | Green “Active now” badge when last seen within 3 min |
+| 16 | **Radius control in UI** — How far I see / am seen | **Done** | 150–500m picker in Settings; refreshes Wall feed |
+
+### Trust & safety
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 17 | **Report flow in-app copy** — What happens after you report | **Done** | Moderator review footer on report sheet + confirmation toast |
+| 18 | **Auto-flag repeat offenders** | **Partial** | `requiresAdminReview` + admin dashboard; no mobile surfacing |
+| 19 | **Verification badge** — Email/phone/liveness on profile | **Partial** | “Email verified” on own profile; not on others in feed/cards |
+| 20 | **Underage / DOB enforcement** | **Partial** | `MIN_AGE_YEARS` on register/DOB field; not audited everywhere |
+
+### Admin & ops
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 21 | **Real map tiles** — Leaflet + OpenStreetMap on admin map | **Not started** | Grid + dots/heatmap only |
+| 22 | **Bulk actions on reports** | **Partial** | Per-report assign/resolve; no bulk select |
+| 23 | **User search** — Email, phone, display name | **Done** | Query on admin Users page |
+| 24 | **Staging vs prod env indicator** | **Not started** | |
+| 25 | **Deploy script reliability** | **Partial** | `deploy-staging.sh` works on VPS; local `sshpass -f sshpass.txt` fails (file format) |
+
+### Polish & “show off”
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 26 | **App icon + splash refresh** | **Not started** | |
+| 27 | **Dark mode pass** — Contrast audit on Wall/icebreaker cards | **Partial** | Dark/light toggle + Warm Ink tokens; no full audit |
+| 28 | **Haptics + micro-animations** | **Partial** | Icebreaker yes/no, buttons, chat send; no match celebration |
+| 29 | **Profile completeness** — Progress bar on You tab | **Not started** | |
+| 30 | **Share / invite** — Deep link or QR | **Not started** | |
+
+### Later / bigger bets
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 31 | **Native in-app purchases** | **Not started** | |
+| 32 | **Premium add-ons à la carte** — e.g. visibility boost | **Not started** | |
+| 33 | **Events / pinned wall posts** | **Not started** | |
+| 34 | **Web app** — Read-only wall for desktop | **Not started** | |
+| 35 | **Analytics** — DAU, match rate, icebreaker → chat conversion | **Partial** | Admin dashboard DAU (24h) only |
+
+### Suggested implementation order
+
+| Phase | Items | Rationale |
+|-------|-------|-----------|
+| **Done (this sprint)** | 1, 2, 3, 4, 5 | Clarity, Premium visibility, empty states, onboarding tour |
+| **Next** | 6, 7, 19, 27 | Monetization + verification badge + contrast audit |
+| **Before public launch** | 17, 19, 21, 27 | Trust, verification surfacing, admin map, contrast |
+| **Growth** | 30, 35 | Invite loop + funnel metrics |
+
+### Goal-based top 5 (pick one track)
+
+| Goal | Top 5 |
+|------|-------|
+| **Monetize soon** | 6 → 7 → 8 → 10 → (Stripe webhooks) |
+| **Grow / test icebreaker** | 16 → 11 → push device test → report copy (#17) |
+| **Polish for launch** | 17 → 19 → 21 → 27 → 12 |
+

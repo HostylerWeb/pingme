@@ -4,16 +4,48 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { api } from './api';
+import {
+  navigateFromNotification,
+  parseNotificationData,
+  type NotificationNavigationPayload,
+} from './notification-navigation';
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as { type?: string };
+    const isWallReply = data?.type === 'wall.reply';
+
+    return {
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      priority: isWallReply
+        ? Notifications.AndroidNotificationPriority.HIGH
+        : Notifications.AndroidNotificationPriority.DEFAULT,
+    };
+  },
 });
+
+async function ensureAndroidChannels() {
+  if (Platform.OS !== 'android') return;
+
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'General',
+    importance: Notifications.AndroidImportance.DEFAULT,
+  });
+  await Notifications.setNotificationChannelAsync('wall-replies', {
+    name: 'Wall replies',
+    description: 'When someone replies to your Wall post',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 200, 100, 200],
+  });
+}
+
+function clipField(value: string | undefined, maxLength: number) {
+  if (!value) return undefined;
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
 
 async function getStableDeviceId() {
   try {
@@ -30,6 +62,8 @@ export async function registerForPushNotifications(options?: { skipPermissionReq
   if (!Device.isDevice) return null;
 
   try {
+    await ensureAndroidChannels();
+
     const { status: existing } = await Notifications.getPermissionsAsync();
     let finalStatus = existing;
     if (existing !== 'granted' && !options?.skipPermissionRequest) {
@@ -47,8 +81,14 @@ export async function registerForPushNotifications(options?: { skipPermissionReq
     );
 
     const deviceId = await getStableDeviceId();
-    const deviceModel = [Device.brand, Device.modelName].filter(Boolean).join(' ').trim() || undefined;
-    const osVersion = Device.osVersion ? `${Device.osName ?? Platform.OS} ${Device.osVersion}` : Device.osName ?? undefined;
+    const deviceModel = clipField(
+      [Device.brand, Device.modelName].filter(Boolean).join(' ').trim() || undefined,
+      120,
+    );
+    const osVersion = clipField(
+      Device.osVersion ? `${Device.osName ?? Platform.OS} ${Device.osVersion}` : Device.osName ?? undefined,
+      40,
+    );
 
     await api.registerDevice({
       platform: Platform.OS === 'ios' ? 'ios' : 'android',
@@ -56,16 +96,9 @@ export async function registerForPushNotifications(options?: { skipPermissionReq
       deviceId,
       deviceModel,
       osVersion,
-      userAgent: `${Device.osName ?? Platform.OS} ${Device.osVersion ?? ''}`.trim(),
-      appVersion: Constants.expoConfig?.version,
+      userAgent: clipField(`${Device.osName ?? Platform.OS} ${Device.osVersion ?? ''}`.trim(), 500),
+      appVersion: clipField(Constants.expoConfig?.version, 40),
     });
-
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'default',
-        importance: Notifications.AndroidImportance.DEFAULT,
-      });
-    }
 
     return tokenData.data;
   } catch (error) {
@@ -79,52 +112,39 @@ export async function registerForPushNotifications(options?: { skipPermissionReq
   }
 }
 
+export async function getInitialNotificationPayload(): Promise<NotificationNavigationPayload | null> {
+  const response = await Notifications.getLastNotificationResponseAsync();
+  if (!response) return null;
+  return parseNotificationData(
+    response.notification.request.content.data as Record<string, unknown>,
+  );
+}
+
 export function addNotificationResponseListener(
-  onNavigate: (payload: {
-    type: string;
-    postId?: string;
-    matchId?: string;
-    chatId?: string;
-  }) => void,
+  onNavigate: (payload: NotificationNavigationPayload) => void,
 ) {
   return Notifications.addNotificationResponseReceivedListener((response) => {
-    const data = response.notification.request.content.data as {
-      postId?: string;
-      matchId?: string;
-      chatId?: string;
-      type?: string;
-    };
-    if (data?.type === 'wall.reply' && data.postId) {
-      onNavigate({ type: data.type, postId: data.postId });
-      return;
-    }
-    if (data?.type === 'chat.message' && data.chatId) {
-      onNavigate({ type: data.type, chatId: data.chatId });
-      return;
-    }
-    if (
-      (data?.type === 'icebreaker.match' || data?.type === 'match.request') &&
-      data.matchId
-    ) {
-      onNavigate({ type: data.type, matchId: data.matchId });
-      return;
-    }
-    if (data?.type === 'icebreaker.interest') {
-      onNavigate({ type: data.type });
+    const payload = parseNotificationData(
+      response.notification.request.content.data as Record<string, unknown>,
+    );
+    if (payload) {
+      onNavigate(payload);
     }
   });
 }
 
 export function addNotificationReceivedListener(
-  onReceived: (payload: { type: string; fromUserId?: string }) => void,
+  onReceived: (payload: NotificationNavigationPayload) => void,
 ) {
   return Notifications.addNotificationReceivedListener((notification) => {
-    const data = notification.request.content.data as {
-      type?: string;
-      fromUserId?: string;
-    };
-    if (data?.type) {
-      onReceived({ type: data.type, fromUserId: data.fromUserId });
+    const payload = parseNotificationData(
+      notification.request.content.data as Record<string, unknown>,
+    );
+    if (payload) {
+      onReceived(payload);
     }
   });
 }
+
+export { navigateFromNotification, parseNotificationData };
+export type { NotificationNavigationPayload };

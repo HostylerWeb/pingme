@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { api } from '../../src/lib/api';
-import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
-import { showToast } from '../../src/stores/toast-store';
-import { useThemeStore } from '../../src/stores/theme-store';
-import { AppHeader, AppSwitch, Button, EmptyState, LoadingView, Screen, SectionLabel } from '../../src/components/ui';
-import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { api } from '../src/lib/api';
+import { showToast } from '../src/stores/toast-store';
+import { useThemeStore } from '../src/stores/theme-store';
+import { AppHeader, AppSwitch, Button, EmptyState, LoadingView, Screen, SectionLabel } from '../src/components/ui';
+import { radius, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
 type NotificationKey = 'allowPushReplies' | 'allowPushChat' | 'allowPushIcebreaker';
 
@@ -31,14 +31,14 @@ const NOTIFICATION_OPTIONS: Array<{
     key: 'allowPushChat',
     label: 'Chat messages',
     hint: 'New messages in your chats',
-    detail: 'Alerts when a match sends you a message.',
+    detail: 'Alerts when someone you\'re connected with sends you a message.',
     icon: 'chatbubbles',
     tint: 'online',
   },
   {
     key: 'allowPushIcebreaker',
     label: 'Break the ice',
-    hint: 'Matches & connection requests',
+    hint: 'Connection requests',
     detail: 'Know when someone says yes or wants to connect nearby.',
     icon: 'flash',
     tint: 'icebreaker',
@@ -48,7 +48,7 @@ const NOTIFICATION_OPTIONS: Array<{
 export default function SettingsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { contentBottom } = useTabBarInsets();
+  const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const darkMode = useThemeStore((s) => s.darkMode);
   const setDarkMode = useThemeStore((s) => s.setDarkMode);
@@ -160,10 +160,10 @@ export default function SettingsScreen() {
   return (
     <Screen padded={false} edges={[]}>
       <AppHeader
-        large
         title="Settings"
         showBrand={false}
-        subtitle="Notifications, privacy, appearance, and account options."
+        subtitle="Notifications, appearance, and account options."
+        onBack={() => router.back()}
       />
 
       {isLoading ? (
@@ -171,20 +171,20 @@ export default function SettingsScreen() {
       ) : isError || !settings ? (
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <EmptyState
-          icon="cloud-offline-outline"
-          title="Couldn't load settings"
-          message="Check your connection and try again."
-          action={
-            <Button
-              label={isRefetching ? 'Retrying…' : 'Try again'}
-              onPress={() => refetch()}
-              loading={isRefetching}
-            />
-          }
-        />
+            icon="cloud-offline-outline"
+            title="Couldn't load settings"
+            message="Check your connection and try again."
+            action={
+              <Button
+                label={isRefetching ? 'Retrying…' : 'Try again'}
+                onPress={() => refetch()}
+                loading={isRefetching}
+              />
+            }
+          />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: contentBottom }]}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
           <Pressable
             onPress={() => router.push('/premium')}
             style={({ pressed }) => [

@@ -11,7 +11,7 @@ import { locationSetupStorage } from '../src/lib/location-setup-storage';
 import { notificationsSetupStorage } from '../src/lib/notifications-setup-storage';
 import { onboardingStorage } from '../src/lib/onboarding-storage';
 import { productTourStorage } from '../src/lib/product-tour-storage';
-import { addNotificationResponseListener, addNotificationReceivedListener, registerForPushNotifications } from '../src/lib/push-notifications';
+import { addNotificationResponseListener, addNotificationReceivedListener, getInitialNotificationPayload, navigateFromNotification, registerForPushNotifications, type NotificationNavigationPayload } from '../src/lib/push-notifications';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
 import { useAppFonts } from '../src/hooks/use-app-fonts';
@@ -42,6 +42,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const [productTourComplete, setProductTourComplete] = useState<boolean | null>(null);
   const lastTargetRef = useRef<string | null>(null);
   const initialLoadDoneRef = useRef(false);
+  const pendingNotificationRef = useRef<NotificationNavigationPayload | null>(null);
 
   const refreshSetupProgress = () => {
     setOnboardingComplete(onboardingStorage.isComplete());
@@ -53,6 +54,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     hydrate();
     refreshSetupProgress();
+    void getInitialNotificationPayload().then((payload) => {
+      if (payload) {
+        pendingNotificationRef.current = payload;
+      }
+    });
   }, [hydrate]);
 
   useEffect(() => {
@@ -66,15 +72,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const subscription = addNotificationResponseListener((payload) => {
-      if (payload.postId) {
-        router.push(`/post/${payload.postId}`);
-      } else if (payload.chatId) {
-        router.push(`/chat/${payload.chatId}`);
-      } else if (payload.matchId) {
-        router.push(`/match/${payload.matchId}`);
-      } else if (payload.type === 'icebreaker.interest') {
-        router.push('/(tabs)/icebreaker');
-      }
+      navigateFromNotification(router, payload);
     });
     return () => subscription.remove();
   }, [router]);
@@ -87,6 +85,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       }
       if (payload.type === 'chat.message') {
         queryClient.invalidateQueries({ queryKey: ['chats'] });
+      }
+      if (payload.type === 'wall.reply') {
+        queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+        if (payload.postId) {
+          queryClient.invalidateQueries({ queryKey: ['wall-post', payload.postId] });
+        }
       }
     });
     return () => subscription.remove();
@@ -122,6 +126,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
     if (!target || pathname === target || pathname.startsWith(`${target}/`)) {
       lastTargetRef.current = null;
+      if (
+        user &&
+        locationReady &&
+        notificationsReady &&
+        productTourComplete &&
+        pendingNotificationRef.current
+      ) {
+        const payload = pendingNotificationRef.current;
+        pendingNotificationRef.current = null;
+        navigateFromNotification(router, payload);
+      }
       return;
     }
 
@@ -169,6 +184,7 @@ function RootLayoutContent() {
               <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
               <Stack.Screen name="premium" options={{ headerShown: false }} />
+              <Stack.Screen name="settings" options={{ headerShown: false }} />
               <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
             </Stack>
           </AuthGate>

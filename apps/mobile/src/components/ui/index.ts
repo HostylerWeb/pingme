@@ -18,4 +18,6 @@ export { ActionSheet } from './action-sheet';
 export type { ActionSheetOption } from './action-sheet';
 export { AppSwitch } from './app-switch';
 export { DisplayNameWithFlair } from './display-name-with-flair';
+export { ConnectionCelebrationModal } from './connection-celebration-modal';
+export type { ConnectionCelebrationKind } from './connection-celebration-modal';
 export { ToastHost } from './toast';

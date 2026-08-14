@@ -16,6 +16,7 @@ import {
   MATCH_EXPIRY_MINUTES,
   NOTIFICATION_TYPES,
   distanceBucket,
+  isUserActiveNow,
 } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { ChatGateway } from '../chat/chat.gateway';
@@ -317,7 +318,17 @@ export class IcebreakerService {
     const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
     const flairByUserId = await loadPublicProfileMap(this.prisma, [...profileIds]);
 
-    const withFlair = (userId: string) => flairByUserId.get(userId) ?? { isPremium: false, avatarTheme: null };
+    const userActivity = profileIds.size
+      ? await this.prisma.user.findMany({
+          where: { id: { in: [...profileIds] } },
+          select: { id: true, lastSeenAt: true },
+        })
+      : [];
+    const lastSeenByUserId = new Map(userActivity.map((user) => [user.id, user.lastSeenAt]));
+
+    const withFlair = (userId: string) =>
+      flairByUserId.get(userId) ?? { isPremium: false, avatarTheme: null, livenessVerified: false };
+    const withActiveNow = (userId: string) => isUserActiveNow(lastSeenByUserId.get(userId), now);
 
     const data = visibleRows.map((row) => {
       const profile = profileByUserId.get(row.user_id);
@@ -343,6 +354,8 @@ export class IcebreakerService {
         matchId: matchId ?? null,
         isPremium: withFlair(row.user_id).isPremium,
         avatarTheme: withFlair(row.user_id).avatarTheme,
+        livenessVerified: withFlair(row.user_id).livenessVerified,
+        activeNow: withActiveNow(row.user_id),
       };
     });
 
@@ -368,6 +381,8 @@ export class IcebreakerService {
         matchId,
         isPremium: withFlair(otherUserId).isPremium,
         avatarTheme: withFlair(otherUserId).avatarTheme,
+        livenessVerified: withFlair(otherUserId).livenessVerified,
+        activeNow: withActiveNow(otherUserId),
       });
     }
 

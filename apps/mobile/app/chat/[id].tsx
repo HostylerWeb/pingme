@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ChatMessage } from '../../src/lib/api';
 import { useChatSocket } from '../../src/hooks/use-chat-socket';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { REPORT_SHEET_FOOTER, REPORT_SUBMITTED_MESSAGE } from '../../src/lib/report-copy';
 import { showToast } from '../../src/stores/toast-store';
 import {
   ActionSheet,
@@ -215,7 +216,7 @@ export default function ChatThreadScreen() {
       targetId: string;
       reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other';
     }) => api.reportUser(payload),
-    onSuccess: () => showToast('Report submitted. Thank you.', 'success'),
+    onSuccess: () => showToast(REPORT_SUBMITTED_MESSAGE, 'success'),
     onError: (error: Error) => showToast(error.message, 'error'),
   });
 
@@ -339,7 +340,7 @@ export default function ChatThreadScreen() {
           themeId={chat.otherUser.isPremium ? chat.otherUser.avatarTheme : null}
         />
         <View style={{ flex: 1 }}>
-          <DisplayNameWithFlair name={chat.otherUser.displayName} isPremium={chat.otherUser.isPremium} />
+          <DisplayNameWithFlair name={chat.otherUser.displayName} isPremium={chat.otherUser.isPremium} isVerified={chat.otherUser.livenessVerified} />
           <Text style={styles.threadHint}>Private conversation</Text>
         </View>
       </View>
@@ -404,6 +405,7 @@ export default function ChatThreadScreen() {
         visible={reportOpen}
         title="Report user"
         subtitle="Why are you reporting this person?"
+        footer={REPORT_SHEET_FOOTER}
         onClose={() => setReportOpen(false)}
         options={[
           { label: 'Harassment', onPress: () => submitReport('harassment') },

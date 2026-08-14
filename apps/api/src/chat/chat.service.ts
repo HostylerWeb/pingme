@@ -10,7 +10,7 @@ import { ChatStatus, MatchStatus, MessageStatus } from '@pingme/db';
 import { NOTIFICATION_TYPES } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { BlocksService } from '../common/services/blocks.service';
-import { getPublicProfileFields } from '../common/utils/public-profile.util';
+import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
@@ -71,6 +71,11 @@ export class ChatService {
       unreadCounts.map((row) => [row.chatId, row._count._all]),
     );
 
+    const otherUserIds = chats.map((chat) =>
+      chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId,
+    );
+    const verifiedSet = await loadLivenessVerifiedSet(this.prisma, otherUserIds);
+
     const data = chats
       .map((chat) => {
         const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
@@ -79,7 +84,11 @@ export class ChatService {
         const otherUser =
           chat.match.userAId === userId ? chat.match.userB : chat.match.userA;
         const otherProfile = otherUser.profile;
-        const flair = getPublicProfileFields(otherProfile, otherUser.subscription);
+        const flair = getPublicProfileFields(
+          otherProfile,
+          otherUser.subscription,
+          verifiedSet.has(otherUserId),
+        );
         const lastMessage = chat.messages[0] ?? null;
 
         return {
@@ -92,6 +101,7 @@ export class ChatService {
             avatarUrl: otherProfile?.avatarUrl ?? null,
             isPremium: flair.isPremium,
             avatarTheme: flair.avatarTheme,
+            livenessVerified: flair.livenessVerified,
           },
           lastMessage: lastMessage
             ? {
@@ -118,7 +128,11 @@ export class ChatService {
     const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
     const otherUser =
       chat.match.userAId === userId ? chat.match.userB : chat.match.userA;
-    const flair = getPublicProfileFields(otherUser.profile, otherUser.subscription);
+    const flair = getPublicProfileFields(
+      otherUser.profile,
+      otherUser.subscription,
+      (await loadLivenessVerifiedSet(this.prisma, [otherUserId])).has(otherUserId),
+    );
 
     return {
       success: true,
@@ -132,6 +146,7 @@ export class ChatService {
           avatarUrl: otherUser.profile?.avatarUrl ?? null,
           isPremium: flair.isPremium,
           avatarTheme: flair.avatarTheme,
+          livenessVerified: flair.livenessVerified,
         },
         createdAt: chat.createdAt,
       },

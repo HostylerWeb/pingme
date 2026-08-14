@@ -371,8 +371,22 @@ export const api = {
     apiFetch<{ success: boolean; data: SubscriptionPlansResponse }>('/subscriptions/plans'),
 
   startSubscriptionCheckout: () =>
-    apiFetch<{ success: boolean; data: { checkoutUrl: string } }>('/subscriptions/checkout', {
+    apiFetch<{
+      success: boolean;
+      data: {
+        checkoutUrl: string | null;
+        sessionId?: string | null;
+        provider?: string | null;
+        inAppCheckout?: boolean;
+      };
+    }>('/subscriptions/checkout', {
       method: 'POST',
+    }),
+
+  confirmSubscriptionCheckout: (sessionId: string) =>
+    apiFetch<{ success: boolean; data: SubscriptionInfo }>('/subscriptions/checkout/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId }),
     }),
 
   cancelSubscription: () =>
@@ -507,6 +521,7 @@ export const api = {
 export interface PublicUserFlair {
   isPremium?: boolean;
   avatarTheme?: string | null;
+  livenessVerified?: boolean;
 }
 
 export interface NearbyAvailableUser extends PublicUserFlair {
@@ -534,6 +549,7 @@ export interface IcebreakerNearbyUser extends PublicUserFlair {
   interestedInMe: boolean;
   highlight: 'mutual_match' | 'interested_in_you' | null;
   matchId: string | null;
+  activeNow?: boolean;
 }
 
 export interface WallPost {
@@ -549,6 +565,7 @@ export interface WallPost {
     isYou: boolean;
     isPremium?: boolean;
     avatarTheme?: string | null;
+    livenessVerified?: boolean;
   };
 }
 
@@ -564,6 +581,7 @@ export interface WallPostDetail extends WallPost {
       isYou: boolean;
       isPremium?: boolean;
       avatarTheme?: string | null;
+      livenessVerified?: boolean;
     };
   }>;
 }
@@ -629,6 +647,18 @@ export interface UserSettings {
   language: string;
 }
 
+export interface MatchOtherUser {
+  id?: string;
+  displayName?: string;
+  avatarUrl?: string | null;
+  isPremium?: boolean;
+  avatarTheme?: string | null;
+  livenessVerified?: boolean;
+  activeNow?: boolean;
+  anonymous: boolean;
+  label: string;
+}
+
 export interface MatchSummary {
   id: string;
   source: string;
@@ -638,7 +668,7 @@ export interface MatchSummary {
   chatId: string | null;
   myAccepted: boolean;
   theirAccepted: boolean;
-  otherUser: { anonymous: boolean; label: string };
+  otherUser: MatchOtherUser;
 }
 
 export interface MatchDetail extends MatchSummary {
@@ -656,6 +686,7 @@ export interface ChatSummary {
     avatarUrl?: string | null;
     isPremium?: boolean;
     avatarTheme?: string | null;
+    livenessVerified?: boolean;
   };
   lastMessage: {
     id: string;
@@ -677,6 +708,7 @@ export interface ChatDetail {
     avatarUrl?: string | null;
     isPremium?: boolean;
     avatarTheme?: string | null;
+    livenessVerified?: boolean;
   };
   createdAt: string;
 }

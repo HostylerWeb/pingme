@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NOTIFICATION_TYPES } from '@pingme/shared';
 import { DevicesService } from '../devices/devices.service';
 import { PushPayload } from './notification.service';
 
@@ -33,6 +34,7 @@ export class PushSenderService {
       title: payload.title,
       body: payload.body,
       data: payload.data,
+      channelId: payload.type === NOTIFICATION_TYPES.WALL_REPLY ? 'wall-replies' : 'default',
     }));
 
     const response = await fetch('https://exp.host/--/api/v2/push/send', {

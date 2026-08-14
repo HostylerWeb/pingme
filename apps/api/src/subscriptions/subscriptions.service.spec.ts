@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { SubscriptionPlan, SubscriptionStatus } from '@pingme/db';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DemoGateway } from './gateways/demo.gateway';
 import { UnconfiguredGateway } from './gateways/unconfigured.gateway';
 import { SubscriptionsService } from './subscriptions.service';
 
@@ -27,7 +28,7 @@ describe('SubscriptionsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new SubscriptionsService(prisma, audit, config, new UnconfiguredGateway());
+    service = new SubscriptionsService(prisma, audit, config, new UnconfiguredGateway(), new DemoGateway());
   });
 
   it('returns free plan when no subscription exists', async () => {

@@ -9,7 +9,7 @@ import { Prisma, WallPostStatus, WallReplyStatus } from '@pingme/db';
 import { distanceBucket, NOTIFICATION_TYPES, CreateWallPostInput, CreateWallReplyInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { BlocksService } from '../common/services/blocks.service';
-import { getPublicProfileFields } from '../common/utils/public-profile.util';
+import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -30,6 +30,7 @@ interface WallPostRow {
   subscription_plan: string | null;
   subscription_status: string | null;
   subscription_period_end: Date | null;
+  liveness_verified: boolean;
 }
 
 @Injectable()
@@ -79,7 +80,14 @@ export class WallService {
         p.avatar_config,
         sub.plan AS subscription_plan,
         sub.status AS subscription_status,
-        sub.current_period_end AS subscription_period_end
+        sub.current_period_end AS subscription_period_end,
+        EXISTS (
+          SELECT 1 FROM verifications v
+          WHERE v.user_id = wp.user_id
+            AND v.type = 'liveness'
+            AND v.status = 'passed'
+            AND (v.expires_at IS NULL OR v.expires_at > NOW())
+        ) AS liveness_verified
       FROM wall_posts wp
       INNER JOIN profiles p ON p.user_id = wp.user_id
       LEFT JOIN subscriptions sub ON sub.user_id = wp.user_id
@@ -104,6 +112,7 @@ export class WallService {
               currentPeriodEnd: row.subscription_period_end,
             }
           : null,
+        row.liveness_verified,
       );
 
       return {
@@ -119,6 +128,7 @@ export class WallService {
         isYou: row.user_id === userId,
         isPremium: flair.isPremium,
         avatarTheme: flair.avatarTheme,
+        livenessVerified: flair.livenessVerified,
       },
     };
     });
@@ -184,13 +194,16 @@ export class WallService {
       if (result) distanceBucketValue = distanceBucket(Number(result.distance_meters));
     }
 
+    const authorIds = [post.userId, ...post.replies.map((reply) => reply.userId)];
+    const verifiedSet = await loadLivenessVerifiedSet(this.prisma, authorIds);
+
     const mapAuthor = (
       authorId: string,
       profile: { displayName: string; avatarUrl?: string | null; avatarConfig?: unknown } | null | undefined,
       subscription: { plan: string; status: string; currentPeriodEnd: Date | null } | null | undefined,
       avatarUrl: string | null | undefined,
     ) => {
-      const flair = getPublicProfileFields(profile, subscription ?? null);
+      const flair = getPublicProfileFields(profile, subscription ?? null, verifiedSet.has(authorId));
       return {
         id: authorId,
         displayName: profile?.displayName,
@@ -198,6 +211,7 @@ export class WallService {
         isYou: authorId === userId,
         isPremium: flair.isPremium,
         avatarTheme: flair.avatarTheme,
+        livenessVerified: flair.livenessVerified,
       };
     };
 
@@ -283,11 +297,12 @@ export class WallService {
     if (post.userId !== userId) {
       await this.notifications.sendToUser(post.userId, {
         type: NOTIFICATION_TYPES.WALL_REPLY,
-        title: 'New reply on your post',
+        title: 'Someone replied on your post',
         body: dto.content.trim().slice(0, 80),
         data: {
           type: NOTIFICATION_TYPES.WALL_REPLY,
-          postId,
+          postId: String(postId),
+          replyId: String(reply.id),
         },
       });
     }

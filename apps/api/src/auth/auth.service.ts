@@ -14,6 +14,7 @@ import { SecurityEventsService } from '../audit/security-events.service';
 import { EmailService } from '../common/services/email.service';
 import { SmsService } from '../common/services/sms.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { VerificationService } from '../verification/verification.service';
 import {
   generateOtpCode,
   generateRefreshToken,
@@ -42,6 +43,7 @@ export class AuthService {
     private readonly securityEvents: SecurityEventsService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
+    private readonly verification: VerificationService,
   ) {}
 
   async register(dto: SignUpInput, meta: { ipAddress?: string; userAgent?: string }) {
@@ -111,7 +113,7 @@ export class AuthService {
       await this.sendPhoneOtp(user.id);
     }
 
-    return { user: this.sanitizeUser(user), ...tokens };
+    return { user: await this.enrichAuthUser(user), ...tokens };
   }
 
   async login(dto: LoginInput, meta: { ipAddress?: string; userAgent?: string }) {
@@ -156,7 +158,7 @@ export class AuthService {
     });
 
     const tokens = await this.issueTokens(user);
-    return { user: this.sanitizeUser(user), ...tokens };
+    return { user: await this.enrichAuthUser(user), ...tokens };
   }
 
   async refresh(refreshToken: string, meta: { ipAddress?: string; userAgent?: string } = {}) {
@@ -189,7 +191,7 @@ export class AuthService {
       ...meta,
     });
 
-    return { user: this.sanitizeUser(stored.user), ...tokens };
+    return { user: await this.enrichAuthUser(stored.user), ...tokens };
   }
 
   async logout(userId: string, refreshToken: string | undefined, meta: { ipAddress?: string; userAgent?: string }) {
@@ -424,5 +426,10 @@ export class AuthService {
   private sanitizeUser(user: User & { profile?: unknown; settings?: unknown }) {
     const { passwordHash: _passwordHash, ...safe } = user;
     return safe;
+  }
+
+  private async enrichAuthUser(user: User & { profile?: unknown; settings?: unknown }) {
+    const livenessVerified = await this.verification.hasPassedLiveness(user.id);
+    return { ...this.sanitizeUser(user), livenessVerified };
   }
 }

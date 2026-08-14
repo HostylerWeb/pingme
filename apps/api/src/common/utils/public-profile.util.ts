@@ -1,9 +1,10 @@
-import { SubscriptionPlan, SubscriptionStatus } from '@pingme/db';
+import { SubscriptionPlan, SubscriptionStatus, VerificationStatus, VerificationType } from '@pingme/db';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface PublicProfileFields {
   isPremium: boolean;
   avatarTheme: string | null;
+  livenessVerified: boolean;
 }
 
 export function isActivePremiumSubscription(subscription: {
@@ -33,6 +34,7 @@ export function getPublicProfileFields(
     status: SubscriptionStatus | string;
     currentPeriodEnd: Date | null;
   } | null | undefined,
+  livenessVerified = false,
 ): PublicProfileFields {
   const isPremium = isActivePremiumSubscription(subscription);
   const avatarConfig = profile?.avatarConfig as { theme?: string } | null | undefined;
@@ -41,7 +43,29 @@ export function getPublicProfileFields(
   return {
     isPremium,
     avatarTheme: isPremium ? theme : null,
+    livenessVerified,
   };
+}
+
+export async function loadLivenessVerifiedSet(prisma: PrismaService, userIds: string[]) {
+  const uniqueIds = [...new Set(userIds.filter(Boolean))];
+  if (!uniqueIds.length) {
+    return new Set<string>();
+  }
+
+  const now = new Date();
+  const rows = await prisma.verification.findMany({
+    where: {
+      userId: { in: uniqueIds },
+      type: VerificationType.liveness,
+      status: VerificationStatus.passed,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    select: { userId: true },
+    distinct: ['userId'],
+  });
+
+  return new Set(rows.map((row) => row.userId));
 }
 
 export async function loadPublicProfileMap(prisma: PrismaService, userIds: string[]) {
@@ -50,7 +74,7 @@ export async function loadPublicProfileMap(prisma: PrismaService, userIds: strin
     return new Map<string, PublicProfileFields>();
   }
 
-  const [profiles, subscriptions] = await Promise.all([
+  const [profiles, subscriptions, verifiedSet] = await Promise.all([
     prisma.profile.findMany({
       where: { userId: { in: uniqueIds } },
       select: { userId: true, avatarConfig: true },
@@ -58,6 +82,7 @@ export async function loadPublicProfileMap(prisma: PrismaService, userIds: strin
     prisma.subscription.findMany({
       where: { userId: { in: uniqueIds } },
     }),
+    loadLivenessVerifiedSet(prisma, uniqueIds),
   ]);
 
   const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
@@ -66,7 +91,11 @@ export async function loadPublicProfileMap(prisma: PrismaService, userIds: strin
   return new Map(
     uniqueIds.map((userId) => [
       userId,
-      getPublicProfileFields(profileByUserId.get(userId), subscriptionByUserId.get(userId)),
+      getPublicProfileFields(
+        profileByUserId.get(userId),
+        subscriptionByUserId.get(userId),
+        verifiedSet.has(userId),
+      ),
     ]),
   );
 }

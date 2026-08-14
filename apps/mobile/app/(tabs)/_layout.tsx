@@ -83,7 +83,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="icebreaker"
         options={{
-          title: 'iceBreaker',
+          title: 'Break the ice',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name={focused ? 'radio' : 'radio-outline'} color={String(color)} focused={focused} />
           ),
@@ -101,15 +101,6 @@ export default function TabLayout() {
               color={String(color)}
               focused={focused}
             />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'options' : 'options-outline'} color={String(color)} focused={focused} />
           ),
         }}
       />

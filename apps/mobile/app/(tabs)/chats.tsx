@@ -70,6 +70,7 @@ function ChatRow({ chat, onPress }: { chat: ChatSummary; onPress: () => void }) 
           <DisplayNameWithFlair
             name={chat.otherUser.displayName}
             isPremium={chat.otherUser.isPremium}
+            isVerified={chat.otherUser.livenessVerified}
             style={hasUnread ? styles.nameUnread : styles.name}
           />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -120,7 +121,7 @@ export default function ChatsScreen() {
         large
         title="Chats"
         showBrand={false}
-        subtitle="Private chats after you and someone nearby both accept a match."
+        subtitle="Private chats after you and someone nearby both accept."
       />
 
       {isLoading ? (
@@ -138,7 +139,7 @@ export default function ChatsScreen() {
             <EmptyState
               icon="chatbubbles-outline"
               title="No chats yet"
-              message="Match with someone on the Wall or in Break the ice — when you both accept, your chat appears here."
+              message="Connect with someone on the Wall or in Break the ice — when you both accept, your chat appears here."
               action={
                 <Button
                   label="Browse Break the ice"

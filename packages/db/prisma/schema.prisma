@@ -476,6 +476,7 @@ model Report {
   reportedUser User @relation("ReportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
   assignedTo   AdminUser? @relation("AssignedReports", fields: [assignedToAdminId], references: [id], onDelete: SetNull)
 
+  @@unique([reporterId, reportedUserId])
   @@index([reportedUserId, createdAt])
   @@index([reporterId])
   @@map("reports")

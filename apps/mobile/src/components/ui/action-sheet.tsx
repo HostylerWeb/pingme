@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
 import { hapticLight } from './avatar';
 import { BottomSheet } from './bottom-sheet';
 import { spacing, typography } from '../../theme';
@@ -14,12 +15,14 @@ export function ActionSheet({
   visible,
   title,
   subtitle,
+  footer,
   options,
   onClose,
 }: {
   visible: boolean;
   title?: string;
   subtitle?: string;
+  footer?: ReactNode;
   options: ActionSheetOption[];
   onClose: () => void;
 }) {
@@ -27,6 +30,13 @@ export function ActionSheet({
     list: {
       gap: spacing.xs,
       marginBottom: spacing.md,
+    },
+    footer: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+      lineHeight: 18,
+      marginBottom: spacing.lg,
+      paddingHorizontal: spacing.xs,
     },
     row: {
       paddingVertical: spacing.md + 2,
@@ -56,6 +66,7 @@ export function ActionSheet({
 
   return (
     <BottomSheet visible={visible} title={title} subtitle={subtitle} onClose={onClose}>
+      {footer ? <Text style={styles.footer}>{footer}</Text> : null}
       <View style={styles.list}>
         {options.map((option) => (
           <Pressable

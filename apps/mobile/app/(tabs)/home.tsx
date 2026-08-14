@@ -20,6 +20,7 @@ import {
 import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
+import { NearbyRadiusPicker, RADIUS_RANGE_LABEL } from '../../src/components/nearby-radius-picker';
 import { showToast } from '../../src/stores/toast-store';
 import {
   AppHeader,
@@ -94,7 +95,11 @@ function PostRow({
           themeId={post.author.isPremium ? post.author.avatarTheme : null}
         />
         <View style={styles.postMeta}>
-          <DisplayNameWithFlair name={name} isPremium={post.author.isPremium} />
+          <DisplayNameWithFlair
+            name={name}
+            isPremium={post.author.isPremium}
+            isVerified={!post.author.isYou && post.author.livenessVerified}
+          />
           <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
         </View>
       </View>
@@ -109,8 +114,9 @@ function PostRow({
   );
 }
 
-const WALL_SUBTITLE =
-  'A local feed within ~250m. Post, read replies, and chat after you connect.';
+function wallSubtitle(radiusMeters: number) {
+  return `A local feed within ~${radiusMeters}m. Post, read replies, and chat after you connect.`;
+}
 
 export default function WallScreen() {
   const router = useRouter();
@@ -119,6 +125,7 @@ export default function WallScreen() {
   const { colors } = useTheme();
   const { coords, error: locationError, permissionGranted, requestPermission, ping } = useLocationPing(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [radiusSheetOpen, setRadiusSheetOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [showPhoto, setShowPhoto] = useState(false);
@@ -134,7 +141,7 @@ export default function WallScreen() {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceElevated,
       borderRadius: radius.xl,
       padding: spacing.lg,
       marginBottom: spacing.lg,
@@ -176,6 +183,18 @@ export default function WallScreen() {
       paddingVertical: spacing.sm,
     },
     toggleLabel: { ...typography.bodyMd, color: colors.ink },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
+    headerIconBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    headerIconBtnPressed: { opacity: 0.85 },
   }));
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
@@ -212,6 +231,25 @@ export default function WallScreen() {
     refetchInterval: 30_000,
   });
 
+  const { data: settingsData } = useQuery({
+    queryKey: ['user-settings'],
+    queryFn: () => api.getSettings(),
+  });
+
+  const radiusMutation = useMutation({
+    mutationFn: (radiusMeters: number) => api.updateSettings({ radiusMeters }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
+      showToast('Nearby radius updated', 'success');
+      setRadiusSheetOpen(false);
+    },
+    onError: () => {
+      showToast('Could not update radius', 'error');
+    },
+  });
+
   const availabilityMutation = useMutation({
     mutationFn: async (isAvailable: boolean) => {
       if (isAvailable) {
@@ -219,28 +257,38 @@ export default function WallScreen() {
         if (!foregroundGranted) {
           throw new Error('Location permission is required to go visible on the Wall.');
         }
-        await ping();
+        if (coords) {
+          await api.pingLocation(coords);
+        } else {
+          const location = await ping({ preferCached: true });
+          if (!location) {
+            throw new Error('Could not get your location. Try again in a moment.');
+          }
+        }
       } else {
-        await stopBackgroundLocation();
+        void stopBackgroundLocation();
       }
       return api.setAvailable(isAvailable);
     },
     onMutate: (isAvailable) => setAvailableOn(isAvailable),
-    onSuccess: async (_data, isAvailable) => {
-      await syncBackgroundLocationWithAvailability(isAvailable);
+    onSuccess: (_data, isAvailable) => {
+      void syncBackgroundLocationWithAvailability(isAvailable);
       queryClient.invalidateQueries({ queryKey: ['presence-status'] });
       queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
       setConfirmOpen(false);
     },
     onError: (error: Error) => {
       setAvailableOn(serverAvailable);
-      showToast(error.message, 'error');
+      if (!handleLivenessError(error)) {
+        showToast(error.message, 'error');
+      }
       setConfirmOpen(false);
     },
   });
 
   const nearbyUsers = nearbyUsersData?.data.users ?? [];
-  const radiusMeters = nearbyUsersData?.data.radiusMeters ?? 250;
+  const radiusMeters =
+    settingsData?.data.radiusMeters ?? nearbyUsersData?.data.radiusMeters ?? 250;
 
   const onCreatePost = useCallback(async () => {
     if (!coords || !draft.trim()) return;
@@ -270,6 +318,7 @@ export default function WallScreen() {
 
   const handleAvailabilityToggle = (on: boolean) => {
     if (on) {
+      if (!ensureVerified()) return;
       setConfirmOpen(true);
       return;
     }
@@ -304,7 +353,7 @@ export default function WallScreen() {
           large
           title="Wall"
           showBrand={false}
-          subtitle={WALL_SUBTITLE}
+          subtitle={wallSubtitle(radiusMeters)}
         />
         <View style={styles.center}>
           <EmptyState
@@ -312,13 +361,13 @@ export default function WallScreen() {
             title={permissionDenied ? 'Location needed' : 'Location unavailable'}
             message={
               permissionDenied
-                ? 'PingMe needs your location to show posts and people within about 250 meters.'
+                ? `PingMe needs your location to show posts and people within about ${radiusMeters} meters.`
                 : locationError
             }
             action={
               <Button
                 label={permissionDenied ? 'Enable location' : 'Try again'}
-                onPress={permissionDenied ? requestPermission : ping}
+                onPress={permissionDenied ? requestPermission : () => void ping({ preferCached: true })}
               />
             }
           />
@@ -378,8 +427,20 @@ export default function WallScreen() {
       <AppHeader
         title="Wall"
         showBrand={false}
-        subtitle={WALL_SUBTITLE}
-        right={<AvailableChip isAvailable={availableOn} />}
+        subtitle={wallSubtitle(radiusMeters)}
+        right={
+          <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => setRadiusSheetOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Nearby radius, ${radiusMeters} meters`}
+              style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
+            >
+              <Ionicons name="settings-outline" size={20} color={colors.ink} />
+            </Pressable>
+            <AvailableChip isAvailable={availableOn} />
+          </View>
+        }
       />
 
       {isLoading ? (
@@ -399,7 +460,7 @@ export default function WallScreen() {
             <EmptyState
               icon="megaphone-outline"
               title="No posts yet"
-              message="Be the first to say something to people within about 250 meters."
+              message={`Be the first to say something to people within about ${radiusMeters} meters.`}
               action={
                 <Button
                   label="Write a post"
@@ -444,6 +505,19 @@ export default function WallScreen() {
           style={styles.sheetBtn}
         />
         <Button label="Not now" variant="ghost" onPress={() => setConfirmOpen(false)} />
+      </BottomSheet>
+
+      <BottomSheet
+        visible={radiusSheetOpen}
+        title="Nearby radius"
+        subtitle={`How far you see the Wall and who can spot you nearby (${RADIUS_RANGE_LABEL}). Break the ice stays closer (~150m).`}
+        onClose={() => setRadiusSheetOpen(false)}
+      >
+        <NearbyRadiusPicker
+          value={radiusMeters}
+          disabled={radiusMutation.isPending}
+          onChange={(meters) => radiusMutation.mutate(meters)}
+        />
       </BottomSheet>
 
       <BottomSheet visible={modalOpen} title="Post to the wall" subtitle="Only people nearby will see this." onClose={() => setModalOpen(false)}>

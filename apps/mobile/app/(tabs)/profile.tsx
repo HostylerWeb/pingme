@@ -226,6 +226,40 @@ export default function ProfileScreen() {
       padding: spacing.lg,
     },
     logoutText: { ...typography.bodySemiBold, color: colors.error, fontSize: 16 },
+    headerIconBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: radius.full,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginTop: 4,
+    },
+    headerIconBtnPressed: { opacity: 0.85 },
+    menuRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingVertical: spacing.lg,
+      paddingHorizontal: spacing.lg,
+    },
+    menuRowBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    menuRowPressed: { opacity: 0.85 },
+    menuIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    menuLabel: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16, flex: 1 },
+    menuHint: { ...typography.caption, color: colors.inkTertiary, marginTop: 2 },
     sheetBtn: { marginTop: spacing.md },
   }));
 
@@ -292,6 +326,16 @@ export default function ProfileScreen() {
         title="You"
         showBrand={false}
         subtitle="Your photo, name, and bio — how others see you nearby."
+        right={
+          <Pressable
+            onPress={() => router.push('/settings')}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+            style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
+          >
+            <Ionicons name="settings-outline" size={20} color={colors.ink} />
+          </Pressable>
+        }
       />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: contentBottom }]}>
@@ -397,6 +441,23 @@ export default function ProfileScreen() {
             value={profileGender ? genderLabel(profileGender) : 'Not set'}
             isLast
           />
+        </View>
+
+        <Text style={styles.sectionLabel}>More</Text>
+        <View style={styles.group}>
+          <Pressable
+            onPress={() => router.push('/settings')}
+            style={({ pressed }) => [styles.menuRow, styles.menuRowBorder, pressed && styles.menuRowPressed]}
+          >
+            <View style={styles.menuIcon}>
+              <Ionicons name="settings-outline" size={18} color={colors.ink} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Settings</Text>
+              <Text style={styles.menuHint}>Notifications, dark mode, and preferences</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.inkTertiary} />
+          </Pressable>
         </View>
 
         <Pressable style={styles.logout} onPress={onLogout}>

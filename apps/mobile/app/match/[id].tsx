@@ -179,7 +179,7 @@ export default function MatchScreen() {
   if (isLoading) {
     return (
       <Screen>
-        <LoadingView message="Loading match…" />
+        <LoadingView message="Loading connection…" />
       </Screen>
     );
   }
@@ -187,12 +187,12 @@ export default function MatchScreen() {
   if (isError || !match) {
     return (
       <Screen padded={false} edges={[]}>
-        <AppHeader title="Match" showBrand={false} onBack={() => router.back()} centerTitle />
+        <AppHeader title="Connection" showBrand={false} onBack={() => router.back()} centerTitle />
         <View style={styles.centered}>
           <EmptyState
             icon="heart-dislike-outline"
-            title="Match not found"
-            message="This match may have expired or been removed."
+            title="Connection not found"
+            message="This request may have expired or been removed."
             action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
           />
         </View>
@@ -227,11 +227,11 @@ export default function MatchScreen() {
   if (match.status === 'declined') {
     return (
       <Screen padded={false} edges={[]}>
-        <AppHeader title="Match" showBrand={false} onBack={() => router.replace('/(tabs)/home')} centerTitle />
+        <AppHeader title="Connection" showBrand={false} onBack={() => router.replace('/(tabs)/home')} centerTitle />
         <View style={styles.centered}>
           <EmptyState
             icon="close-circle-outline"
-            title="Match declined"
+            title="Connection declined"
             message="This connection request was declined. You can keep browsing the wall or try Break the ice again."
             action={
               <Button label="Back to wall" variant="outline" onPress={() => router.replace('/(tabs)/home')} />
@@ -245,11 +245,11 @@ export default function MatchScreen() {
   if (match.status === 'expired') {
     return (
       <Screen padded={false} edges={[]}>
-        <AppHeader title="Match" showBrand={false} onBack={() => router.replace('/(tabs)/home')} centerTitle />
+        <AppHeader title="Connection" showBrand={false} onBack={() => router.replace('/(tabs)/home')} centerTitle />
         <View style={styles.centered}>
           <EmptyState
             icon="time-outline"
-            title="Match expired"
+            title="Request expired"
             message="This request timed out before both people accepted. Try Break the ice again when you're ready."
             action={
               <Button label="Back to wall" variant="outline" onPress={() => router.replace('/(tabs)/home')} />
@@ -263,12 +263,12 @@ export default function MatchScreen() {
   if (match.status !== 'pending') {
     return (
       <Screen padded={false} edges={[]}>
-        <AppHeader title="Match" showBrand={false} onBack={() => router.back()} centerTitle />
+        <AppHeader title="Connection" showBrand={false} onBack={() => router.back()} centerTitle />
         <View style={styles.centered}>
           <EmptyState
             icon="alert-circle-outline"
-            title="Match unavailable"
-            message="This match is no longer available."
+            title="Connection unavailable"
+            message="This connection request is no longer available."
             action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
           />
         </View>
@@ -278,7 +278,7 @@ export default function MatchScreen() {
 
   return (
     <Screen padded={false} edges={[]}>
-      <AppHeader title="Match request" showBrand={false} onBack={goHome} centerTitle />
+      <AppHeader title="Connection request" showBrand={false} onBack={goHome} centerTitle />
 
       <View style={[styles.page, { paddingBottom: spacing.section + insets.bottom }]}>
         <View style={styles.hero}>
@@ -338,7 +338,7 @@ export default function MatchScreen() {
 
         <View style={styles.trust}>
           <Ionicons name="lock-closed-outline" size={14} color={colors.inkTertiary} />
-          <Text style={styles.trustText}>Your profile is only visible to matches.</Text>
+          <Text style={styles.trustText}>Your profile is only visible to people you&apos;re connected with.</Text>
         </View>
       </View>
     </Screen>

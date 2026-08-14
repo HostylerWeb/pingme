@@ -8,7 +8,7 @@ export function useLivenessGate() {
   const user = useAuthStore((s) => s.user);
 
   const ensureVerified = useCallback(() => {
-    if (user?.livenessVerified !== false) {
+    if (user?.livenessVerified === true) {
       return true;
     }
     router.push('/(setup)/liveness');
@@ -29,6 +29,6 @@ export function useLivenessGate() {
   return {
     ensureVerified,
     handleLivenessError,
-    isVerified: user?.livenessVerified !== false,
+    isVerified: user?.livenessVerified === true,
   };
 }

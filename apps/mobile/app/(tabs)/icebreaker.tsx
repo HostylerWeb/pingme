@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { api, ApiError, IcebreakerNearbyUser } from '../../src/lib/api';
+import { api, ApiError, IcebreakerNearbyUser, MatchSummary } from '../../src/lib/api';
 import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
@@ -22,6 +22,7 @@ import {
   BottomSheet,
   Button,
   Card,
+  ConnectionCelebrationModal,
   DistancePill,
   DisplayNameWithFlair,
   EmptyState,
@@ -149,7 +150,113 @@ function ResponsePill({
 }
 
 const ICEBREAKER_SUBTITLE =
-  'People open to meeting nearby. Say yes — if they say yes too, you match.';
+  'People open to meeting nearby. Say yes — if they say yes too, you can connect.';
+
+function ActiveNowBadge() {
+  const styles = useThemedStyles(({ colors }) => ({
+    badge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+    },
+    dot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: colors.online,
+    },
+    label: {
+      ...typography.caption,
+      color: colors.online,
+      letterSpacing: 0,
+    },
+  }));
+
+  return (
+    <View style={styles.badge}>
+      <View style={styles.dot} />
+      <Text style={styles.label}>Active now</Text>
+    </View>
+  );
+}
+
+function PendingConnectionCard({
+  connection,
+  loading,
+  onAccept,
+  onDecline,
+}: {
+  connection: MatchSummary;
+  loading: boolean;
+  onAccept: () => void;
+  onDecline: () => void;
+}) {
+  const { colors } = useTheme();
+  const other = connection.otherUser;
+  const name = other.displayName ?? other.label;
+  const sourceLabel = connection.source === 'wall_reply' ? 'From the Wall' : 'Break the ice';
+
+  const styles = useThemedStyles(({ colors }) => ({
+    card: {
+      borderColor: colors.accentMuted,
+      backgroundColor: colors.accentSoft,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      marginBottom: spacing.md,
+    },
+    meta: { flex: 1, gap: 4 },
+    source: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+      letterSpacing: 0,
+    },
+    waitingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: spacing.sm,
+    },
+    waitingText: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+      letterSpacing: 0,
+    },
+    responseRow: { flexDirection: 'row', gap: spacing.sm },
+  }));
+
+  return (
+    <Card style={styles.card}>
+      <View style={styles.header}>
+        <Avatar
+          uri={other.avatarUrl}
+          name={name}
+          size="md"
+          themeId={other.isPremium ? other.avatarTheme : null}
+        />
+        <View style={styles.meta}>
+          <DisplayNameWithFlair name={name} isPremium={other.isPremium} isVerified={other.livenessVerified} />
+          <Text style={styles.source}>{sourceLabel}</Text>
+          {other.activeNow ? <ActiveNowBadge /> : null}
+        </View>
+      </View>
+      {connection.myAccepted ? (
+        <View style={styles.waitingRow}>
+          <Ionicons name="hourglass-outline" size={14} color={colors.inkTertiary} />
+          <Text style={styles.waitingText}>Accepted — waiting for them</Text>
+        </View>
+      ) : (
+        <View style={styles.responseRow}>
+          <ResponsePill label="Not now" filled={false} onPress={onDecline} disabled={loading} />
+          <ResponsePill label="Accept" filled onPress={onAccept} disabled={loading} successHaptic />
+        </View>
+      )}
+    </Card>
+  );
+}
 
 function IcebreakerRow({
   person,
@@ -228,11 +335,14 @@ function IcebreakerRow({
           themeId={person.isPremium ? person.avatarTheme : null}
         />
         <View style={styles.personMeta}>
-          <DisplayNameWithFlair name={person.displayName} isPremium={person.isPremium} />
-          <DistancePill
-            label={icebreakerRadiusLabel()}
-            tone={distanceTone(person.distanceBucket)}
-          />
+          <DisplayNameWithFlair name={person.displayName} isPremium={person.isPremium} isVerified={person.livenessVerified} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
+            <DistancePill
+              label={icebreakerRadiusLabel()}
+              tone={distanceTone(person.distanceBucket)}
+            />
+            {person.activeNow ? <ActiveNowBadge /> : null}
+          </View>
         </View>
       </View>
 
@@ -278,6 +388,12 @@ export default function IcebreakerScreen() {
   const [introMessage, setIntroMessage] = useState('');
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [icebreakerOn, setIcebreakerOn] = useState(false);
+  const [celebration, setCelebration] = useState<{
+    kind: 'mutual_yes' | 'connected';
+    matchId?: string;
+    chatId?: string;
+    displayName?: string;
+  } | null>(null);
 
   const styles = useThemedStyles(({ colors }) => ({
     denied: { flex: 1, justifyContent: 'center', padding: spacing.container },
@@ -302,7 +418,7 @@ export default function IcebreakerScreen() {
     },
     dismissPressed: { opacity: 0.6 },
     toggleCard: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.surfaceElevated,
       borderRadius: radius.xl,
       padding: spacing.lg,
       borderWidth: 1,
@@ -374,6 +490,7 @@ export default function IcebreakerScreen() {
     },
     nearbyLoader: { marginVertical: spacing.lg },
     nearbyList: { gap: spacing.md },
+    pendingSection: { gap: spacing.md },
     sheetBody: {
       ...typography.bodyMd,
       color: colors.inkSecondary,
@@ -412,9 +529,12 @@ export default function IcebreakerScreen() {
     refetchIntervalInBackground: false,
   });
 
-  const hasPendingMatch = (matchesData?.data ?? []).some(
-    (m) => m.status === 'pending' && m.source === 'icebreaker',
+  const pendingConnections = (matchesData?.data ?? []).filter((m) => m.status === 'pending');
+  const pendingUserIds = new Set(
+    pendingConnections.map((m) => m.otherUser.id).filter((id): id is string => !!id),
   );
+
+  const hasPendingMatch = pendingConnections.some((m) => m.source === 'icebreaker');
 
   const canBrowse = icebreakerOn || hasPendingMatch;
 
@@ -433,7 +553,10 @@ export default function IcebreakerScreen() {
   });
 
   const people = nearbyData?.data ?? [];
-  const featuredCount = people.filter((p) => p.highlight !== null).length;
+  const nearbyPeople = people.filter(
+    (person) => !(person.highlight === 'mutual_match' && pendingUserIds.has(person.userId)),
+  );
+  const featuredCount = nearbyPeople.filter((p) => p.highlight !== null).length;
 
   const icebreakerMutation = useMutation({
     mutationFn: async (action: 'start' | 'cancel') => {
@@ -477,10 +600,19 @@ export default function IcebreakerScreen() {
       api.setIcebreakerInterest(payload),
     onMutate: ({ targetUserId }) => setRespondingTo(targetUserId),
     onSettled: () => setRespondingTo(null),
-    onSuccess: () => {
+    onSuccess: (result, { targetUserId }) => {
       queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
       queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
       queryClient.invalidateQueries({ queryKey: ['matches'] });
+      if (result.data?.matched && result.data.matchId) {
+        const nearby = queryClient.getQueryData<{ data: IcebreakerNearbyUser[] }>(['icebreaker-nearby']);
+        const person = nearby?.data?.find((item) => item.userId === targetUserId);
+        setCelebration({
+          kind: 'mutual_yes',
+          matchId: result.data.matchId,
+          displayName: person?.displayName,
+        });
+      }
     },
     onError: (error: ApiError) => {
       if (!handleLivenessError(error)) {
@@ -497,8 +629,11 @@ export default function IcebreakerScreen() {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
       if (result.data.status === 'active' && result.data.chatId) {
-        showToast('Match accepted', 'success');
-        router.push(`/chat/${result.data.chatId}`);
+        setCelebration({
+          kind: 'connected',
+          chatId: result.data.chatId,
+          displayName: result.data.otherUser.displayName ?? result.data.otherUser.label,
+        });
       }
     },
     onError: (error: ApiError) => {
@@ -641,6 +776,24 @@ export default function IcebreakerScreen() {
           </Text>
         </View>
 
+        {pendingConnections.length > 0 ? (
+          <View style={styles.pendingSection}>
+            <SectionLabel>Connection requests</SectionLabel>
+            {pendingConnections.map((connection) => (
+              <PendingConnectionCard
+                key={connection.id}
+                connection={connection}
+                loading={respondingTo === connection.id}
+                onAccept={() => {
+                  if (!ensureVerified()) return;
+                  acceptMutation.mutate(connection.id);
+                }}
+                onDecline={() => declineMutation.mutate(connection.id)}
+              />
+            ))}
+          </View>
+        ) : null}
+
         {canBrowse ? (
           <View style={styles.browseSection}>
             <View style={styles.sectionHeader}>
@@ -655,7 +808,7 @@ export default function IcebreakerScreen() {
             </View>
             {nearbyInitialLoad ? (
               <ActivityIndicator color={colors.accent} style={styles.nearbyLoader} />
-            ) : people.length === 0 ? (
+            ) : nearbyPeople.length === 0 ? (
               <EmptyState
                 icon="people-outline"
                 title={icebreakerOn ? 'No one else yet' : 'Turn on Break the ice'}
@@ -679,7 +832,7 @@ export default function IcebreakerScreen() {
               />
             ) : (
               <View style={styles.nearbyList}>
-                {people.map((person) => (
+                {nearbyPeople.map((person) => (
                   <IcebreakerRow
                     key={person.userId}
                     person={person}
@@ -741,6 +894,21 @@ export default function IcebreakerScreen() {
         />
         <Button label="Cancel" variant="ghost" onPress={() => setIcebreakerSetupOpen(false)} />
       </BottomSheet>
+
+      <ConnectionCelebrationModal
+        visible={celebration !== null}
+        kind={celebration?.kind ?? 'mutual_yes'}
+        displayName={celebration?.displayName}
+        onPrimary={() => {
+          if (celebration?.kind === 'connected' && celebration.chatId) {
+            router.push(`/chat/${celebration.chatId}`);
+          } else if (celebration?.matchId) {
+            router.push(`/match/${celebration.matchId}`);
+          }
+          setCelebration(null);
+        }}
+        onClose={() => setCelebration(null)}
+      />
     </Screen>
   );
 }

@@ -15,12 +15,12 @@ const SLIDES = [
   {
     icon: 'radio' as const,
     title: 'Break the ice — meet people',
-    body: 'Browse who’s open to connecting nearby. Tap Yes on someone — if they say Yes too, you match.',
+    body: 'Browse who’s open to connecting nearby. Tap Yes on someone — if they say Yes too, you can connect.',
   },
   {
     icon: 'chatbubble-ellipses' as const,
     title: 'Chats — private talks',
-    body: 'After you both accept a match, your private chat opens here. Wall and Break the ice stay separate.',
+    body: 'After you both accept, your private chat opens here. Wall and Break the ice stay separate.',
   },
 ];
 

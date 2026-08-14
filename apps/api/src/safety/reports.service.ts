@@ -1,9 +1,9 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { UserStatus } from '@pingme/db';
 import { CreateReportInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,6 +27,18 @@ export class ReportsService {
       throw new NotFoundException('Reported user not found');
     }
 
+    const existing = await this.prisma.report.findUnique({
+      where: {
+        reporterId_reportedUserId: {
+          reporterId,
+          reportedUserId: dto.reportedUserId,
+        },
+      },
+    });
+    if (existing) {
+      throw new ConflictException('You have already reported this person');
+    }
+
     const report = await this.prisma.report.create({
       data: {
         reporterId,
@@ -45,28 +57,6 @@ export class ReportsService {
       entityId: report.id,
       metadata: { targetType: dto.targetType, targetId: dto.targetId },
     });
-
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentCount = await this.prisma.report.count({
-      where: {
-        reportedUserId: dto.reportedUserId,
-        createdAt: { gte: since },
-      },
-    });
-
-    if (recentCount >= 3) {
-      await this.prisma.user.update({
-        where: { id: dto.reportedUserId },
-        data: { status: UserStatus.suspended },
-      });
-      await this.audit.log({
-        userId: reporterId,
-        action: 'user.auto_suspend',
-        entityType: 'user',
-        entityId: dto.reportedUserId,
-        metadata: { reportCount: recentCount },
-      });
-    }
 
     return { success: true, data: report };
   }

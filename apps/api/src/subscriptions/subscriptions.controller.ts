@@ -1,9 +1,13 @@
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@pingme/db';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SubscriptionsService } from './subscriptions.service';
+
+class ConfirmCheckoutDto {
+  sessionId!: string;
+}
 
 @ApiTags('subscriptions')
 @ApiBearerAuth()
@@ -30,6 +34,13 @@ export class SubscriptionsController {
   @ApiOperation({ summary: 'Start premium checkout (when payment provider is configured)' })
   async checkout(@CurrentUser() user: User) {
     const data = await this.subscriptions.createCheckout(user.id, 'premium');
+    return { success: true, data };
+  }
+
+  @Post('checkout/confirm')
+  @ApiOperation({ summary: 'Confirm in-app demo checkout session' })
+  async confirmCheckout(@CurrentUser() user: User, @Body() body: ConfirmCheckoutDto) {
+    const data = await this.subscriptions.confirmCheckout(user.id, body.sessionId);
     return { success: true, data };
   }
 

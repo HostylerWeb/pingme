@@ -15,6 +15,7 @@ import { PREMIUM_AVATAR_THEMES, SUBSCRIPTION_PLANS } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UnconfiguredGateway } from './gateways/unconfigured.gateway';
+import { DemoGateway } from './gateways/demo.gateway';
 import { PaymentGateway } from './payment-gateway.interface';
 
 export interface SubscriptionView {
@@ -41,6 +42,7 @@ export class SubscriptionsService {
     private readonly audit: AuditService,
     private readonly config: ConfigService,
     private readonly unconfiguredGateway: UnconfiguredGateway,
+    private readonly demoGateway: DemoGateway,
   ) {
     this.configuredProvider = this.config.get<string>('PAYMENT_PROVIDER', 'none').toLowerCase();
   }
@@ -110,7 +112,55 @@ export class SubscriptionsService {
       checkoutUrl: session.checkoutUrl,
       sessionId: session.sessionId ?? null,
       provider: gateway.providerId,
+      inAppCheckout: session.inAppCheckout ?? false,
     };
+  }
+
+  async confirmCheckout(userId: string, sessionId: string) {
+    if (this.configuredProvider !== 'demo') {
+      throw new BadRequestException('In-app checkout confirmation is only available for the demo provider');
+    }
+
+    const gateway = this.demoGateway;
+    const session = gateway.consumeSession(sessionId, userId);
+    if (session.planId !== SubscriptionPlan.premium) {
+      throw new BadRequestException('Only premium plan is available');
+    }
+
+    const periodEnd = new Date();
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+    const subscription = await this.prisma.subscription.upsert({
+      where: { userId },
+      update: {
+        plan: SubscriptionPlan.premium,
+        status: SubscriptionStatus.active,
+        paymentProvider: PaymentProvider.manual,
+        cancelAtPeriodEnd: false,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: periodEnd,
+        metadata: { source: 'demo_checkout', sessionId },
+      },
+      create: {
+        userId,
+        plan: SubscriptionPlan.premium,
+        status: SubscriptionStatus.active,
+        paymentProvider: PaymentProvider.manual,
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: periodEnd,
+        metadata: { source: 'demo_checkout', sessionId },
+      },
+    });
+
+    await this.audit.log({
+      userId,
+      action: 'subscription.demo_checkout_completed',
+      entityType: 'subscription',
+      entityId: subscription.id,
+      metadata: { sessionId },
+    });
+
+    return this.toView(subscription);
   }
 
   async cancelSubscription(userId: string) {
@@ -238,6 +288,9 @@ export class SubscriptionsService {
   }
 
   private getGateway(): PaymentGateway {
+    if (this.configuredProvider === 'demo') {
+      return this.demoGateway;
+    }
     if (this.configuredProvider === 'none' || !this.configuredProvider) {
       return this.unconfiguredGateway;
     }

@@ -311,7 +311,11 @@ export default function PostDetailScreen() {
                   themeId={post.author.isPremium ? post.author.avatarTheme : null}
                 />
                 <View style={styles.postMeta}>
-                  <DisplayNameWithFlair name={authorName} isPremium={post.author.isPremium} />
+                  <DisplayNameWithFlair
+                    name={authorName}
+                    isPremium={post.author.isPremium}
+                    isVerified={!post.author.isYou && post.author.livenessVerified}
+                  />
                   <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
                 </View>
               </View>
@@ -354,7 +358,11 @@ export default function PostDetailScreen() {
                     themeId={item.author.isPremium ? item.author.avatarTheme : null}
                   />
                   <View style={styles.replyMeta}>
-                    <DisplayNameWithFlair name={replyName} isPremium={item.author.isPremium} />
+                    <DisplayNameWithFlair
+                      name={replyName}
+                      isPremium={item.author.isPremium}
+                      isVerified={!item.author.isYou && item.author.livenessVerified}
+                    />
                     {!item.author.isYou ? (
                       <Button
                         label="Connect"
