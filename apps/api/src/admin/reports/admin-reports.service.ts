@@ -246,6 +246,7 @@ export class AdminReportsService {
       targetType: string;
       targetId: string;
       reason: string;
+      description: string | null;
     },
     target: Awaited<ReturnType<AdminReportsService['resolveTarget']>>,
   ) {
