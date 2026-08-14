@@ -15,6 +15,7 @@ web-build/
 .env.local
 .env.*.local
 !.env.example
+sshpass.txt
 
 # IDE
 .idea/
