@@ -401,6 +401,7 @@ model Report {
   reason          ReportReason
   description     String?          @db.Text
   status          ReportStatus     @default(open)
+  assignedToAdminId String?        @map("assigned_to_admin_id") @db.Uuid
   resolvedBy      String?          @map("resolved_by") @db.Uuid
   resolutionNote  String?          @map("resolution_note") @db.Text
   createdAt       DateTime         @default(now()) @map("created_at")
@@ -408,6 +409,7 @@ model Report {
 
   reporter     User @relation("ReportsFiled", fields: [reporterId], references: [id], onDelete: Cascade)
   reportedUser User @relation("ReportsReceived", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  assignedTo   AdminUser? @relation("AssignedReports", fields: [assignedToAdminId], references: [id], onDelete: SetNull)
 
   @@index([reportedUserId, createdAt])
   @@index([reporterId])
@@ -450,4 +452,40 @@ model Verification {
   @@index([userId, type, status])
   @@index([providerReference])
   @@map("verifications")
+}
+
+enum AdminRole {
+  super_admin
+  moderator
+  support
+}
+
+model AdminUser {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         AdminRole
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  auditLogs        AdminAuditLog[]
+  assignedReports  Report[] @relation("AssignedReports")
+
+  @@map("admin_users")
+}
+
+model AdminAuditLog {
+  id          BigInt   @id @default(autoincrement())
+  adminUserId String   @map("admin_user_id") @db.Uuid
+  action      String
+  entityType  String?  @map("entity_type")
+  entityId    String?  @map("entity_id") @db.Uuid
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
 }

@@ -5,6 +5,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { DevicesModule } from './devices/devices.module';
 import { ChatModule } from './chat/chat.module';
+import { AdminModule } from './admin/admin.module';
 import { HealthModule } from './health/health.module';
 import { SafetyModule } from './safety/safety.module';
 import { IcebreakerModule } from './icebreaker/icebreaker.module';
@@ -38,6 +39,7 @@ import { WallModule } from './wall/wall.module';
     ChatModule,
     SafetyModule,
     VerificationModule,
+    AdminModule,
     HealthModule,
   ],
 })
