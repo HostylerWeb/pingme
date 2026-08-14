@@ -312,11 +312,7 @@ export default function ReportDetailPage() {
 
   const { report, target, context } = data;
   const transcriptMessages =
-    context.chatContext?.messages ??
-    (target?.type === 'message' &&
-    context.reporterConversation?.chatId === target.chatId
-      ? context.reporterConversation.messages
-      : context.reporterConversation?.messages ?? []);
+    context.chatContext?.messages ?? context.reporterConversation?.messages ?? [];
 
   return (
     <div>
