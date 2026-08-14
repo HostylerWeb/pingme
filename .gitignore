@@ -47,6 +47,8 @@ packages/db/prisma/migrations/**/migration_lock.toml
 apps/mobile/.expo/
 apps/mobile/ios/
 apps/mobile/android/
+apps/mobile/credentials/
+apps/mobile/google-services.json
 *.jks
 *.p8
 *.p12

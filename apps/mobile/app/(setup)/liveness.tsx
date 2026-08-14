@@ -1,12 +1,21 @@
+import { Camera } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { api } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 15;
+
+async function ensureCameraPermission(): Promise<boolean> {
+  const current = await Camera.getCameraPermissionsAsync();
+  if (current.granted) return true;
+
+  const requested = await Camera.requestCameraPermissionsAsync();
+  return requested.granted;
+}
 
 export default function LivenessScreen() {
   const router = useRouter();
@@ -15,10 +24,23 @@ export default function LivenessScreen() {
   const [statusMessage, setStatusMessage] = useState('Starting verification...');
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
 
   const startSession = useCallback(async () => {
     setError(null);
+    setStatusMessage('Checking camera permission...');
+
+    const granted = await ensureCameraPermission();
+    if (!granted) {
+      setError('Camera permission is required for liveness verification. Enable it in Settings.');
+      setStatusMessage('');
+      setCameraReady(false);
+      return;
+    }
+
+    setCameraReady(true);
     setStatusMessage('Starting verification...');
+
     try {
       const result = await api.startVerification();
       setVerificationUrl(result.data.verificationUrl);
@@ -89,17 +111,21 @@ export default function LivenessScreen() {
         </View>
       ) : null}
 
-      {verificationUrl && !polling ? (
+      {verificationUrl && !polling && cameraReady ? (
         <WebView
           style={styles.webview}
           source={{ uri: verificationUrl }}
+          mediaCapturePermissionGrantType="grant"
+          allowsInlineMediaPlayback
+          javaScriptEnabled
+          domStorageEnabled
           onNavigationStateChange={(event) => {
-            if (event.url.startsWith('pingme://')) {
+            if (event.url.startsWith('pingme://verification-complete')) {
               onWebViewClose();
             }
           }}
           onShouldStartLoadWithRequest={(request) => {
-            if (request.url.startsWith('pingme://')) {
+            if (request.url.startsWith('pingme://verification-complete')) {
               onWebViewClose();
               return false;
             }
@@ -114,8 +140,8 @@ export default function LivenessScreen() {
             <Text style={styles.buttonText}>Try again</Text>
           </Pressable>
           {error ? (
-            <Pressable style={styles.secondaryButton} onPress={() => void pollStatus()}>
-              <Text style={styles.secondaryButtonText}>Check status</Text>
+            <Pressable style={styles.secondaryButton} onPress={() => void Linking.openSettings()}>
+              <Text style={styles.secondaryButtonText}>Open Settings</Text>
             </Pressable>
           ) : null}
         </View>

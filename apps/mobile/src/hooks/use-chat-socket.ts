@@ -6,7 +6,15 @@ import { ChatMessage } from '../lib/api';
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
 
 function wsBaseUrl() {
-  return API_URL.replace(/\/v1\/?$/, '');
+  const explicit = process.env.EXPO_PUBLIC_WS_URL;
+  if (explicit) {
+    return explicit.replace(/\/ws\/?$/, '');
+  }
+  const httpBase = API_URL.replace(/\/v1\/?$/, '');
+  if (httpBase.startsWith('https://')) {
+    return httpBase.replace('https://', 'wss://');
+  }
+  return httpBase.replace('http://', 'ws://');
 }
 
 export function useChatSocket(
