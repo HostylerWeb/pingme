@@ -1,6 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
+import { colors, fontFamilies, typography } from '../theme';
 
 type ThemeId = (typeof PREMIUM_AVATAR_THEMES)[number]['id'];
 
@@ -61,31 +62,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   inner: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceBright,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   placeholder: {
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.surfaceContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
   initial: {
+    fontFamily: fontFamilies.headline,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.onSurfaceVariant,
   },
   premiumBadge: {
     marginTop: 8,
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.premiumSurfaceMuted,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
   premiumBadgeText: {
-    color: '#b45309',
-    fontSize: 12,
-    fontWeight: '700',
+    ...typography.labelSm,
+    color: colors.premiumOnSurface,
   },
 });
 

@@ -1,15 +1,18 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { api, ApiError } from '../../src/lib/api';
+import { Button, Input, Screen, SegmentedControl } from '../../src/components/ui';
+import { colors, radius, spacing, typography } from '../../src/theme';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -38,72 +41,70 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Reset password</Text>
-      <Text style={styles.hint}>
-        Enter your account email or phone. In development, check the API logs for the reset token.
-      </Text>
+    <Screen padded={false} edges={['top', 'bottom']}>
+      <LinearGradient colors={[colors.background, colors.surfaceContainerLow]} style={styles.gradient}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+            <Text style={styles.title}>Reset password</Text>
+            <Text style={styles.hint}>
+              Enter your account email or phone. In development, check the API logs for the reset token.
+            </Text>
 
-      <View style={styles.toggleRow}>
-        <Pressable onPress={() => setUsePhone(false)}>
-          <Text style={[styles.toggle, !usePhone && styles.toggleActive]}>Email</Text>
-        </Pressable>
-        <Pressable onPress={() => setUsePhone(true)}>
-          <Text style={[styles.toggle, usePhone && styles.toggleActive]}>Phone</Text>
-        </Pressable>
-      </View>
+            <View style={styles.card}>
+              <SegmentedControl
+                options={[
+                  { label: 'Email', value: 'email' },
+                  { label: 'Phone', value: 'phone' },
+                ]}
+                value={usePhone ? 'phone' : 'email'}
+                onChange={(value) => setUsePhone(value === 'phone')}
+              />
 
-      {usePhone ? (
-        <TextInput
-          style={styles.input}
-          placeholder="+15551234567"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={setPhone}
-        />
-      ) : (
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-      )}
+              {usePhone ? (
+                <Input
+                  label="Phone"
+                  placeholder="+15551234567"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={setPhone}
+                />
+              ) : (
+                <Input
+                  label="Email"
+                  placeholder="hello@example.com"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              )}
 
-      <Pressable style={styles.button} onPress={onSubmit} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Send reset link</Text>}
-      </Pressable>
+              <Button label="Send reset link" onPress={onSubmit} loading={loading} />
+            </View>
 
-      <Link href="/(auth)/login" style={styles.link}>
-        Back to login
-      </Link>
-    </View>
+            <Link href="/(auth)/login" style={styles.link}>
+              Back to login
+            </Link>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  hint: { color: '#666', marginBottom: 20, lineHeight: 20 },
-  toggleRow: { flexDirection: 'row', gap: 16, marginBottom: 12 },
-  toggle: { color: '#64748b', fontWeight: '600' },
-  toggleActive: { color: '#2563eb' },
-  input: {
+  flex: { flex: 1 },
+  gradient: { flex: 1 },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.container },
+  title: { ...typography.display, color: colors.onSurface, marginBottom: spacing.sm },
+  hint: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.xxl, lineHeight: 24 },
+  card: {
+    backgroundColor: colors.surfaceBright,
+    borderRadius: radius.card,
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    fontSize: 16,
+    borderColor: colors.cardBorder,
+    marginBottom: spacing.lg,
   },
-  button: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  link: { marginTop: 20, textAlign: 'center', color: '#2563eb' },
+  link: { ...typography.bodyMd, textAlign: 'center', color: colors.primary },
 });

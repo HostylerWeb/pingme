@@ -1641,15 +1641,23 @@ Mobile app                    NestJS API                    didit.me
 ### Tips & gotchas
 
 1. **Always run `pnpm db:generate` after migrations** — Prisma client goes stale and VPS builds fail without it.
-2. **Redis port in local dev** — Docker exposes Redis on **6381** (see `docker-compose.dev.yml`). Do not point `REDIS_URL` at 6379 unless you run Redis there.
-3. **Postgres local port** — Docker uses **5435** in root `.env.example`; `apps/api/.env.example` may differ — keep them aligned.
-4. **Mobile must use dev client** — Never Expo Go. Liveness, background location, and push require EAS dev builds.
-5. **CORS in production** — Set `CORS_ORIGINS` (comma-separated). Mobile/native clients omit `Origin` and are still allowed. Admin dashboard needs its URL in the list.
-6. **`POST /notifications/test`** — Disabled in production unless `NOTIFICATIONS_TEST_ENABLED=true`.
-7. **Admin roles** — `support` can view users/chats but **not** reports (moderator+ only). Sidebar and dashboard respect this.
-8. **Premium without payments** — Use admin **Grant premium** to test avatar themes and read receipts until checkout exists.
-9. **Phase 8 commit on staging** — After deploy, run migration `20260814120000_add_subscriptions_phase8` and smoke test with `./scripts/staging-smoke.sh`.
-10. **Two-phone testing** — See `docs/device-test-checklist.md` before calling beta “ready”.
+2. **Run migrations after `git pull` (local)** — Staging/VPS may already have migrations your local DB does not. Symptom: API returns 500 and the admin dashboard shows “Internal server error” (e.g. missing `requires_admin_review` or `subscriptions` table). Fix:
+   ```bash
+   pnpm docker:up
+   DATABASE_URL="postgresql://pingme:pingme@localhost:5435/pingme?schema=public" pnpm --filter @pingme/db migrate:deploy
+   pnpm db:generate
+   ```
+   Check status anytime: `DATABASE_URL="postgresql://pingme:pingme@localhost:5435/pingme?schema=public" pnpm --filter @pingme/db exec prisma migrate status`
+3. **Redis port in local dev** — Docker exposes Redis on **6381** (see `docker-compose.dev.yml`). Do not point `REDIS_URL` at 6379 unless you run Redis there.
+4. **Postgres local port** — Docker uses **5435** in root `.env.example`; `apps/api/.env.example` may differ — keep them aligned.
+5. **Admin dev server port** — Local admin runs on **http://localhost:3001** (`pnpm --filter @pingme/admin dev`), not 3004 (that is staging).
+6. **Mobile must use dev client** — Never Expo Go. Liveness, background location, and push require EAS dev builds.
+7. **CORS in production** — Set `CORS_ORIGINS` (comma-separated). Mobile/native clients omit `Origin` and are still allowed. Admin dashboard needs its URL in the list.
+8. **`POST /notifications/test`** — Disabled in production unless `NOTIFICATIONS_TEST_ENABLED=true`.
+9. **Admin roles** — `support` can view users/chats but **not** reports (moderator+ only). Sidebar and dashboard respect this.
+10. **Premium without payments** — Use admin **Grant premium** to test avatar themes and read receipts until checkout exists.
+11. **Phase 8 commit on staging** — After deploy, run migration `20260814120000_add_subscriptions_phase8` and smoke test with `./scripts/staging-smoke.sh`.
+12. **Two-phone testing** — See `docs/device-test-checklist.md` before calling beta “ready”.
 
 ### Do now / near future (before frontend polish & beta)
 

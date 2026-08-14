@@ -1,20 +1,27 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { onboardingStorage } from '../../src/lib/onboarding-storage';
+import { Button, Screen } from '../../src/components/ui';
+import { colors, radius, spacing, typography } from '../../src/theme';
 
 const SLIDES = [
   {
+    icon: 'people' as const,
     title: 'Meet people nearby',
-    body: 'PingMe connects you with people within about 250 meters — cafés, parks, events, and everyday moments.',
+    body: 'Connect with others within 250m. Real people, real proximity — cafés, parks, and everyday moments.',
   },
   {
+    icon: 'shield-checkmark' as const,
     title: 'Privacy first',
-    body: 'We never show your exact location. Others only see distance buckets like "nearby" or "~200m".',
+    body: 'We never show your exact location. Others only see distance buckets like "Very near" or "~200m away".',
   },
   {
-    title: 'Location powers the experience',
-    body: 'Foreground location is required for the wall. Background location is only used when you turn Available ON.',
+    icon: 'location' as const,
+    title: 'You stay in control',
+    body: 'Foreground location powers the wall. Background location is only used when you turn Available ON.',
   },
 ];
 
@@ -24,49 +31,76 @@ export default function OnboardingScreen() {
   const slide = SLIDES[step];
   const isLast = step === SLIDES.length - 1;
 
+  const finish = () => {
+    onboardingStorage.markComplete();
+    router.replace('/(auth)/login');
+  };
+
   const onNext = () => {
     if (!isLast) {
       setStep((value) => value + 1);
       return;
     }
-    onboardingStorage.markComplete();
-    router.replace('/(auth)/login');
+    finish();
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.dots}>
-        {SLIDES.map((_, index) => (
-          <View key={index} style={[styles.dot, index === step && styles.dotActive]} />
-        ))}
-      </View>
-      <Text style={styles.title}>{slide.title}</Text>
-      <Text style={styles.body}>{slide.body}</Text>
-      <Pressable style={styles.button} onPress={onNext}>
-        <Text style={styles.buttonText}>{isLast ? 'Get started' : 'Next'}</Text>
-      </Pressable>
-      {!isLast && (
-        <Pressable onPress={() => { onboardingStorage.markComplete(); router.replace('/(auth)/login'); }}>
-          <Text style={styles.skip}>Skip</Text>
-        </Pressable>
-      )}
-    </View>
+    <Screen padded={false} edges={['top', 'bottom']}>
+      <LinearGradient colors={[colors.background, colors.surfaceContainerLow]} style={styles.gradient}>
+        <View style={styles.topRow}>
+          <Text style={styles.brand}>PingMe</Text>
+          {!isLast ? (
+            <Pressable onPress={finish}>
+              <Text style={styles.skipTop}>Skip</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.hero}>
+          <View style={styles.iconCircle}>
+            <Ionicons name={slide.icon} size={40} color={colors.primary} />
+          </View>
+          <Text style={styles.title}>{slide.title}</Text>
+          <Text style={styles.body}>{slide.body}</Text>
+        </View>
+
+        <View style={styles.footer}>
+          <View style={styles.dots}>
+            {SLIDES.map((_, index) => (
+              <View key={index} style={[styles.dot, index === step && styles.dotActive]} />
+            ))}
+          </View>
+          <Button label={isLast ? 'Get started' : 'Next'} onPress={onNext} />
+        </View>
+      </LinearGradient>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#f8fafc' },
-  dots: { flexDirection: 'row', gap: 8, marginBottom: 32 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#cbd5e1' },
-  dotActive: { backgroundColor: '#2563eb', width: 24 },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 16, color: '#0f172a' },
-  body: { fontSize: 17, lineHeight: 26, color: '#475569', marginBottom: 40 },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 12,
+  gradient: { flex: 1, padding: spacing.container },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: spacing.md,
   },
-  buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  skip: { textAlign: 'center', marginTop: 16, color: '#64748b', fontSize: 15 },
+  brand: { ...typography.headlineLg, color: colors.primary },
+  skipTop: { ...typography.bodySemiBold, color: colors.primary },
+  hero: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.md },
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xxl,
+  },
+  title: { ...typography.display, color: colors.onSurface, textAlign: 'center', marginBottom: spacing.lg },
+  body: { ...typography.bodyLg, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 28 },
+  footer: { paddingBottom: spacing.xl },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing.xl },
+  dot: { width: 8, height: 8, borderRadius: radius.full, backgroundColor: colors.outlineVariant },
+  dotActive: { width: 28, backgroundColor: colors.primary },
 });

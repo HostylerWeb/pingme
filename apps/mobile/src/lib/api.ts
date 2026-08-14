@@ -215,6 +215,15 @@ export const api = {
       '/presence/nearby-count',
     ),
 
+  getNearbyUsers: () =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        users: NearbyAvailableUser[];
+        radiusMeters: number;
+      };
+    }>('/presence/nearby'),
+
   getWallPosts: (page = 1) =>
     apiFetch<{ success: boolean; data: WallPost[]; meta: { page: number; limit: number } }>(
       `/wall/posts?page=${page}`,
@@ -279,11 +288,20 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  startIcebreaker: () =>
+  startIcebreaker: (payload?: { showPhoto?: boolean; introMessage?: string }) =>
     apiFetch<{
       success: boolean;
-      data: { id: string; status: string; expiresAt: string };
-    }>('/icebreaker/start', { method: 'POST' }),
+      data: {
+        id: string;
+        status: string;
+        expiresAt: string;
+        showPhoto: boolean;
+        introMessage: string | null;
+      };
+    }>('/icebreaker/start', {
+      method: 'POST',
+      body: JSON.stringify(payload ?? {}),
+    }),
 
   cancelIcebreaker: () => apiFetch('/icebreaker/cancel', { method: 'POST' }),
 
@@ -295,8 +313,22 @@ export const api = {
         status: string;
         expiresAt: string;
         matchedSessionId?: string | null;
+        showPhoto?: boolean;
+        introMessage?: string | null;
       } | null;
     }>('/icebreaker/status'),
+
+  getIcebreakerNearby: () =>
+    apiFetch<{ success: boolean; data: IcebreakerNearbyUser[] }>('/icebreaker/nearby'),
+
+  setIcebreakerInterest: (payload: { targetUserId: string; interested: boolean }) =>
+    apiFetch<{
+      success: boolean;
+      data: { matched: boolean; matchId?: string; waiting?: boolean };
+    }>('/icebreaker/interest', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   getMatches: () =>
     apiFetch<{ success: boolean; data: MatchSummary[] }>('/matches'),
@@ -364,6 +396,26 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 };
+
+export interface NearbyAvailableUser {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  distanceBucket: string;
+}
+
+export interface IcebreakerNearbyUser {
+  userId: string;
+  sessionId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  introMessage: string | null;
+  distanceBucket: string;
+  myResponse: 'yes' | null;
+  interestedInMe: boolean;
+  highlight: 'mutual_match' | 'interested_in_you' | null;
+  matchId: string | null;
+}
 
 export interface WallPost {
   id: string;

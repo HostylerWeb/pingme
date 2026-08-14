@@ -68,21 +68,22 @@ curl -sf -X POST "$API_URL/reports" -H "Authorization: Bearer $TOKEN_A" \
   -H 'Content-Type: application/json' \
   -d "{\"reportedUserId\":\"$USER_B\",\"targetType\":\"user\",\"targetId\":\"$USER_B\",\"reason\":\"spam\"}" >/dev/null
 
-echo "==> Icebreaker start + worker wait (Phase 4 icebreaker path)"
-curl -sf -X POST "$API_URL/icebreaker/start" -H "Authorization: Bearer $TOKEN_A" >/dev/null
-curl -sf -X POST "$API_URL/icebreaker/start" -H "Authorization: Bearer $TOKEN_B" >/dev/null
-echo "    Waiting for icebreaker match (up to 75s)..."
-MATCH_ICE_ID=""
-for _ in $(seq 1 15); do
-  sleep 5
-  MATCHES_A=$(curl -sf "$API_URL/matches" -H "Authorization: Bearer $TOKEN_A")
-  MATCH_ICE_ID=$(echo "$MATCHES_A" | node -e '
-    const data = JSON.parse(require("fs").readFileSync(0,"utf8")).data;
-    const m = data.find((x) => x.source === "icebreaker" && x.status === "pending");
-    if (m) process.stdout.write(m.id);
-  ' || true)
-  if [ -n "$MATCH_ICE_ID" ]; then break; fi
-done
+echo "==> Icebreaker start + mutual interest (Phase 4 icebreaker path)"
+curl -sf -X POST "$API_URL/icebreaker/start" -H "Authorization: Bearer $TOKEN_A" \
+  -H 'Content-Type: application/json' \
+  -d '{"showPhoto":false,"introMessage":"Hey from A"}' >/dev/null
+curl -sf -X POST "$API_URL/icebreaker/start" -H "Authorization: Bearer $TOKEN_B" \
+  -H 'Content-Type: application/json' \
+  -d '{"showPhoto":false,"introMessage":"Hey from B"}' >/dev/null
+NEARBY_A=$(curl -sf "$API_URL/icebreaker/nearby" -H "Authorization: Bearer $TOKEN_A")
+echo "$NEARBY_A" | grep -q "$USER_B"
+curl -sf -X POST "$API_URL/icebreaker/interest" -H "Authorization: Bearer $TOKEN_A" \
+  -H 'Content-Type: application/json' \
+  -d "{\"targetUserId\":\"$USER_B\",\"interested\":true}" >/dev/null
+INTEREST_B=$(curl -sf -X POST "$API_URL/icebreaker/interest" -H "Authorization: Bearer $TOKEN_B" \
+  -H 'Content-Type: application/json' \
+  -d "{\"targetUserId\":\"$USER_A\",\"interested\":true}")
+MATCH_ICE_ID=$(echo "$INTEREST_B" | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).data.matchId')
 test -n "$MATCH_ICE_ID"
 curl -sf -X POST "$API_URL/matches/$MATCH_ICE_ID/accept" -H "Authorization: Bearer $TOKEN_A" >/dev/null
 curl -sf -X POST "$API_URL/matches/$MATCH_ICE_ID/accept" -H "Authorization: Bearer $TOKEN_B" >/dev/null || true

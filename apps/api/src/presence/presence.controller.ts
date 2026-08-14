@@ -45,4 +45,10 @@ export class PresenceController {
   nearbyCount(@CurrentUser() user: User) {
     return this.presenceService.getNearbyCount(user.id);
   }
+
+  @Get('nearby')
+  @ApiOperation({ summary: 'List nearby available users' })
+  nearby(@CurrentUser() user: User) {
+    return this.presenceService.getNearbyUsers(user.id);
+  }
 }

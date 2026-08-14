@@ -26,9 +26,8 @@ export class IcebreakerMatchingService implements OnModuleInit, OnModuleDestroy 
       'icebreaker-matching',
       async () => {
         const expired = await this.icebreaker.expireSessions();
-        const matched = await this.icebreaker.findAndCreateMatches();
-        if (expired > 0 || matched > 0) {
-          this.logger.log(`Icebreaker tick: expired=${expired}, matches=${matched}`);
+        if (expired > 0) {
+          this.logger.log(`Icebreaker tick: expired=${expired}`);
         }
       },
       { connection: this.connection },

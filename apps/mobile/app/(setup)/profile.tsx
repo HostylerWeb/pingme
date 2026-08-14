@@ -2,17 +2,22 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { api, ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
+import { Button, Input, Screen } from '../../src/components/ui';
+import { colors, radius, spacing, typography } from '../../src/theme';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
@@ -89,7 +94,7 @@ export default function ProfileSetupScreen() {
         bio: bio.trim() || undefined,
       });
       await refreshMe();
-      router.replace('/(tabs)/home');
+      router.replace('/(setup)/location');
     } catch (error) {
       if (error instanceof ApiError) {
         Alert.alert('Error', error.message);
@@ -98,72 +103,70 @@ export default function ProfileSetupScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Your profile</Text>
+    <Screen padded={false} edges={['top', 'bottom']}>
+      <LinearGradient colors={[colors.background, colors.surfaceContainerLow]} style={styles.gradient}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+            <Text style={styles.title}>Your profile</Text>
+            <Text style={styles.subtitle}>Help people nearby recognize you. Photo is optional.</Text>
 
-      <Pressable style={styles.avatarButton} onPress={pickAvatar}>
-        {avatarUri ? (
-          <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-        ) : (
-          <Text style={styles.avatarPlaceholder}>Add photo</Text>
-        )}
-      </Pressable>
+            <Pressable style={styles.avatarButton} onPress={pickAvatar}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              ) : (
+                <>
+                  <Ionicons name="camera-outline" size={28} color={colors.primary} />
+                  <Text style={styles.avatarPlaceholder}>Add photo</Text>
+                </>
+              )}
+            </Pressable>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Display name"
-        value={displayName}
-        onChangeText={setDisplayName}
-      />
-      <TextInput
-        style={[styles.input, styles.bio]}
-        placeholder="Bio (optional)"
-        multiline
-        value={bio}
-        onChangeText={setBio}
-      />
-      <Pressable style={styles.button} onPress={save} disabled={uploading}>
-        {uploading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Continue</Text>
-        )}
-      </Pressable>
-    </View>
+            <View style={styles.card}>
+              <Input label="Display name" placeholder="Jane Doe" value={displayName} onChangeText={setDisplayName} />
+              <Input
+                label="Bio"
+                placeholder="A short intro (optional)"
+                multiline
+                value={bio}
+                onChangeText={setBio}
+                containerStyle={styles.bioInput}
+              />
+              <Button label="Continue" onPress={save} loading={uploading} disabled={!displayName.trim()} />
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 20 },
+  flex: { flex: 1 },
+  gradient: { flex: 1 },
+  scroll: { padding: spacing.container, paddingTop: spacing.section },
+  title: { ...typography.display, color: colors.onSurface, marginBottom: spacing.sm },
+  subtitle: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.xxl, lineHeight: 24 },
   avatarButton: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#e2e8f0',
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: colors.primaryFixed,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.xxl,
     overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: colors.primaryFixedDim,
   },
-  avatarImage: { width: 96, height: 96 },
-  avatarPlaceholder: { color: '#475569', fontWeight: '600' },
-  input: {
+  avatarImage: { width: 112, height: 112 },
+  avatarPlaceholder: { ...typography.labelSm, color: colors.primary, marginTop: 4, textTransform: 'none', letterSpacing: 0 },
+  card: {
+    backgroundColor: colors.surfaceBright,
+    borderRadius: radius.card,
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    fontSize: 16,
+    borderColor: colors.cardBorder,
   },
-  bio: { minHeight: 100, textAlignVertical: 'top' },
-  button: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  bioInput: { marginBottom: spacing.lg },
 });

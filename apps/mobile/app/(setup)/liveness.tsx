@@ -3,8 +3,12 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
+import { Button } from '../../src/components/ui';
+import { colors, spacing, typography } from '../../src/theme';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 15;
@@ -19,6 +23,7 @@ async function ensureCameraPermission(): Promise<boolean> {
 
 export default function LivenessScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('Starting verification...');
@@ -92,9 +97,9 @@ export default function LivenessScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} disabled={polling}>
-          <Text style={styles.back}>← Back</Text>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
+        <Pressable onPress={() => router.back()} disabled={polling} hitSlop={8} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
         </Pressable>
         <Text style={styles.title}>Verify it&apos;s you</Text>
         <Text style={styles.subtitle}>
@@ -107,7 +112,7 @@ export default function LivenessScreen() {
 
       {polling ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : null}
 
@@ -135,21 +140,18 @@ export default function LivenessScreen() {
       ) : null}
 
       {!verificationUrl && !polling ? (
-        <View style={styles.actions}>
-          <Pressable style={styles.button} onPress={() => void startSession()}>
-            <Text style={styles.buttonText}>Try again</Text>
-          </Pressable>
+        <View style={[styles.actions, { paddingBottom: insets.bottom + spacing.lg }]}>
+          <Button label="Try again" onPress={() => void startSession()} />
           {error ? (
             <>
-              <Pressable style={styles.secondaryButton} onPress={() => void Linking.openSettings()}>
-                <Text style={styles.secondaryButtonText}>Open Settings</Text>
-              </Pressable>
-              <Pressable
-                style={styles.secondaryButton}
-                onPress={() => void Linking.openURL('mailto:support@hostyler.com?subject=PingMe%20verification%20help')}
-              >
-                <Text style={styles.secondaryButtonText}>Contact support</Text>
-              </Pressable>
+              <Button label="Open Settings" variant="ghost" onPress={() => void Linking.openSettings()} />
+              <Button
+                label="Contact support"
+                variant="ghost"
+                onPress={() =>
+                  void Linking.openURL('mailto:support@hostyler.com?subject=PingMe%20verification%20help')
+                }
+              />
             </>
           ) : null}
         </View>
@@ -159,26 +161,24 @@ export default function LivenessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: { paddingTop: 56, paddingHorizontal: 16, paddingBottom: 8 },
-  back: { color: '#2563eb', marginBottom: 8, fontWeight: '500' },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
-  subtitle: { fontSize: 14, color: '#64748b', lineHeight: 20 },
-  status: { paddingHorizontal: 16, paddingBottom: 8, color: '#475569', fontSize: 13 },
-  error: { paddingHorizontal: 16, paddingBottom: 8, color: '#dc2626', fontSize: 13 },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { paddingHorizontal: spacing.container, paddingBottom: spacing.md },
+  backBtn: { marginBottom: spacing.sm },
+  title: { ...typography.headlineLg, color: colors.onSurface, marginBottom: spacing.sm },
+  subtitle: { ...typography.bodyMd, color: colors.onSurfaceVariant, lineHeight: 22 },
+  status: {
+    paddingHorizontal: spacing.container,
+    paddingBottom: spacing.sm,
+    ...typography.bodyMd,
+    color: colors.onSurfaceVariant,
+  },
+  error: {
+    paddingHorizontal: spacing.container,
+    paddingBottom: spacing.sm,
+    ...typography.bodyMd,
+    color: colors.error,
+  },
   webview: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  actions: { padding: 16, gap: 12 },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  buttonText: { color: '#fff', fontWeight: '600' },
-  secondaryButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  secondaryButtonText: { color: '#2563eb', fontWeight: '500' },
+  actions: { padding: spacing.container, gap: spacing.sm },
 });

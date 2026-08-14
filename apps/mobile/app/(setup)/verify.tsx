@@ -1,14 +1,28 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { api, ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
+import { Button, Screen } from '../../src/components/ui';
+import { colors, radius, spacing, typography } from '../../src/theme';
 
 export default function VerifyScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
   const usePhone = !!user?.phone && !user.phoneVerified;
 
   const resend = async () => {
@@ -18,7 +32,7 @@ export default function VerifyScreen() {
       } else {
         await api.sendEmailOtp();
       }
-      Alert.alert('Code sent', usePhone ? 'Check your SMS messages.' : 'Check the API server logs in development.');
+      Alert.alert('Code sent', usePhone ? 'Check your SMS messages.' : 'Check your email inbox.');
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Could not send code';
       Alert.alert('Error', message);
@@ -26,6 +40,7 @@ export default function VerifyScreen() {
   };
 
   const verify = async () => {
+    setLoading(true);
     try {
       if (usePhone) {
         await api.verifyPhone(code.trim());
@@ -37,53 +52,80 @@ export default function VerifyScreen() {
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Invalid code';
       Alert.alert('Verification failed', message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{usePhone ? 'Verify your phone' : 'Verify your email'}</Text>
-      <Text style={styles.hint}>
-        Enter the 6-digit code sent to {usePhone ? user?.phone : user?.email}. In dev, check the API terminal.
-      </Text>
-      <TextInput
-        style={styles.input}
-        placeholder="123456"
-        keyboardType="number-pad"
-        maxLength={6}
-        value={code}
-        onChangeText={setCode}
-      />
-      <Pressable style={styles.button} onPress={verify}>
-        <Text style={styles.buttonText}>Verify</Text>
-      </Pressable>
-      <Pressable onPress={resend}>
-        <Text style={styles.link}>Resend code</Text>
-      </Pressable>
-    </View>
+    <Screen padded={false} edges={['top', 'bottom']}>
+      <LinearGradient colors={[colors.background, colors.surfaceContainerLow]} style={styles.gradient}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+            <View style={styles.iconWrap}>
+              <Ionicons name={usePhone ? 'phone-portrait-outline' : 'mail-outline'} size={32} color={colors.primary} />
+            </View>
+
+            <Text style={styles.title}>{usePhone ? 'Verify your phone' : 'Verify your email'}</Text>
+            <Text style={styles.hint}>
+              Enter the 6-digit code sent to {usePhone ? user?.phone : user?.email}.
+            </Text>
+
+            <View style={styles.card}>
+              <TextInput
+                style={styles.codeInput}
+                placeholder="000000"
+                placeholderTextColor={colors.outline}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={code}
+                onChangeText={setCode}
+              />
+              <Button label="Verify" onPress={verify} loading={loading} disabled={code.length < 6} />
+            </View>
+
+            <Button label="Resend code" variant="ghost" onPress={resend} />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 8 },
-  hint: { color: '#666', marginBottom: 20 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 20,
-    letterSpacing: 8,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    padding: 16,
+  flex: { flex: 1 },
+  gradient: { flex: 1 },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.container },
+  iconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primaryFixed,
     alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: spacing.xl,
   },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  link: { marginTop: 20, textAlign: 'center', color: '#2563eb' },
+  title: { ...typography.display, color: colors.onSurface, textAlign: 'center', marginBottom: spacing.sm },
+  hint: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', marginBottom: spacing.xxl, lineHeight: 24 },
+  card: {
+    backgroundColor: colors.surfaceBright,
+    borderRadius: radius.card,
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    marginBottom: spacing.lg,
+  },
+  codeInput: {
+    ...typography.headlineLg,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    textAlign: 'center',
+    letterSpacing: 12,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surfaceContainerLow,
+    color: colors.onSurface,
+  },
 });

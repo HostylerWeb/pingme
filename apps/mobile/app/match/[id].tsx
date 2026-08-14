@@ -1,12 +1,19 @@
+import { icebreakerRadiusLabel } from '@pingme/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../src/lib/api';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { clearDismissedMatchPrompt, dismissMatchPrompt } from '../../src/lib/match-prompt-dismiss';
+import { Button, Card, EmptyState, Screen } from '../../src/components/ui';
+import { colors, spacing, typography } from '../../src/theme';
 
 export default function MatchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { ensureVerified, handleLivenessError } = useLivenessGate();
 
@@ -17,9 +24,15 @@ export default function MatchScreen() {
     refetchInterval: 15_000,
   });
 
+  const goHome = () => {
+    if (id) dismissMatchPrompt(id);
+    router.replace('/(tabs)/home');
+  };
+
   const acceptMutation = useMutation({
     mutationFn: () => api.acceptMatch(id!),
     onSuccess: (result) => {
+      if (id) clearDismissedMatchPrompt(id);
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
       if (result.data.status === 'active' && result.data.chatId) {
@@ -38,8 +51,9 @@ export default function MatchScreen() {
   const declineMutation = useMutation({
     mutationFn: () => api.declineMatch(id!),
     onSuccess: () => {
+      if (id) clearDismissedMatchPrompt(id);
       queryClient.invalidateQueries({ queryKey: ['matches'] });
-      router.back();
+      goHome();
     },
     onError: (error: Error) => {
       if (!handleLivenessError(error)) {
@@ -52,110 +66,177 @@ export default function MatchScreen() {
 
   if (isLoading || !match) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <Screen>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </Screen>
     );
   }
 
   if (match.status === 'active') {
     return (
-      <View style={styles.container}>
+      <Screen style={styles.centered} edges={['top', 'bottom']}>
         <Text style={styles.emoji}>🎉</Text>
         <Text style={styles.title}>You&apos;re connected!</Text>
         <Text style={styles.body}>Start chatting with your match.</Text>
-        <Pressable
-          style={styles.primaryButton}
+        <Button
+          label="Open chat"
+          variant="secondary"
           onPress={() =>
             match.chatId ? router.replace(`/chat/${match.chatId}`) : router.replace('/(tabs)/chats')
           }
-        >
-          <Text style={styles.primaryText}>Open chat</Text>
-        </Pressable>
-      </View>
+          style={styles.cta}
+        />
+      </Screen>
+    );
+  }
+
+  if (match.status === 'declined') {
+    return (
+      <Screen style={styles.centered} edges={['top', 'bottom']}>
+        <EmptyState
+          icon="close-circle-outline"
+          title="Match declined"
+          message="This connection request was declined. You can keep browsing the wall or try Break the ice again."
+        />
+        <Button label="Back to wall" onPress={() => router.replace('/(tabs)/home')} style={styles.cta} />
+      </Screen>
+    );
+  }
+
+  if (match.status === 'expired') {
+    return (
+      <Screen style={styles.centered} edges={['top', 'bottom']}>
+        <EmptyState
+          icon="time-outline"
+          title="Match expired"
+          message="This request timed out before both people accepted. Try Break the ice again when you're ready."
+        />
+        <Button label="Back to wall" onPress={() => router.replace('/(tabs)/home')} style={styles.cta} />
+      </Screen>
     );
   }
 
   if (match.status !== 'pending') {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Match ended</Text>
-        <Text style={styles.body}>This match is no longer available.</Text>
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.link}>Go back</Text>
-        </Pressable>
-      </View>
+      <Screen style={styles.centered} edges={['top', 'bottom']}>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Match unavailable"
+          message="This match is no longer available."
+        />
+        <Button label="Go back" variant="ghost" onPress={() => router.back()} />
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.emoji}>👀</Text>
-      <Text style={styles.title}>Someone nearby wants to connect too</Text>
-      <Text style={styles.body}>
-        This is anonymous until you both accept. They&apos;re within ~50m and also tapped Break
-        the ice.
-      </Text>
-
-      <View style={styles.statusRow}>
-        <Text style={styles.statusLabel}>You</Text>
-        <Text style={styles.statusValue}>{match.youAccepted ? 'Accepted' : 'Waiting'}</Text>
-      </View>
-      <View style={styles.statusRow}>
-        <Text style={styles.statusLabel}>Them</Text>
-        <Text style={styles.statusValue}>{match.theyAccepted ? 'Accepted' : 'Waiting'}</Text>
+    <Screen padded={false} edges={[]}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
+        <Pressable onPress={goHome} hitSlop={8} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
+        </Pressable>
+        <Text style={styles.topTitle}>Match request</Text>
+        <View style={styles.backBtn} />
       </View>
 
-      <Pressable
-        style={styles.primaryButton}
-        onPress={() => {
-          if (!ensureVerified()) return;
-          acceptMutation.mutate();
-        }}
-        disabled={acceptMutation.isPending || match.youAccepted}
-      >
-        {acceptMutation.isPending ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.primaryText}>{match.youAccepted ? 'Accepted' : 'Accept'}</Text>
-        )}
-      </Pressable>
+      <View style={styles.page}>
+        <Card style={styles.card}>
+          <Text style={styles.title}>Someone nearby wants to connect!</Text>
 
-      <Pressable
-        style={styles.secondaryButton}
-        onPress={() => declineMutation.mutate()}
-        disabled={declineMutation.isPending}
-      >
-        <Text style={styles.secondaryText}>Decline</Text>
-      </Pressable>
-    </View>
+          <View style={styles.connection}>
+            <View style={styles.anonAvatar}>
+              <Ionicons name="person" size={32} color={colors.onSurfaceVariant} />
+            </View>
+            <View style={styles.line} />
+            <View style={styles.youAvatar}>
+              <Ionicons name="person" size={32} color={colors.primary} />
+            </View>
+          </View>
+
+          <View style={styles.distancePill}>
+            <Text style={styles.distanceText}>{icebreakerRadiusLabel()}</Text>
+          </View>
+
+          <Text style={styles.body}>
+            If you accept, a private chat will open. This stays anonymous until you both agree.
+          </Text>
+
+          <Button
+            label={match.youAccepted ? 'Accepted — waiting for them' : 'Accept'}
+            variant="secondary"
+            onPress={() => {
+              if (!ensureVerified()) return;
+              acceptMutation.mutate();
+            }}
+            loading={acceptMutation.isPending}
+            disabled={match.youAccepted}
+            style={styles.cta}
+          />
+          <Button
+            label="Decline"
+            variant="ghost"
+            onPress={() => declineMutation.mutate()}
+            loading={declineMutation.isPending}
+          />
+          <Button label="Not now" variant="ghost" onPress={goHome} />
+        </Card>
+
+        <View style={styles.trust}>
+          <Ionicons name="lock-closed-outline" size={14} color={colors.outline} />
+          <Text style={styles.trustText}>Privacy: your profile is only visible to matches.</Text>
+        </View>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, padding: 24, paddingTop: 32, backgroundColor: '#fff' },
-  emoji: { fontSize: 48, marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: '700', marginBottom: 12 },
-  body: { fontSize: 16, lineHeight: 24, color: '#475569', marginBottom: 24 },
-  statusRow: {
+  topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  statusLabel: { fontSize: 15, color: '#64748b' },
-  statusValue: { fontSize: 15, fontWeight: '600' },
-  primaryButton: {
-    marginTop: 24,
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 12,
     alignItems: 'center',
+    paddingHorizontal: spacing.container,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surfaceBright,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
   },
-  primaryText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  secondaryButton: { marginTop: 16, alignItems: 'center', paddingVertical: 12 },
-  secondaryText: { color: '#64748b', fontSize: 16 },
-  link: { color: '#2563eb', fontSize: 16, marginTop: 16 },
+  backBtn: { width: 40 },
+  topTitle: { flex: 1, ...typography.headlineMd, fontSize: 17, textAlign: 'center', color: colors.onSurface },
+  page: { flex: 1, justifyContent: 'center', padding: spacing.container, paddingBottom: spacing.section },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+  card: { alignItems: 'center' },
+  emoji: { fontSize: 48, marginBottom: spacing.lg, textAlign: 'center' },
+  title: { ...typography.headlineLg, color: colors.onSurface, textAlign: 'center', marginBottom: spacing.xl },
+  body: { ...typography.bodyMd, color: colors.onSurfaceVariant, textAlign: 'center', lineHeight: 24, marginBottom: spacing.lg },
+  connection: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg },
+  anonAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.surfaceContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.secondaryContainer,
+  },
+  line: { width: 48, height: 2, backgroundColor: colors.primaryFixedDim, marginHorizontal: spacing.md },
+  youAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  distancePill: {
+    backgroundColor: 'rgba(100, 249, 188, 0.2)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: spacing.lg,
+  },
+  distanceText: { ...typography.distance, color: colors.onSecondaryContainer },
+  cta: { width: '100%', marginBottom: spacing.md, marginTop: spacing.sm },
+  trust: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: spacing.xl },
+  trustText: { ...typography.labelSm, color: colors.outline, textTransform: 'none', letterSpacing: 0 },
 });

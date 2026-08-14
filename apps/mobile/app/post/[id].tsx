@@ -1,22 +1,35 @@
 import { distanceLabel } from '@pingme/shared';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../src/lib/api';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { Button, Card, DistancePill, EmptyState, PostDetailSkeleton } from '../../src/components/ui';
+import { colors, radius, spacing, typography } from '../../src/theme';
+
+function distanceTone(bucket: string): 'neutral' | 'near' | 'tertiary' {
+  if (bucket === 'very_near') return 'near';
+  if (bucket === '~200m' || bucket === '~300m') return 'tertiary';
+  return 'neutral';
+}
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [reply, setReply] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -73,28 +86,55 @@ export default function PostDetailScreen() {
 
   if (isLoading || !post) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <PostDetailSkeleton />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.postCard}>
-        <Text style={styles.author}>{post.author.isYou ? 'You' : post.author.displayName}</Text>
-        <Text style={styles.distance}>{distanceLabel(post.distanceBucket)}</Text>
-        <Text style={styles.content}>{post.content}</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+    >
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Post</Text>
+        <View style={styles.backBtn} />
       </View>
+
+      <Card style={styles.postCard}>
+        <View style={styles.postHeader}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {(post.author.isYou ? 'Y' : post.author.displayName).charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View>
+            <Text style={styles.author}>{post.author.isYou ? 'You' : post.author.displayName}</Text>
+            <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
+          </View>
+        </View>
+        <Text style={styles.content}>{post.content}</Text>
+      </Card>
 
       <FlatList
         data={post.replies}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.replies}
         ListHeaderComponent={<Text style={styles.repliesTitle}>Replies</Text>}
-        ListEmptyComponent={<Text style={styles.empty}>No replies yet</Text>}
+        ListEmptyComponent={
+          <EmptyState
+            icon="chatbubble-outline"
+            title="No replies yet"
+            message="Be the first to respond to this post."
+          />
+        }
         renderItem={({ item }) => (
-          <View style={styles.replyCard}>
+          <Card style={styles.replyCard}>
             <View style={styles.replyHeader}>
               <Text style={styles.replyAuthor}>
                 {item.author.isYou ? 'You' : item.author.displayName}
@@ -106,7 +146,7 @@ export default function PostDetailScreen() {
                   disabled={connectingReplyId === item.id}
                 >
                   {connectingReplyId === item.id ? (
-                    <ActivityIndicator color="#2563eb" size="small" />
+                    <ActivityIndicator color={colors.primary} size="small" />
                   ) : (
                     <Text style={styles.connectText}>Connect</Text>
                   )}
@@ -114,98 +154,109 @@ export default function PostDetailScreen() {
               ) : null}
             </View>
             <Text style={styles.replyContent}>{item.content}</Text>
-          </View>
+          </Card>
         )}
       />
 
-      <View style={styles.composer}>
+      <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.sm }]}>
         <TextInput
           style={styles.input}
           placeholder="Write a reply..."
+          placeholderTextColor={colors.outline}
           value={reply}
           onChangeText={setReply}
           maxLength={300}
         />
-        <Pressable style={styles.sendButton} onPress={onReply} disabled={submitting}>
+        <Pressable
+          style={[styles.sendButton, (!reply.trim() || submitting) && styles.sendDisabled]}
+          onPress={onReply}
+          disabled={submitting || !reply.trim()}
+        >
           {submitting ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.onPrimary} size="small" />
           ) : (
-            <Text style={styles.sendText}>Send</Text>
+            <Ionicons name="send" size={18} color={colors.onPrimary} />
           )}
         </Pressable>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  postCard: {
-    margin: 16,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  container: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.container,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surfaceBright,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.cardBorder,
   },
-  author: { fontWeight: '700', fontSize: 16 },
-  distance: { color: '#64748b', marginTop: 4, marginBottom: 12 },
-  content: { fontSize: 17, lineHeight: 24 },
-  replies: { paddingHorizontal: 16, paddingBottom: 100 },
-  repliesTitle: { fontWeight: '600', marginBottom: 12, color: '#334155' },
-  replyCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  backBtn: { width: 40 },
+  headerTitle: { flex: 1, ...typography.headlineMd, fontSize: 17, textAlign: 'center', color: colors.onSurface },
+  postCard: { margin: spacing.container, marginBottom: spacing.md },
+  postHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  avatarText: { ...typography.headlineMd, color: colors.primary, fontSize: 18 },
+  author: { ...typography.headlineMd, color: colors.onSurface, fontSize: 17, marginBottom: 4 },
+  content: { ...typography.bodyLg, color: colors.onSurface, lineHeight: 26 },
+  replies: { paddingHorizontal: spacing.container, paddingBottom: 100 },
+  repliesTitle: { ...typography.headlineMd, color: colors.onSurface, marginBottom: spacing.md },
+  replyCard: { marginBottom: spacing.md, padding: spacing.lg },
   replyHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.sm,
   },
-  replyAuthor: { fontWeight: '600', flex: 1 },
+  replyAuthor: { ...typography.bodySemiBold, color: colors.onSurface, flex: 1 },
   connectButton: {
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#2563eb',
-    minWidth: 72,
+    borderColor: colors.primary,
+    minWidth: 80,
     alignItems: 'center',
   },
-  connectText: { color: '#2563eb', fontWeight: '600', fontSize: 13 },
-  replyContent: { color: '#0f172a', lineHeight: 20 },
-  empty: { color: '#94a3b8' },
+  connectText: { ...typography.labelSm, color: colors.primary, textTransform: 'none', letterSpacing: 0 },
+  replyContent: { ...typography.bodyMd, color: colors.onSurfaceVariant, lineHeight: 22 },
   composer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     flexDirection: 'row',
-    gap: 8,
-    padding: 12,
-    backgroundColor: '#fff',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceBright,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    borderTopColor: colors.cardBorder,
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    ...typography.bodyMd,
+    backgroundColor: colors.surfaceContainerLow,
+    color: colors.onSurface,
   },
   sendButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 22,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  sendText: { color: '#fff', fontWeight: '600' },
+  sendDisabled: { opacity: 0.5 },
 });

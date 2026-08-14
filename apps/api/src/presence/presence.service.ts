@@ -223,6 +223,68 @@ export class PresenceService {
     };
   }
 
+  async getNearbyUsers(userId: string) {
+    const session = await this.prisma.presenceSession.findUnique({ where: { userId } });
+    if (!session?.latitude || !session?.longitude) {
+      throw new BadRequestException('Location required — send a ping first');
+    }
+
+    const settings = await this.prisma.userSettings.findUnique({ where: { userId } });
+    const radius =
+      settings?.radiusMeters ??
+      Number(this.config.get('DEFAULT_RADIUS_METERS', 250));
+
+    const blockedIds = await this.blocks.getBlockedUserIds(userId);
+    const blockedSet = new Set(blockedIds);
+
+    const rows = await this.prisma.$queryRaw<
+      { user_id: string; distance_meters: number }[]
+    >`
+      SELECT
+        ps.user_id,
+        ST_Distance(
+          ST_SetSRID(ST_MakePoint(ps.longitude, ps.latitude), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${session.longitude}, ${session.latitude}), 4326)::geography
+        ) AS distance_meters
+      FROM presence_sessions ps
+      INNER JOIN users u ON u.id = ps.user_id
+      WHERE u.is_available = true
+        AND ps.is_active = true
+        AND ps.latitude IS NOT NULL
+        AND ps.longitude IS NOT NULL
+        AND ps.user_id != ${userId}::uuid
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(ps.longitude, ps.latitude), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${session.longitude}, ${session.latitude}), 4326)::geography,
+          ${radius}
+        )
+      ORDER BY distance_meters ASC
+    `;
+
+    const userIds = rows.map((row) => row.user_id).filter((id) => !blockedSet.has(id));
+    const profiles = userIds.length
+      ? await this.prisma.profile.findMany({
+          where: { userId: { in: userIds } },
+          select: { userId: true, displayName: true, avatarUrl: true },
+        })
+      : [];
+    const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
+
+    const data = rows
+      .filter((row) => !blockedSet.has(row.user_id))
+      .map((row) => {
+        const profile = profileByUserId.get(row.user_id);
+        return {
+          userId: row.user_id,
+          displayName: profile?.displayName ?? 'Someone nearby',
+          avatarUrl: profile?.avatarUrl ?? null,
+          distanceBucket: distanceBucket(Number(row.distance_meters)),
+        };
+      });
+
+    return { success: true, data: { users: data, radiusMeters: radius } };
+  }
+
   getDistanceBucket(meters: number) {
     return distanceBucket(meters);
   }

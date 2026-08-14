@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../src/lib/background-location';
 import { AppSocketProvider } from '../src/lib/app-socket';
 import { hasForegroundLocationPermission, locationSetupStorage } from '../src/lib/location-setup-storage';
@@ -11,6 +12,8 @@ import { onboardingStorage } from '../src/lib/onboarding-storage';
 import { addNotificationResponseListener, registerForPushNotifications } from '../src/lib/push-notifications';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
+import { useAppFonts } from '../src/hooks/use-app-fonts';
+import { colors } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 initSentry();
@@ -103,8 +106,8 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!isHydrated || onboardingComplete === null) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -113,25 +116,37 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export default function RootLayout() {
+  const { loaded: fontsLoaded } = useAppFonts();
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <StatusBar style="auto" />
-      <AppSocketProvider>
-        <AuthGate>
-          <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(onboarding)" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(setup)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="post/[id]" options={{ headerShown: true, title: 'Post' }} />
-          <Stack.Screen name="match/[id]" options={{ headerShown: true, title: 'Match' }} />
-          <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-          <Stack.Screen name="premium" options={{ headerShown: false }} />
-          <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
-        </Stack>
-        </AuthGate>
-      </AppSocketProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <StatusBar style="dark" />
+        <AppSocketProvider>
+          <AuthGate>
+            <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(onboarding)" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(setup)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="premium" options={{ headerShown: false }} />
+            <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
+          </Stack>
+          </AuthGate>
+        </AppSocketProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

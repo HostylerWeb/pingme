@@ -1,29 +1,24 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
+import { Button, Input, Screen, SegmentedControl } from '../../src/components/ui';
+import { colors, radius, spacing, typography } from '../../src/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
   const login = useAuthStore((s) => s.login);
   const isLoading = useAuthStore((s) => s.isLoading);
-  const [usePhone, setUsePhone] = useState(false);
+  const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
 
   const onSubmit = async () => {
     try {
-      if (usePhone) {
+      if (mode === 'phone') {
         await login(phone.trim(), password, 'phone');
       } else {
         await login(email.trim(), password, 'email');
@@ -36,78 +31,89 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome back</Text>
+    <Screen padded={false} edges={['top', 'bottom']}>
+      <LinearGradient colors={[colors.background, colors.surfaceContainerLow, '#fff7ed']} style={styles.gradient}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
+          <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+            <Text style={styles.brand}>PingMe</Text>
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>Sign in to your nearby community.</Text>
 
-      <View style={styles.toggleRow}>
-        <Pressable onPress={() => setUsePhone(false)}>
-          <Text style={[styles.toggle, !usePhone && styles.toggleActive]}>Email</Text>
-        </Pressable>
-        <Pressable onPress={() => setUsePhone(true)}>
-          <Text style={[styles.toggle, usePhone && styles.toggleActive]}>Phone</Text>
-        </Pressable>
-      </View>
+            <View style={styles.card}>
+              <SegmentedControl
+                options={[
+                  { label: 'Email', value: 'email' },
+                  { label: 'Phone', value: 'phone' },
+                ]}
+                value={mode}
+                onChange={setMode}
+              />
 
-      {usePhone ? (
-        <TextInput
-          style={styles.input}
-          placeholder="+15551234567"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={setPhone}
-        />
-      ) : (
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-        />
-      )}
+              {mode === 'phone' ? (
+                <Input
+                  label="Phone"
+                  placeholder="+15551234567"
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={setPhone}
+                />
+              ) : (
+                <Input
+                  label="Email"
+                  placeholder="hello@example.com"
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  value={email}
+                  onChangeText={setEmail}
+                />
+              )}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-      <Pressable style={styles.button} onPress={onSubmit} disabled={isLoading}>
-        {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
-      </Pressable>
-      <Link href="/(auth)/forgot-password" style={styles.link}>
-        Forgot password?
-      </Link>
-      <Link href="/(auth)/register" style={styles.link}>
-        Create an account
-      </Link>
-    </View>
+              <Input
+                label="Password"
+                placeholder="Your password"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+
+              <Button label="Sign in" onPress={onSubmit} loading={isLoading} />
+            </View>
+
+            <Link href="/(auth)/forgot-password" style={styles.link}>
+              Forgot password?
+            </Link>
+            <Link href="/(auth)/register" style={styles.link}>
+              Create an account
+            </Link>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center', backgroundColor: '#fff' },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 24 },
-  toggleRow: { flexDirection: 'row', gap: 16, marginBottom: 12 },
-  toggle: { color: '#64748b', fontWeight: '600' },
-  toggleActive: { color: '#2563eb' },
-  input: {
+  flex: { flex: 1 },
+  gradient: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: spacing.container,
+  },
+  brand: { ...typography.headlineLg, color: colors.primary, textAlign: 'center', marginBottom: spacing.xxl },
+  title: { ...typography.display, color: colors.onSurface, marginBottom: spacing.sm },
+  subtitle: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.xxl },
+  card: {
+    backgroundColor: colors.surfaceBright,
+    borderRadius: radius.card,
+    padding: spacing.xl,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-    fontSize: 16,
+    borderColor: colors.cardBorder,
   },
-  button: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
+  link: {
+    ...typography.bodyMd,
+    color: colors.primary,
+    textAlign: 'center',
+    marginTop: spacing.xl,
   },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  link: { marginTop: 20, textAlign: 'center', color: '#2563eb', fontSize: 16 },
 });

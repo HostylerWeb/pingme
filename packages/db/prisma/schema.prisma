@@ -53,7 +53,9 @@ model User {
   blocksInitiated      Block[]            @relation("BlocksInitiated")
   blocksReceived       Block[]            @relation("BlocksReceived")
   devices              Device[]
-  icebreakerSessions   IcebreakerSession[]
+  icebreakerSessions        IcebreakerSession[]
+  icebreakerInterestsSent   IcebreakerInterest[] @relation("IcebreakerInterestFrom")
+  icebreakerInterestsReceived IcebreakerInterest[] @relation("IcebreakerInterestTo")
   matchesAsUserA       Match[]             @relation("MatchUserA")
   matchesAsUserB       Match[]             @relation("MatchUserB")
   messagesSent         Message[]
@@ -297,6 +299,8 @@ model IcebreakerSession {
   userId           String                  @map("user_id") @db.Uuid
   latitude         Float
   longitude        Float
+  showPhoto        Boolean                 @default(false) @map("show_photo")
+  introMessage     String?                 @map("intro_message") @db.VarChar(100)
   status           IcebreakerSessionStatus @default(active)
   expiresAt        DateTime                @map("expires_at")
   matchedSessionId String?                 @map("matched_session_id") @db.Uuid
@@ -308,6 +312,24 @@ model IcebreakerSession {
   @@index([latitude, longitude])
   @@index([status, expiresAt])
   @@map("icebreaker_sessions")
+}
+
+model IcebreakerInterest {
+  id          String    @id @default(uuid()) @db.Uuid
+  fromUserId  String    @map("from_user_id") @db.Uuid
+  toUserId    String    @map("to_user_id") @db.Uuid
+  interested  Boolean
+  hiddenUntil DateTime? @map("hidden_until")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  fromUser User @relation("IcebreakerInterestFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("IcebreakerInterestTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@map("icebreaker_interests")
 }
 
 model Match {

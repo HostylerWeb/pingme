@@ -12,6 +12,7 @@ import {
 import { AppState, type AppStateStatus } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { getAccessToken } from './auth-storage';
+import { isMatchPromptDismissed } from './match-prompt-dismiss';
 import { useAuthStore } from '../stores/auth-store';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
@@ -89,7 +90,7 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
     nextSocket.on('match.updated', (payload: { matchId: string; status: string; chatId?: string | null }) => {
       void queryClient.invalidateQueries({ queryKey: ['matches'] });
       void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
-      if (payload.status === 'pending') {
+      if (payload.status === 'pending' && !isMatchPromptDismissed(payload.matchId)) {
         router.push(`/match/${payload.matchId}`);
       }
     });

@@ -1,8 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
+import { Button, Screen } from '../src/components/ui';
+import { colors, spacing, typography } from '../src/theme';
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 15;
@@ -65,54 +69,50 @@ export default function VerificationCompleteScreen() {
   }, [refreshMe, router, status]);
 
   return (
-    <View style={styles.container}>
-      {error ? (
-        <>
-          <Text style={styles.error}>{error}</Text>
-          <Pressable style={styles.button} onPress={() => router.replace('/(setup)/liveness')}>
-            <Text style={styles.buttonText}>Try again</Text>
-          </Pressable>
-        </>
-      ) : (
-        <>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.message}>{message}</Text>
-        </>
-      )}
-    </View>
+    <Screen padded={false} edges={['top', 'bottom']}>
+      <LinearGradient colors={[colors.background, colors.surfaceContainerLow]} style={styles.gradient}>
+        <View style={styles.content}>
+          {error ? (
+            <>
+              <View style={styles.iconWrap}>
+                <Ionicons name="close-circle-outline" size={48} color={colors.error} />
+              </View>
+              <Text style={styles.error}>{error}</Text>
+              <Button label="Try again" onPress={() => router.replace('/(setup)/liveness')} />
+            </>
+          ) : (
+            <>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.message}>{message}</Text>
+            </>
+          )}
+        </View>
+      </LinearGradient>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  gradient: { flex: 1 },
+  content: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    padding: spacing.container,
   },
+  iconWrap: { marginBottom: spacing.lg },
   message: {
-    marginTop: 16,
-    color: '#475569',
+    marginTop: spacing.lg,
+    ...typography.bodyLg,
+    color: colors.onSurfaceVariant,
     textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 26,
   },
   error: {
-    color: '#dc2626',
+    ...typography.bodyLg,
+    color: colors.error,
     textAlign: 'center',
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: 16,
-  },
-  button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 10,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
+    lineHeight: 26,
+    marginBottom: spacing.xl,
   },
 });

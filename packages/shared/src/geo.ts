@@ -1,3 +1,5 @@
+import { ICEBREAKER_RADIUS_METERS } from './constants';
+
 export function fuzzyCoordinate(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
@@ -20,4 +22,8 @@ export function distanceLabel(bucket: string): string {
     default:
       return 'Nearby';
   }
+}
+
+export function icebreakerRadiusLabel(radiusMeters = ICEBREAKER_RADIUS_METERS): string {
+  return `Within ${radiusMeters}m radius`;
 }

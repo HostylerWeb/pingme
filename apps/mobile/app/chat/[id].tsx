@@ -13,9 +13,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ChatMessage, ApiError } from '../../src/lib/api';
 import { useChatSocket } from '../../src/hooks/use-chat-socket';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { colors, radius, spacing, typography } from '../../src/theme';
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   return (
@@ -38,6 +41,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 export default function ChatThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const [draft, setDraft] = useState('');
@@ -161,38 +165,23 @@ export default function ChatThreadScreen() {
 
   const onReport = () => {
     if (!chat) return;
+
+    const submitReport = (reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other') => {
+      reportMutation.mutate({
+        reportedUserId: chat.otherUser.id,
+        targetType: 'user',
+        targetId: chat.otherUser.id,
+        reason,
+      });
+    };
+
     Alert.alert('Report user', 'Why are you reporting this user?', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Harassment',
-        onPress: () =>
-          reportMutation.mutate({
-            reportedUserId: chat.otherUser.id,
-            targetType: 'user',
-            targetId: chat.otherUser.id,
-            reason: 'harassment',
-          }),
-      },
-      {
-        text: 'Spam',
-        onPress: () =>
-          reportMutation.mutate({
-            reportedUserId: chat.otherUser.id,
-            targetType: 'user',
-            targetId: chat.otherUser.id,
-            reason: 'spam',
-          }),
-      },
-      {
-        text: 'Inappropriate',
-        onPress: () =>
-          reportMutation.mutate({
-            reportedUserId: chat.otherUser.id,
-            targetType: 'user',
-            targetId: chat.otherUser.id,
-            reason: 'inappropriate',
-          }),
-      },
+      { text: 'Harassment', onPress: () => submitReport('harassment') },
+      { text: 'Spam', onPress: () => submitReport('spam') },
+      { text: 'Inappropriate', onPress: () => submitReport('inappropriate') },
+      { text: 'Underage', onPress: () => submitReport('underage') },
+      { text: 'Other', onPress: () => submitReport('other') },
     ]);
   };
 
@@ -206,7 +195,7 @@ export default function ChatThreadScreen() {
   if (chatLoading || messagesLoading || !chat) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -215,21 +204,25 @@ export default function ChatThreadScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
     >
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.back}>Back</Text>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={colors.onSurface} />
         </Pressable>
         <Text style={styles.headerTitle}>{chat.otherUser.displayName}</Text>
-        <View style={styles.headerActions}>
-          <Pressable onPress={onReport} hitSlop={8}>
-            <Text style={styles.headerAction}>Report</Text>
-          </Pressable>
-          <Pressable onPress={onBlock} hitSlop={8}>
-            <Text style={[styles.headerAction, styles.headerDanger]}>Block</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          onPress={() =>
+            Alert.alert('Chat options', undefined, [
+              { text: 'Report', onPress: onReport },
+              { text: 'Block', style: 'destructive', onPress: onBlock },
+              { text: 'Cancel', style: 'cancel' },
+            ])
+          }
+          hitSlop={8}
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.onSurfaceVariant} />
+        </Pressable>
       </View>
 
       <FlatList
@@ -246,12 +239,13 @@ export default function ChatThreadScreen() {
         }
       />
 
-      <View style={styles.composer}>
+      <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.sm }]}>
         <TextInput
           style={styles.input}
           value={draft}
           onChangeText={setDraft}
-          placeholder="Message..."
+          placeholder="Type a message..."
+          placeholderTextColor={colors.outline}
           multiline
           maxLength={2000}
         />
@@ -261,9 +255,9 @@ export default function ChatThreadScreen() {
           disabled={!draft.trim() || sendMutation.isPending}
         >
           {sendMutation.isPending ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={colors.onPrimary} size="small" />
           ) : (
-            <Text style={styles.sendText}>Send</Text>
+            <Ionicons name="send" size={18} color={colors.onPrimary} />
           )}
         </Pressable>
       </View>
@@ -272,81 +266,78 @@ export default function ChatThreadScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
+  container: { flex: 1, backgroundColor: colors.surfaceContainerLow },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
+    paddingHorizontal: spacing.container,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surfaceBright,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.cardBorder,
   },
-  back: { color: '#2563eb', fontSize: 16, width: 48 },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '600', textAlign: 'center' },
-  headerActions: { flexDirection: 'row', gap: 8, width: 120, justifyContent: 'flex-end' },
-  headerAction: { color: '#64748b', fontSize: 13 },
-  headerDanger: { color: '#dc2626' },
-  messages: { padding: 16, paddingBottom: 8, flexGrow: 1 },
+  backBtn: { width: 40 },
+  headerTitle: { flex: 1, ...typography.headlineMd, fontSize: 17, textAlign: 'center', color: colors.onSurface },
+  messages: { padding: spacing.lg, paddingBottom: spacing.sm, flexGrow: 1 },
   bubble: {
-    maxWidth: '80%',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
-    marginBottom: 8,
+    maxWidth: '85%',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.xl,
+    marginBottom: spacing.sm,
   },
   bubbleYou: {
     alignSelf: 'flex-end',
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderBottomRightRadius: 4,
   },
   bubbleThem: {
     alignSelf: 'flex-start',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surfaceBright,
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.outlineVariant,
   },
-  bubbleText: { fontSize: 16, lineHeight: 22 },
-  bubbleTextYou: { color: '#fff' },
-  bubbleTextThem: { color: '#0f172a' },
+  bubbleText: { ...typography.bodyMd },
+  bubbleTextYou: { color: colors.onPrimary },
+  bubbleTextThem: { color: colors.onSurface },
   bubbleTime: { fontSize: 11 },
   bubbleMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  bubbleTimeYou: { color: 'rgba(255,255,255,0.7)' },
-  bubbleTimeThem: { color: '#94a3b8' },
-  readReceipt: { fontSize: 10, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
+  bubbleTimeYou: { color: 'rgba(255,255,255,0.75)' },
+  bubbleTimeThem: { color: colors.outline },
+  readReceipt: { fontSize: 10, color: 'rgba(255,255,255,0.9)', fontWeight: '600' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 48 },
-  emptyText: { color: '#64748b', fontSize: 15 },
+  emptyText: { ...typography.bodyMd, color: colors.onSurfaceVariant },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 12,
-    backgroundColor: '#fff',
+    padding: spacing.md,
+    backgroundColor: colors.surfaceBright,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    gap: 8,
+    borderTopColor: colors.cardBorder,
+    gap: spacing.sm,
   },
   input: {
     flex: 1,
-    minHeight: 40,
+    minHeight: 44,
     maxHeight: 120,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 16,
-    backgroundColor: '#f8fafc',
+    borderColor: colors.outlineVariant,
+    borderRadius: radius.card,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    ...typography.bodyMd,
+    backgroundColor: colors.surfaceContainerLow,
+    color: colors.onSurface,
   },
   sendButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    minWidth: 64,
+    backgroundColor: colors.primary,
+    borderRadius: 22,
+    width: 44,
+    height: 44,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   sendButtonDisabled: { opacity: 0.5 },
-  sendText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

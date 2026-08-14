@@ -6,12 +6,15 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IcebreakerSessionStatus } from '@pingme/db';
+import { IcebreakerSessionStatus, MatchStatus } from '@pingme/db';
 import {
+  ICEBREAKER_HIDE_MINUTES,
   ICEBREAKER_RADIUS_METERS,
   ICEBREAKER_STARTS_PER_HOUR,
   ICEBREAKER_WINDOW_MINUTES,
+  MATCH_EXPIRY_MINUTES,
   NOTIFICATION_TYPES,
+  distanceBucket,
 } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { ChatGateway } from '../chat/chat.gateway';
@@ -19,12 +22,13 @@ import { BlocksService } from '../common/services/blocks.service';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { StartIcebreakerDto } from './dto/icebreaker.dto';
 
-interface SessionPairRow {
-  session_a_id: string;
-  user_a_id: string;
-  session_b_id: string;
-  user_b_id: string;
+interface NearbySessionRow {
+  session_id: string;
+  user_id: string;
+  show_photo: boolean;
+  intro_message: string | null;
   distance_meters: number;
 }
 
@@ -41,7 +45,7 @@ export class IcebreakerService {
     private readonly gateway: ChatGateway,
   ) {}
 
-  async start(userId: string) {
+  async start(userId: string, options: StartIcebreakerDto = {}) {
     const allowed = await this.rateLimit.incrementWithinWindow(
       `rate:icebreaker:${userId}`,
       ICEBREAKER_STARTS_PER_HOUR,
@@ -70,12 +74,15 @@ export class IcebreakerService {
       this.config.get('ICEBREAKER_WINDOW_MINUTES', ICEBREAKER_WINDOW_MINUTES),
     );
     const expiresAt = new Date(Date.now() + windowMinutes * 60 * 1000);
+    const introMessage = options.introMessage?.trim() || null;
 
     const icebreaker = await this.prisma.icebreakerSession.create({
       data: {
         userId,
         latitude: session.latitude,
         longitude: session.longitude,
+        showPhoto: options.showPhoto ?? false,
+        introMessage,
         expiresAt,
       },
     });
@@ -93,6 +100,8 @@ export class IcebreakerService {
         id: icebreaker.id,
         status: icebreaker.status,
         expiresAt: icebreaker.expiresAt,
+        showPhoto: icebreaker.showPhoto,
+        introMessage: icebreaker.introMessage,
       },
     };
   }
@@ -146,9 +155,314 @@ export class IcebreakerService {
             status: active.status,
             expiresAt: active.expiresAt,
             matchedSessionId: active.matchedSessionId,
+            showPhoto: active.showPhoto,
+            introMessage: active.introMessage,
           }
         : null,
     };
+  }
+
+  async getNearby(userId: string) {
+    const now = new Date();
+    const presence = await this.prisma.presenceSession.findUnique({ where: { userId } });
+
+    const mySession = await this.prisma.icebreakerSession.findFirst({
+      where: {
+        userId,
+        status: { in: [IcebreakerSessionStatus.active, IcebreakerSessionStatus.matched] },
+        expiresAt: { gt: now },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const pendingMatches = await this.prisma.match.findMany({
+      where: {
+        OR: [{ userAId: userId }, { userBId: userId }],
+        source: 'icebreaker',
+        status: MatchStatus.pending,
+      },
+    });
+
+    if (!mySession && pendingMatches.length === 0) {
+      throw new BadRequestException('Start Break the ice to see nearby people');
+    }
+
+    const latitude = presence?.latitude ?? mySession?.latitude;
+    const longitude = presence?.longitude ?? mySession?.longitude;
+    if (latitude == null || longitude == null) {
+      throw new BadRequestException('Location required — send a ping first');
+    }
+
+    if (mySession?.status === IcebreakerSessionStatus.active) {
+      await this.prisma.icebreakerSession.update({
+        where: { id: mySession.id },
+        data: { latitude, longitude },
+      });
+    }
+
+    const radius = Number(this.config.get('ICEBREAKER_RADIUS_METERS', ICEBREAKER_RADIUS_METERS));
+
+    const rows = await this.prisma.$queryRaw<NearbySessionRow[]>`
+      SELECT
+        s.id AS session_id,
+        s.user_id,
+        s.show_photo,
+        s.intro_message,
+        ST_Distance(
+          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography
+        ) AS distance_meters
+      FROM icebreaker_sessions s
+      WHERE s.user_id != ${userId}::uuid
+        AND s.status = 'active'
+        AND s.expires_at > ${now}
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography,
+          ${radius}
+        )
+      ORDER BY distance_meters ASC
+    `;
+
+    const blocked = await this.blocks.getBlockedUserIds(userId);
+    const blockedSet = new Set(blocked);
+
+    const myInterests = await this.prisma.icebreakerInterest.findMany({
+      where: { fromUserId: userId },
+    });
+    const interestByTarget = new Map(myInterests.map((row) => [row.toUserId, row]));
+
+    const theirInterests = await this.prisma.icebreakerInterest.findMany({
+      where: { toUserId: userId, interested: true },
+    });
+    const interestedInMe = new Set(theirInterests.map((row) => row.fromUserId));
+
+    const pendingMatchByUserId = new Map(
+      pendingMatches.map((match) => [
+        match.userAId === userId ? match.userBId : match.userAId,
+        match.id,
+      ]),
+    );
+
+    const visibleRows = rows.filter(
+      (row) =>
+        !blockedSet.has(row.user_id) &&
+        !isHiddenFromList(interestByTarget.get(row.user_id), now),
+    );
+
+    const profileIds = new Set(visibleRows.map((row) => row.user_id));
+    for (const otherUserId of pendingMatchByUserId.keys()) {
+      if (!blockedSet.has(otherUserId)) profileIds.add(otherUserId);
+    }
+
+    const profiles = profileIds.size
+      ? await this.prisma.profile.findMany({
+          where: { userId: { in: [...profileIds] } },
+          select: { userId: true, displayName: true, avatarUrl: true },
+        })
+      : [];
+    const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
+
+    const data = visibleRows.map((row) => {
+      const profile = profileByUserId.get(row.user_id);
+      const myInterest = interestByTarget.get(row.user_id);
+      const myResponse = myInterest?.interested ? 'yes' : null;
+      const matchId = pendingMatchByUserId.get(row.user_id);
+      const highlight = matchId
+        ? ('mutual_match' as const)
+        : interestedInMe.has(row.user_id) && !myResponse
+          ? ('interested_in_you' as const)
+          : null;
+
+      return {
+        userId: row.user_id,
+        sessionId: row.session_id,
+        displayName: profile?.displayName ?? 'Someone nearby',
+        avatarUrl: row.show_photo ? profile?.avatarUrl ?? null : null,
+        introMessage: row.intro_message,
+        distanceBucket: distanceBucket(Number(row.distance_meters)),
+        myResponse,
+        interestedInMe: interestedInMe.has(row.user_id),
+        highlight,
+        matchId: matchId ?? null,
+      };
+    });
+
+    for (const [otherUserId, matchId] of pendingMatchByUserId) {
+      if (blockedSet.has(otherUserId) || data.some((item) => item.userId === otherUserId)) {
+        continue;
+      }
+      const profile = profileByUserId.get(otherUserId);
+      const otherSession = await this.prisma.icebreakerSession.findFirst({
+        where: { userId: otherUserId },
+        orderBy: { createdAt: 'desc' },
+      });
+      data.unshift({
+        userId: otherUserId,
+        sessionId: otherSession?.id ?? otherUserId,
+        displayName: profile?.displayName ?? 'Someone nearby',
+        avatarUrl: otherSession?.showPhoto ? profile?.avatarUrl ?? null : null,
+        introMessage: otherSession?.introMessage ?? null,
+        distanceBucket: 'very_near',
+        myResponse: 'yes',
+        interestedInMe: true,
+        highlight: 'mutual_match',
+        matchId,
+      });
+    }
+
+    data.sort((a, b) => highlightPriority(a.highlight) - highlightPriority(b.highlight));
+
+    return { success: true, data };
+  }
+
+  async setInterest(userId: string, targetUserId: string, interested: boolean) {
+    if (userId === targetUserId) {
+      throw new BadRequestException('Cannot respond to yourself');
+    }
+
+    const mySession = await this.prisma.icebreakerSession.findFirst({
+      where: {
+        userId,
+        status: IcebreakerSessionStatus.active,
+        expiresAt: { gt: new Date() },
+      },
+    });
+    if (!mySession) {
+      throw new BadRequestException('Start Break the ice first');
+    }
+
+    const targetSession = await this.prisma.icebreakerSession.findFirst({
+      where: {
+        userId: targetUserId,
+        status: IcebreakerSessionStatus.active,
+        expiresAt: { gt: new Date() },
+      },
+    });
+    if (!targetSession) {
+      throw new NotFoundException('That person is no longer in Break the ice');
+    }
+
+    const blocked = await this.blocks.getBlockedUserIds(userId);
+    if (blocked.includes(targetUserId)) {
+      throw new BadRequestException('Cannot connect with this user');
+    }
+
+    const hideMinutes = Number(
+      this.config.get('ICEBREAKER_HIDE_MINUTES', ICEBREAKER_HIDE_MINUTES),
+    );
+    const hiddenUntil = interested
+      ? null
+      : new Date(Date.now() + hideMinutes * 60 * 1000);
+
+    await this.prisma.icebreakerInterest.upsert({
+      where: {
+        fromUserId_toUserId: { fromUserId: userId, toUserId: targetUserId },
+      },
+      create: {
+        fromUserId: userId,
+        toUserId: targetUserId,
+        interested,
+        hiddenUntil,
+      },
+      update: {
+        interested,
+        hiddenUntil,
+      },
+    });
+
+    if (!interested) {
+      return { success: true, data: { matched: false } };
+    }
+
+    const reverse = await this.prisma.icebreakerInterest.findUnique({
+      where: {
+        fromUserId_toUserId: { fromUserId: targetUserId, toUserId: userId },
+      },
+    });
+
+    if (!reverse?.interested) {
+      return { success: true, data: { matched: false, waiting: true } };
+    }
+
+    const [userAId, userBId] = orderUserIds(userId, targetUserId);
+    const existingMatch = await this.prisma.match.findFirst({
+      where: {
+        userAId,
+        userBId,
+        status: { in: [MatchStatus.pending, MatchStatus.active] },
+      },
+    });
+    if (existingMatch) {
+      return {
+        success: true,
+        data: { matched: true, matchId: existingMatch.id },
+      };
+    }
+
+    const match = await this.prisma.$transaction(async (tx) => {
+      const expiresAt = new Date(Date.now() + MATCH_EXPIRY_MINUTES * 60 * 1000);
+      const createdMatch = await tx.match.create({
+        data: {
+          userAId,
+          userBId,
+          source: 'icebreaker',
+          sourceReferenceId: mySession.id,
+          expiresAt,
+        },
+      });
+
+      await tx.icebreakerSession.update({
+        where: { id: mySession.id },
+        data: {
+          status: IcebreakerSessionStatus.matched,
+          matchedSessionId: targetSession.id,
+        },
+      });
+      await tx.icebreakerSession.update({
+        where: { id: targetSession.id },
+        data: {
+          status: IcebreakerSessionStatus.matched,
+          matchedSessionId: mySession.id,
+        },
+      });
+
+      return createdMatch;
+    });
+
+    await this.audit.log({
+      userId,
+      action: 'icebreaker.match',
+      entityType: 'match',
+      entityId: match.id,
+      metadata: { otherUserId: targetUserId },
+    });
+
+    await this.notifications.sendToUser(userId, {
+      type: NOTIFICATION_TYPES.ICEBREAKER_MATCH,
+      title: 'Someone nearby wants to connect',
+      body: 'Open PingMe to accept or decline.',
+      data: { type: NOTIFICATION_TYPES.ICEBREAKER_MATCH, matchId: match.id },
+    });
+    await this.notifications.sendToUser(targetUserId, {
+      type: NOTIFICATION_TYPES.ICEBREAKER_MATCH,
+      title: 'Someone nearby wants to connect',
+      body: 'Open PingMe to accept or decline.',
+      data: { type: NOTIFICATION_TYPES.ICEBREAKER_MATCH, matchId: match.id },
+    });
+
+    this.gateway.emitMatchUpdated(userId, {
+      matchId: match.id,
+      status: 'pending',
+      chatId: null,
+    });
+    this.gateway.emitMatchUpdated(targetUserId, {
+      matchId: match.id,
+      status: 'pending',
+      chatId: null,
+    });
+
+    return { success: true, data: { matched: true, matchId: match.id } };
   }
 
   async expireSessions() {
@@ -162,138 +476,24 @@ export class IcebreakerService {
     });
     return result.count;
   }
-
-  async findAndCreateMatches() {
-    const radius = Number(this.config.get('ICEBREAKER_RADIUS_METERS', ICEBREAKER_RADIUS_METERS));
-    const now = new Date();
-
-    const pairs = await this.prisma.$queryRaw<SessionPairRow[]>`
-      SELECT
-        a.id AS session_a_id,
-        a.user_id AS user_a_id,
-        b.id AS session_b_id,
-        b.user_id AS user_b_id,
-        ST_Distance(
-          ST_SetSRID(ST_MakePoint(a.longitude, a.latitude), 4326)::geography,
-          ST_SetSRID(ST_MakePoint(b.longitude, b.latitude), 4326)::geography
-        ) AS distance_meters
-      FROM icebreaker_sessions a
-      INNER JOIN icebreaker_sessions b ON a.user_id < b.user_id
-      WHERE a.status = 'active'
-        AND b.status = 'active'
-        AND a.expires_at > ${now}
-        AND b.expires_at > ${now}
-        AND ST_DWithin(
-          ST_SetSRID(ST_MakePoint(a.longitude, a.latitude), 4326)::geography,
-          ST_SetSRID(ST_MakePoint(b.longitude, b.latitude), 4326)::geography,
-          ${radius}
-        )
-      ORDER BY distance_meters ASC
-    `;
-
-    let created = 0;
-
-    for (const pair of pairs) {
-      const blocked = await this.blocks.getBlockedUserIds(pair.user_a_id);
-      if (blocked.includes(pair.user_b_id)) continue;
-
-      const [userAId, userBId] = orderUserIds(pair.user_a_id, pair.user_b_id);
-
-      const existingPending = await this.prisma.match.findFirst({
-        where: {
-          userAId,
-          userBId,
-          status: 'pending',
-        },
-      });
-      if (existingPending) continue;
-
-      const match = await this.prisma.$transaction(async (tx) => {
-        const sessionA = await tx.icebreakerSession.findUnique({
-          where: { id: pair.session_a_id },
-        });
-        const sessionB = await tx.icebreakerSession.findUnique({
-          where: { id: pair.session_b_id },
-        });
-        if (
-          !sessionA ||
-          !sessionB ||
-          sessionA.status !== IcebreakerSessionStatus.active ||
-          sessionB.status !== IcebreakerSessionStatus.active
-        ) {
-          return null;
-        }
-
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
-        const createdMatch = await tx.match.create({
-          data: {
-            userAId,
-            userBId,
-            source: 'icebreaker',
-            sourceReferenceId: sessionA.id,
-            expiresAt,
-          },
-        });
-
-        await tx.icebreakerSession.update({
-          where: { id: sessionA.id },
-          data: {
-            status: IcebreakerSessionStatus.matched,
-            matchedSessionId: sessionB.id,
-          },
-        });
-        await tx.icebreakerSession.update({
-          where: { id: sessionB.id },
-          data: {
-            status: IcebreakerSessionStatus.matched,
-            matchedSessionId: sessionA.id,
-          },
-        });
-
-        return createdMatch;
-      });
-
-      if (!match) continue;
-
-      created += 1;
-
-      await this.audit.log({
-        userId: pair.user_a_id,
-        action: 'icebreaker.match',
-        entityType: 'match',
-        entityId: match.id,
-        metadata: { otherUserId: pair.user_b_id },
-      });
-
-      await this.notifications.sendToUser(pair.user_a_id, {
-        type: NOTIFICATION_TYPES.ICEBREAKER_MATCH,
-        title: 'Someone nearby wants to connect',
-        body: 'Open PingMe to accept or decline.',
-        data: { type: NOTIFICATION_TYPES.ICEBREAKER_MATCH, matchId: match.id },
-      });
-      await this.notifications.sendToUser(pair.user_b_id, {
-        type: NOTIFICATION_TYPES.ICEBREAKER_MATCH,
-        title: 'Someone nearby wants to connect',
-        body: 'Open PingMe to accept or decline.',
-        data: { type: NOTIFICATION_TYPES.ICEBREAKER_MATCH, matchId: match.id },
-      });
-
-      this.gateway.emitMatchUpdated(pair.user_a_id, {
-        matchId: match.id,
-        status: 'pending',
-        chatId: null,
-      });
-      this.gateway.emitMatchUpdated(pair.user_b_id, {
-        matchId: match.id,
-        status: 'pending',
-        chatId: null,
-      });
-    }
-
-    return created;
-  }
 }
 
 function orderUserIds(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
+}
+
+function isHiddenFromList(
+  interest: { interested: boolean; hiddenUntil: Date | null } | undefined,
+  now: Date,
+): boolean {
+  if (!interest) return false;
+  if (interest.interested) return false;
+  if (!interest.hiddenUntil) return true;
+  return interest.hiddenUntil > now;
+}
+
+function highlightPriority(highlight: 'mutual_match' | 'interested_in_you' | null): number {
+  if (highlight === 'mutual_match') return 0;
+  if (highlight === 'interested_in_you') return 1;
+  return 2;
 }

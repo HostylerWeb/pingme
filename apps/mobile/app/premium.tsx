@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
 import { api, SubscriptionInfo } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
+import { AppHeader, Screen } from '../src/components/ui';
+import { colors, radius, spacing, typography } from '../src/theme';
 
 export default function PremiumScreen() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const refreshMe = useAuthStore((s) => s.refreshMe);
 
@@ -49,9 +50,9 @@ export default function PremiumScreen() {
 
   if (subLoading || plansLoading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-      </View>
+      <Screen>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </Screen>
     );
   }
 
@@ -61,12 +62,10 @@ export default function PremiumScreen() {
   const settings = settingsData?.data;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Pressable onPress={() => router.back()} style={styles.back}>
-        <Text style={styles.backText}>← Back</Text>
-      </Pressable>
-
-      <Text style={styles.title}>PingMe Premium</Text>
+    <Screen padded={false} edges={[]}>
+      <AppHeader title="Premium" showBrand={false} />
+      <ScrollView contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Go Premium</Text>
       <Text style={styles.subtitle}>
         Wall and chat stay free. Premium adds flair and optional read receipts.
       </Text>
@@ -96,15 +95,47 @@ export default function PremiumScreen() {
       ))}
 
       {!isPremium ? (
-        <Pressable
-          style={[styles.primaryButton, !plans?.paymentsEnabled && styles.primaryButtonDisabled]}
-          disabled={!plans?.paymentsEnabled || checkoutMutation.isPending}
-          onPress={() => checkoutMutation.mutate()}
-        >
-          <Text style={styles.primaryButtonText}>
-            {plans?.paymentsEnabled ? 'Subscribe to Premium' : 'Payments coming soon'}
-          </Text>
-        </Pressable>
+        <>
+          <Pressable
+            style={[styles.primaryButton, !plans?.paymentsEnabled && styles.primaryButtonDisabled]}
+            disabled={!plans?.paymentsEnabled || checkoutMutation.isPending}
+            onPress={() => checkoutMutation.mutate()}
+          >
+            <Text style={styles.primaryButtonText}>
+              {plans?.paymentsEnabled ? 'Subscribe to Premium' : 'Payments coming soon'}
+            </Text>
+          </Pressable>
+
+          <View style={styles.premiumSection}>
+            <Text style={styles.sectionTitle}>Avatar themes</Text>
+            <Text style={styles.sectionHint}>Premium unlocks gradient rings on your profile and wall posts.</Text>
+            <View style={styles.themeGrid}>
+              {PREMIUM_AVATAR_THEMES.map((theme) => (
+                <Pressable
+                  key={theme.id}
+                  style={styles.themeOption}
+                  onPress={() =>
+                    Alert.alert(
+                      'Premium feature',
+                      'Subscribe to Premium to unlock avatar theme rings and read receipts.',
+                    )
+                  }
+                >
+                  <View style={styles.lockedSwatchWrap}>
+                    <LinearGradient
+                      colors={[...theme.colors] as [string, string, ...string[]]}
+                      style={[styles.themeSwatch, styles.themeSwatchLocked]}
+                    />
+                    <View style={styles.lockBadge}>
+                      <Ionicons name="lock-closed" size={14} color={colors.onPrimary} />
+                    </View>
+                  </View>
+                  <Text style={styles.themeLabel}>{theme.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </>
       ) : (
         <View style={styles.premiumSection}>
           <Text style={styles.sectionTitle}>Avatar theme</Text>
@@ -139,65 +170,76 @@ export default function PremiumScreen() {
           </View>
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  content: { padding: 24, paddingTop: 56, paddingBottom: 40 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  back: { marginBottom: 12 },
-  backText: { color: '#2563eb', fontSize: 16 },
-  title: { fontSize: 28, fontWeight: '700', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#64748b', marginBottom: 24, lineHeight: 22 },
+  content: { padding: spacing.container, paddingBottom: 40 },
+  title: { ...typography.display, color: colors.onSurface, marginBottom: spacing.sm },
+  subtitle: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.xxl, lineHeight: 24 },
   statusCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: colors.cardBorder,
   },
-  statusLabel: { fontSize: 13, color: '#64748b' },
-  statusValue: { fontSize: 22, fontWeight: '700', marginTop: 4 },
-  statusMeta: { fontSize: 13, color: '#94a3b8', marginTop: 4 },
+  statusLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, textTransform: 'none', letterSpacing: 0 },
+  statusValue: { ...typography.headlineLg, color: colors.onSurface, marginTop: 4 },
+  statusMeta: { ...typography.bodyMd, color: colors.outline, fontSize: 13, marginTop: 4 },
   planCard: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderColor: colors.cardBorder,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surfaceBright,
   },
-  planHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  planName: { fontSize: 18, fontWeight: '600' },
-  planPrice: { fontSize: 16, color: '#64748b' },
-  planFeature: { fontSize: 14, color: '#475569', marginTop: 4 },
+  planHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
+  planName: { ...typography.headlineMd, fontSize: 18 },
+  planPrice: { ...typography.bodyMd, color: colors.onSurfaceVariant },
+  planFeature: { ...typography.bodyMd, color: colors.onSurfaceVariant, fontSize: 14, marginTop: 4 },
   primaryButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: colors.primary,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.lg,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
-  primaryButtonDisabled: { backgroundColor: '#94a3b8' },
-  primaryButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  premiumSection: { marginTop: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 4 },
-  sectionHint: { fontSize: 14, color: '#64748b', marginBottom: 16 },
-  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+  primaryButtonDisabled: { backgroundColor: colors.outline },
+  primaryButtonText: { ...typography.bodySemiBold, color: colors.onPrimary },
+  premiumSection: { marginTop: spacing.sm },
+  sectionTitle: { ...typography.headlineMd, marginBottom: 4 },
+  sectionHint: { ...typography.bodyMd, color: colors.onSurfaceVariant, marginBottom: spacing.lg, fontSize: 14 },
+  themeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginBottom: spacing.xxl },
   themeOption: { alignItems: 'center', width: 72 },
   themeSwatch: { width: 56, height: 56, borderRadius: 28, marginBottom: 6 },
-  themeLabel: { fontSize: 12, color: '#475569' },
+  themeSwatchLocked: { opacity: 0.55 },
+  lockedSwatchWrap: { position: 'relative', marginBottom: 6 },
+  lockBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: 2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeLabel: { ...typography.labelSm, color: colors.onSurfaceVariant, textTransform: 'none', letterSpacing: 0 },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: colors.outlineVariant,
   },
-  settingText: { flex: 1, paddingRight: 12 },
-  settingLabel: { fontSize: 16, fontWeight: '500' },
-  settingHint: { fontSize: 13, color: '#94a3b8', marginTop: 2 },
+  settingText: { flex: 1, paddingRight: spacing.md },
+  settingLabel: { ...typography.bodySemiBold, fontSize: 16 },
+  settingHint: { ...typography.bodyMd, color: colors.outline, fontSize: 13, marginTop: 2 },
 });
