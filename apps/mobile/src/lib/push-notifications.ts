@@ -107,6 +107,24 @@ export function addNotificationResponseListener(
       data.matchId
     ) {
       onNavigate({ type: data.type, matchId: data.matchId });
+      return;
+    }
+    if (data?.type === 'icebreaker.interest') {
+      onNavigate({ type: data.type });
+    }
+  });
+}
+
+export function addNotificationReceivedListener(
+  onReceived: (payload: { type: string; fromUserId?: string }) => void,
+) {
+  return Notifications.addNotificationReceivedListener((notification) => {
+    const data = notification.request.content.data as {
+      type?: string;
+      fromUserId?: string;
+    };
+    if (data?.type) {
+      onReceived({ type: data.type, fromUserId: data.fromUserId });
     }
   });
 }

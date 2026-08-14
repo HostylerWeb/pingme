@@ -357,7 +357,7 @@ export default function IcebreakerScreen() {
     queryFn: () => api.getIcebreakerStatus(),
     placeholderData: keepPreviousData,
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: icebreakerOn ? 5_000 : 30_000,
     refetchIntervalInBackground: false,
   });
 
@@ -393,8 +393,8 @@ export default function IcebreakerScreen() {
     queryFn: () => api.getIcebreakerNearby(),
     enabled: !!coords && canBrowse,
     placeholderData: keepPreviousData,
-    staleTime: 10_000,
-    refetchInterval: 30_000,
+    staleTime: 5_000,
+    refetchInterval: canBrowse ? 5_000 : false,
     refetchIntervalInBackground: false,
   });
 

@@ -86,10 +86,12 @@ function WheelColumn({
     });
   }, [selectedIndex, items.length]);
 
-  const onMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(event.nativeEvent.contentOffset.y / ITEM_HEIGHT);
     const clamped = Math.max(0, Math.min(index, items.length - 1));
-    onSelect(clamped);
+    if (clamped !== selectedIndex) {
+      onSelect(clamped);
+    }
     listRef.current?.scrollToOffset({
       offset: clamped * ITEM_HEIGHT,
       animated: true,
@@ -121,7 +123,9 @@ function WheelColumn({
         contentContainerStyle={{
           paddingVertical: ITEM_HEIGHT * 2,
         }}
-        onMomentumScrollEnd={onMomentumScrollEnd}
+        nestedScrollEnabled
+        onScrollEndDrag={onScrollEnd}
+        onMomentumScrollEnd={onScrollEnd}
       />
     </View>
   );

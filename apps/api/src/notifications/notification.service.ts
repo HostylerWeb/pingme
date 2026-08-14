@@ -32,6 +32,7 @@ export class NotificationService {
     }
 
     if (
+      payload.type === NOTIFICATION_TYPES.ICEBREAKER_INTEREST ||
       payload.type === NOTIFICATION_TYPES.ICEBREAKER_MATCH ||
       payload.type === NOTIFICATION_TYPES.MATCH_REQUEST
     ) {

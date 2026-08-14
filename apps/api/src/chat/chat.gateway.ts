@@ -124,6 +124,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  emitIcebreakerInterest(
+    userId: string,
+    payload: { fromUserId: string; displayName: string },
+  ) {
+    const sockets = this.userSockets.get(userId);
+    if (!sockets?.size) return;
+
+    for (const socketId of sockets) {
+      this.server.to(socketId).emit('icebreaker.interest', payload);
+    }
+  }
+
   emitMessageRead(
     userId: string,
     payload: { chatId: string; messageIds: string[]; readBy: string; readCount: number },

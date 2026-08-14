@@ -330,7 +330,7 @@ export default function ChatThreadScreen() {
 
       <View style={styles.threadHeader}>
         <Avatar name={chat.otherUser.displayName} size="sm" />
-        <Text style={styles.threadHint}>Private · Anonymous until you both agree</Text>
+        <Text style={styles.threadHint}>Private conversation</Text>
       </View>
 
       <FlatList

@@ -140,7 +140,7 @@ export function DateOfBirthField({
 
       <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => setShowPicker(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setShowPicker(false)}>
-          <Pressable style={styles.modalSheet} onPress={(event) => event.stopPropagation()}>
+          <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Pressable onPress={() => setShowPicker(false)}>
                 <Text style={[styles.modalAction, { color: colors.inkSecondary }]}>Cancel</Text>
@@ -161,7 +161,7 @@ export function DateOfBirthField({
               maximumDate={maximumDate}
               onChange={setSelectedDate}
             />
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
     </View>

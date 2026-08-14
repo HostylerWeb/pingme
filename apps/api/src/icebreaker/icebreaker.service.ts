@@ -446,6 +446,27 @@ export class IcebreakerService {
     });
 
     if (!isActiveYesInterest(reverse, new Date())) {
+      const fromProfile = await this.prisma.profile.findUnique({
+        where: { userId },
+        select: { displayName: true },
+      });
+      const displayName = fromProfile?.displayName ?? 'Someone nearby';
+
+      await this.notifications.sendToUser(targetUserId, {
+        type: NOTIFICATION_TYPES.ICEBREAKER_INTEREST,
+        title: 'Someone nearby said yes',
+        body: `${displayName} wants to connect in Break the ice.`,
+        data: {
+          type: NOTIFICATION_TYPES.ICEBREAKER_INTEREST,
+          fromUserId: userId,
+        },
+      });
+
+      this.gateway.emitIcebreakerInterest(targetUserId, {
+        fromUserId: userId,
+        displayName,
+      });
+
       return { success: true, data: { matched: false, waiting: true } };
     }
 

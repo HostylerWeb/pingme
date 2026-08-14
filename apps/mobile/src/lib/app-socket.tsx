@@ -14,6 +14,7 @@ import { io, type Socket } from 'socket.io-client';
 import { getAccessToken } from './auth-storage';
 import { isMatchPromptDismissed } from './match-prompt-dismiss';
 import { useAuthStore } from '../stores/auth-store';
+import { showToast } from '../stores/toast-store';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
 
@@ -90,9 +91,16 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
     nextSocket.on('match.updated', (payload: { matchId: string; status: string; chatId?: string | null }) => {
       void queryClient.invalidateQueries({ queryKey: ['matches'] });
       void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
       if (payload.status === 'pending' && !isMatchPromptDismissed(payload.matchId)) {
         router.push(`/match/${payload.matchId}`);
       }
+    });
+
+    nextSocket.on('icebreaker.interest', (payload: { fromUserId: string; displayName: string }) => {
+      void queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
+      void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
+      showToast(`${payload.displayName} said yes in Break the ice`, 'info');
     });
 
     setSocket(nextSocket);

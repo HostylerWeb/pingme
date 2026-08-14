@@ -13,6 +13,7 @@ export const BACKGROUND_PING_INTERVAL_MS = 180_000;
 
 export const NOTIFICATION_TYPES = {
   WALL_REPLY: 'wall.reply',
+  ICEBREAKER_INTEREST: 'icebreaker.interest',
   ICEBREAKER_MATCH: 'icebreaker.match',
   MATCH_REQUEST: 'match.request',
   CHAT_MESSAGE: 'chat.message',

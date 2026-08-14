@@ -9,7 +9,7 @@ import '../src/lib/background-location';
 import { AppSocketProvider } from '../src/lib/app-socket';
 import { hasForegroundLocationPermission, locationSetupStorage } from '../src/lib/location-setup-storage';
 import { onboardingStorage } from '../src/lib/onboarding-storage';
-import { addNotificationResponseListener, registerForPushNotifications } from '../src/lib/push-notifications';
+import { addNotificationResponseListener, addNotificationReceivedListener, registerForPushNotifications } from '../src/lib/push-notifications';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
 import { useAppFonts } from '../src/hooks/use-app-fonts';
@@ -73,10 +73,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         router.push(`/chat/${payload.chatId}`);
       } else if (payload.matchId) {
         router.push(`/match/${payload.matchId}`);
+      } else if (payload.type === 'icebreaker.interest') {
+        router.push('/(tabs)/icebreaker');
       }
     });
     return () => subscription.remove();
   }, [router]);
+
+  useEffect(() => {
+    const subscription = addNotificationReceivedListener((payload) => {
+      if (payload.type === 'icebreaker.interest') {
+        queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
+        queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
+      }
+    });
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     if (!isHydrated || onboardingComplete === null) return;
