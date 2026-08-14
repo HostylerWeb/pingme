@@ -266,9 +266,11 @@ export default function ChatThreadScreen() {
       .filter((message) => !message.isYou && message.status !== 'read')
       .map((message) => message.id);
     if (unreadIds.length) {
-      void api.markChatRead(id, unreadIds);
+      void api.markChatRead(id, unreadIds).then(() => {
+        void queryClient.invalidateQueries({ queryKey: ['chats'] });
+      });
     }
-  }, [id, messagesData]);
+  }, [id, messagesData, queryClient]);
 
   const submitReport = (reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other') => {
     if (!chat) return;

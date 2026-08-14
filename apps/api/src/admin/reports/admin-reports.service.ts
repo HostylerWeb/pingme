@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ReportReason, ReportStatus } from '@pingme/db';
+import { MessageStatus, Prisma, ReportReason, ReportStatus } from '@pingme/db';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -61,10 +61,12 @@ export class AdminReportsService {
     }
 
     const target = await this.resolveTarget(report.targetType, report.targetId);
+    const context = await this.buildModerationContext(report, target);
 
     return {
       report: this.mapReport(report),
       target,
+      context,
     };
   }
 
@@ -125,8 +127,8 @@ export class AdminReportsService {
     reporterId: string;
     reportedUserId: string;
     assignedToAdminId: string | null;
-    reporter: { profile: { displayName: string } | null };
-    reportedUser: { profile: { displayName: string } | null };
+    reporter: { profile: { displayName: string; avatarUrl?: string | null } | null };
+    reportedUser: { profile: { displayName: string; avatarUrl?: string | null } | null };
     assignedTo?: { id: string; email: string } | null;
   }) {
     return {
@@ -142,10 +144,12 @@ export class AdminReportsService {
       reporter: {
         id: report.reporterId,
         displayName: report.reporter.profile?.displayName ?? null,
+        avatarUrl: report.reporter.profile?.avatarUrl ?? null,
       },
       reportedUser: {
         id: report.reportedUserId,
         displayName: report.reportedUser.profile?.displayName ?? null,
+        avatarUrl: report.reportedUser.profile?.avatarUrl ?? null,
       },
       assignedTo: report.assignedTo
         ? { id: report.assignedTo.id, email: report.assignedTo.email }
@@ -232,5 +236,329 @@ export class AdminReportsService {
       default:
         return null;
     }
+  }
+
+  private async buildModerationContext(
+    report: {
+      id: string;
+      reporterId: string;
+      reportedUserId: string;
+      targetType: string;
+      targetId: string;
+      reason: string;
+    },
+    target: Awaited<ReturnType<AdminReportsService['resolveTarget']>>,
+  ) {
+    const [
+      reportedUser,
+      reporter,
+      relatedReports,
+      recentPosts,
+      recentChats,
+      reporterConversation,
+      chatContext,
+    ] = await Promise.all([
+      this.getUserSummary(report.reportedUserId),
+      this.getUserSummary(report.reporterId),
+      this.prisma.report.findMany({
+        where: {
+          reportedUserId: report.reportedUserId,
+          id: { not: report.id },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+        include: {
+          reporter: { include: { profile: { select: { displayName: true } } } },
+        },
+      }),
+      this.prisma.wallPost.findMany({
+        where: { userId: report.reportedUserId },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+        select: {
+          id: true,
+          content: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+      this.getRecentChats(report.reportedUserId, 8),
+      this.getConversationBetweenUsers(report.reporterId, report.reportedUserId),
+      target?.type === 'message' && target.chatId
+        ? this.getMessageChatContext(target.chatId, target.id)
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      summary: this.buildSummary(report, target),
+      reportedUser,
+      reporter,
+      relatedReports: relatedReports.map((item) => ({
+        id: item.id,
+        reason: item.reason,
+        status: item.status,
+        targetType: item.targetType,
+        createdAt: item.createdAt,
+        reporterDisplayName: item.reporter.profile?.displayName ?? null,
+      })),
+      recentPosts,
+      recentChats,
+      reporterConversation,
+      chatContext,
+    };
+  }
+
+  private buildSummary(
+    report: { reason: string; targetType: string; description: string | null },
+    target: Awaited<ReturnType<AdminReportsService['resolveTarget']>>,
+  ) {
+    const reasonLabel = report.reason.replace(/_/g, ' ');
+    if (!target) {
+      return `Reported for ${reasonLabel}. The original ${report.targetType} content is no longer available.`;
+    }
+
+    switch (target.type) {
+      case 'message':
+        return `Reported for ${reasonLabel}: a chat message${target.content ? ` — "${this.truncate(target.content, 120)}"` : ''}.`;
+      case 'post':
+        return `Reported for ${reasonLabel}: a wall post${target.content ? ` — "${this.truncate(target.content, 120)}"` : ''}.`;
+      case 'reply':
+        return `Reported for ${reasonLabel}: a wall reply${target.content ? ` — "${this.truncate(target.content, 120)}"` : ''}.`;
+      case 'user':
+        return `Reported for ${reasonLabel}: the user's profile${target.bio ? ` — bio: "${this.truncate(target.bio, 120)}"` : ''}.`;
+      default:
+        return `Reported for ${reasonLabel} (${report.targetType}).`;
+    }
+  }
+
+  private truncate(value: string, max: number) {
+    const trimmed = value.trim();
+    if (trimmed.length <= max) return trimmed;
+    return `${trimmed.slice(0, max - 1)}…`;
+  }
+
+  private async getUserSummary(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: {
+          select: {
+            displayName: true,
+            bio: true,
+            avatarUrl: true,
+            gender: true,
+            dateOfBirth: true,
+          },
+        },
+        _count: {
+          select: {
+            reportsReceived: true,
+            reportsFiled: true,
+            wallPosts: true,
+            matchesAsUserA: true,
+            matchesAsUserB: true,
+          },
+        },
+      },
+    });
+
+    if (!user) return null;
+
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      status: user.status,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified,
+      displayName: user.profile?.displayName ?? null,
+      bio: user.profile?.bio ?? null,
+      avatarUrl: user.profile?.avatarUrl ?? null,
+      gender: user.profile?.gender ?? null,
+      dateOfBirth: user.profile?.dateOfBirth ?? null,
+      createdAt: user.createdAt,
+      lastSeenAt: user.lastSeenAt,
+      counts: {
+        reportsReceived: user._count.reportsReceived,
+        reportsFiled: user._count.reportsFiled,
+        wallPosts: user._count.wallPosts,
+        matches: user._count.matchesAsUserA + user._count.matchesAsUserB,
+      },
+    };
+  }
+
+  private async getRecentChats(userId: string, limit: number) {
+    const matches = await this.prisma.match.findMany({
+      where: {
+        OR: [{ userAId: userId }, { userBId: userId }],
+        chat: { isNot: null },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        chat: {
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            messages: {
+              where: { status: { not: MessageStatus.deleted } },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: { content: true, createdAt: true },
+            },
+          },
+        },
+        userA: { include: { profile: { select: { displayName: true } } } },
+        userB: { include: { profile: { select: { displayName: true } } } },
+      },
+    });
+
+    return matches.map((match) => {
+      const otherUser =
+        match.userAId === userId
+          ? {
+              id: match.userBId,
+              displayName: match.userB.profile?.displayName ?? null,
+            }
+          : {
+              id: match.userAId,
+              displayName: match.userA.profile?.displayName ?? null,
+            };
+      const lastMessage = match.chat?.messages[0] ?? null;
+
+      return {
+        chatId: match.chat?.id ?? null,
+        matchId: match.id,
+        matchStatus: match.status,
+        chatStatus: match.chat?.status ?? null,
+        otherUser,
+        lastMessage: lastMessage
+          ? {
+              content: lastMessage.content,
+              createdAt: lastMessage.createdAt,
+            }
+          : null,
+        createdAt: match.createdAt,
+      };
+    });
+  }
+
+  private async getConversationBetweenUsers(userAId: string, userBId: string) {
+    const match = await this.prisma.match.findFirst({
+      where: {
+        OR: [
+          { userAId, userBId },
+          { userAId: userBId, userBId: userAId },
+        ],
+        chat: { isNot: null },
+      },
+      include: {
+        chat: { select: { id: true, status: true } },
+      },
+    });
+
+    if (!match?.chat) {
+      return null;
+    }
+
+    const messages = await this.prisma.message.findMany({
+      where: {
+        chatId: match.chat.id,
+        status: { not: MessageStatus.deleted },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 25,
+      include: {
+        sender: { include: { profile: { select: { displayName: true } } } },
+      },
+    });
+
+    return {
+      chatId: match.chat.id,
+      matchId: match.id,
+      matchStatus: match.status,
+      chatStatus: match.chat.status,
+      messages: messages.reverse().map((message) => ({
+        id: message.id,
+        content: message.content,
+        status: message.status,
+        createdAt: message.createdAt,
+        sender: {
+          id: message.senderId,
+          displayName: message.sender.profile?.displayName ?? null,
+        },
+      })),
+    };
+  }
+
+  private async getMessageChatContext(chatId: string, highlightedMessageId: string) {
+    const highlighted = await this.prisma.message.findUnique({
+      where: { id: highlightedMessageId },
+      include: {
+        sender: { include: { profile: { select: { displayName: true } } } },
+      },
+    });
+
+    if (!highlighted || highlighted.chatId !== chatId) {
+      return null;
+    }
+
+    const [before, after] = await Promise.all([
+      this.prisma.message.findMany({
+        where: {
+          chatId,
+          createdAt: { lt: highlighted.createdAt },
+          status: { not: MessageStatus.deleted },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        include: {
+          sender: { include: { profile: { select: { displayName: true } } } },
+        },
+      }),
+      this.prisma.message.findMany({
+        where: {
+          chatId,
+          createdAt: { gt: highlighted.createdAt },
+          status: { not: MessageStatus.deleted },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 10,
+        include: {
+          sender: { include: { profile: { select: { displayName: true } } } },
+        },
+      }),
+    ]);
+
+    const mapMessage = (message: (typeof before)[number]) => ({
+      id: message.id,
+      content: message.content,
+      status: message.status,
+      createdAt: message.createdAt,
+      sender: {
+        id: message.senderId,
+        displayName: message.sender.profile?.displayName ?? null,
+      },
+    });
+
+    return {
+      chatId,
+      highlightedMessageId,
+      messages: [
+        ...before.reverse().map(mapMessage),
+        {
+          id: highlighted.id,
+          content: highlighted.content,
+          status: highlighted.status,
+          createdAt: highlighted.createdAt,
+          sender: {
+            id: highlighted.senderId,
+            displayName: highlighted.sender.profile?.displayName ?? null,
+          },
+        },
+        ...after.map(mapMessage),
+      ],
+    };
   }
 }

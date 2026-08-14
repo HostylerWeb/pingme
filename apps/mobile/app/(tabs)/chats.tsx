@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { useCallback } from 'react';
 import {
   FlatList,
   Pressable,
@@ -33,10 +35,25 @@ function ChatRow({ chat, onPress }: { chat: ChatSummary; onPress: () => void }) 
     rowBody: { flex: 1 },
     rowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
     name: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
+    nameUnread: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
     time: { ...typography.caption, color: colors.inkTertiary },
     preview: { ...typography.bodyMd, color: colors.inkSecondary, fontSize: 14 },
+    previewUnread: { ...typography.bodySemiBold, color: colors.ink, fontSize: 14 },
+    unreadBadge: {
+      minWidth: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 6,
+      marginLeft: spacing.sm,
+    },
+    unreadBadgeText: { ...typography.labelSm, color: colors.onAccent, fontSize: 11 },
   }));
 
+  const unreadCount = chat.unreadCount ?? 0;
+  const hasUnread = unreadCount > 0;
   const preview = chat.lastMessage
     ? `${chat.lastMessage.isYou ? 'You: ' : ''}${chat.lastMessage.content}`
     : 'Say hello';
@@ -46,10 +63,17 @@ function ChatRow({ chat, onPress }: { chat: ChatSummary; onPress: () => void }) 
       <Avatar name={chat.otherUser.displayName} size="md" />
       <View style={styles.rowBody}>
         <View style={styles.rowHeader}>
-          <Text style={styles.name}>{chat.otherUser.displayName}</Text>
-          {chat.lastMessage ? <Text style={styles.time}>{formatTime(chat.lastMessage.createdAt)}</Text> : null}
+          <Text style={hasUnread ? styles.nameUnread : styles.name}>{chat.otherUser.displayName}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {chat.lastMessage ? <Text style={styles.time}>{formatTime(chat.lastMessage.createdAt)}</Text> : null}
+            {hasUnread ? (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
-        <Text style={styles.preview} numberOfLines={1}>
+        <Text style={hasUnread ? styles.previewUnread : styles.preview} numberOfLines={1}>
           {preview}
         </Text>
       </View>
@@ -71,8 +95,14 @@ export default function ChatsScreen() {
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['chats'],
     queryFn: () => api.getChats(),
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetch();
+    }, [refetch]),
+  );
 
   const chats = data?.data ?? [];
 

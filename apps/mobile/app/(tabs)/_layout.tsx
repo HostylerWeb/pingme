@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useChatsUnreadCount } from '../../src/hooks/use-chats-unread';
 import { TAB_BAR_CONTENT_HEIGHT, TAB_BAR_VERTICAL_PADDING, useBottomInset } from '../../src/hooks/use-tab-bar-insets';
 import { typography, useTheme, useThemedStyles } from '../../src/theme';
 
@@ -35,6 +36,8 @@ export default function TabLayout() {
   const bottomInset = useBottomInset();
   const tabBarHeight = TAB_BAR_CONTENT_HEIGHT + bottomInset + TAB_BAR_VERTICAL_PADDING;
   const { colors } = useTheme();
+  const unreadChatCount = useChatsUnreadCount();
+  const chatsTabBadge = unreadChatCount > 0 ? (unreadChatCount > 9 ? '9+' : unreadChatCount) : undefined;
 
   return (
     <Tabs
@@ -90,6 +93,8 @@ export default function TabLayout() {
         name="chats"
         options={{
           title: 'Chats',
+          tabBarBadge: chatsTabBadge,
+          tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.onAccent, fontSize: 10 },
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}

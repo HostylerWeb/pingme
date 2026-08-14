@@ -53,6 +53,23 @@ export class ChatService {
       },
     });
 
+    const chatIds = chats.map((chat) => chat.id);
+    const unreadCounts =
+      chatIds.length > 0
+        ? await this.prisma.message.groupBy({
+            by: ['chatId'],
+            where: {
+              chatId: { in: chatIds },
+              senderId: { not: userId },
+              status: { notIn: [MessageStatus.deleted, MessageStatus.read] },
+            },
+            _count: { _all: true },
+          })
+        : [];
+    const unreadByChatId = new Map(
+      unreadCounts.map((row) => [row.chatId, row._count._all]),
+    );
+
     const data = chats
       .map((chat) => {
         const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
@@ -78,6 +95,7 @@ export class ChatService {
                 isYou: lastMessage.senderId === userId,
               }
             : null,
+          unreadCount: unreadByChatId.get(chat.id) ?? 0,
           createdAt: chat.createdAt,
           sortAt: lastMessage?.createdAt ?? chat.createdAt,
         };

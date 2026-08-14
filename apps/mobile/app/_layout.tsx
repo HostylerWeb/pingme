@@ -37,6 +37,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const [locationReady, setLocationReady] = useState<boolean | null>(null);
   const lastTargetRef = useRef<string | null>(null);
+  const initialLoadDoneRef = useRef(false);
 
   useEffect(() => {
     hydrate();
@@ -86,6 +87,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
         queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
       }
+      if (payload.type === 'chat.message') {
+        queryClient.invalidateQueries({ queryKey: ['chats'] });
+      }
     });
     return () => subscription.remove();
   }, []);
@@ -106,7 +110,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     } else if (!locationReady) {
       target = '/(setup)/location';
-    } else if (pathname.startsWith('/(auth)') || pathname.startsWith('/(onboarding)') || pathname === '/') {
+    } else if (pathname.startsWith('/(auth)') || pathname.startsWith('/(onboarding)') || pathname.startsWith('/(setup)')) {
       target = '/(tabs)/home';
     }
 
@@ -122,11 +126,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isHydrated && onboardingComplete !== null) {
+      initialLoadDoneRef.current = true;
       void SplashScreen.hideAsync();
     }
   }, [isHydrated, onboardingComplete]);
 
-  if (!isHydrated || onboardingComplete === null) {
+  if ((!isHydrated || onboardingComplete === null) && !initialLoadDoneRef.current) {
     return <BootstrapLoading />;
   }
 

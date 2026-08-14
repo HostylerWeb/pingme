@@ -606,6 +606,7 @@ export interface ChatSummary {
     createdAt: string;
     isYou: boolean;
   } | null;
+  unreadCount?: number;
   createdAt: string;
 }
 
