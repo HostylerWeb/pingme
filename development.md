@@ -1604,3 +1604,121 @@ Mobile app                    NestJS API                    didit.me
 *Update this document as decisions change. Link to `docs/PRODUCT_STRATEGY.md` for market context.*
 
 > **Note:** `PRODUCT_STRATEGY.md` still mentions venue-first launch and full KYC in places. This dev plan uses **radius-first (250m)** and **liveness verification** per latest decisions. Update strategy doc when ready.
+
+---
+
+## Notes, Tips & Roadmap (Living Document)
+
+*Last updated: August 2026. Keep this section current as decisions change.*
+
+### Product decisions locked in
+
+| Decision | Choice | Notes |
+|----------|--------|-------|
+| Launch model | **Radius-first (250m)** | Not venue-first at launch |
+| Core features | **Always free** | Wall, replies, chat, icebreaker — never paywalled |
+| Verification | **didit.me liveness** | Required to post/chat/match when `DIDIT_API_KEY` is set |
+| Payments | **Gateway TBD** | Phase 8 scaffold uses `PAYMENT_PROVIDER=none` until Stripe/Paddle/RevenueCat is chosen |
+| Phase 9 venues | **Deferred** | B2B venue rooms wait until user density proves value to partners |
+| Push | **Expo Push API** | Not native FCM/APNs in NestJS yet — acceptable for MVP |
+| Admin URL (staging) | `https://admin.hostyler.cloud` | API: `https://pingme.hostyler.cloud/v1` |
+
+### Phase completion snapshot (0–8)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 0 — Foundation | ✅ Done | Monorepo, DB, CI, EAS dev builds. Deploy scripts/Docker prod stack still thin. |
+| 1 — Auth & profile | ✅ Done | Email/phone OTP, forgot/reset password, avatar upload. **OAuth (Google/Apple) not built.** |
+| 2 — Location & wall | ✅ Done | PostGIS wall, presence ping, distance buckets. |
+| 3 — Available & push | ⚠️ Mostly done | Background location + device registration work. **`PUSH_ENABLED` must be `true` on staging/prod.** |
+| 4 — Icebreaker & matches | ✅ Done | 50m pairing, rate limits, expiry workers. Typing indicators optional — not built. |
+| 5 — Chat & safety | ✅ Done | REST + WebSocket, blocks, reports, auto-suspend. WS uses in-memory map (single-server OK for beta). |
+| 6 — Verification | ✅ Done | Didit start/webhook, `VerifiedGuard`, admin KYC tools. Requires Didit env on staging. |
+| 7 — Admin | ✅ Done | Dashboard, users, reports, content, audit logs, map, admin CRUD, premium grant/revoke. |
+| 8 — Premium | ⚠️ Scaffold | Schema + API + admin grant + mobile UI. **No live checkout** until payment provider is wired. |
+| 9 — Venues & launch | 🔜 Deferred | See “Later” section below. |
+
+### Tips & gotchas
+
+1. **Always run `pnpm db:generate` after migrations** — Prisma client goes stale and VPS builds fail without it.
+2. **Redis port in local dev** — Docker exposes Redis on **6381** (see `docker-compose.dev.yml`). Do not point `REDIS_URL` at 6379 unless you run Redis there.
+3. **Postgres local port** — Docker uses **5435** in root `.env.example`; `apps/api/.env.example` may differ — keep them aligned.
+4. **Mobile must use dev client** — Never Expo Go. Liveness, background location, and push require EAS dev builds.
+5. **CORS in production** — Set `CORS_ORIGINS` (comma-separated). Mobile/native clients omit `Origin` and are still allowed. Admin dashboard needs its URL in the list.
+6. **`POST /notifications/test`** — Disabled in production unless `NOTIFICATIONS_TEST_ENABLED=true`.
+7. **Admin roles** — `support` can view users/chats but **not** reports (moderator+ only). Sidebar and dashboard respect this.
+8. **Premium without payments** — Use admin **Grant premium** to test avatar themes and read receipts until checkout exists.
+9. **Phase 8 commit on staging** — After deploy, run migration `20260814120000_add_subscriptions_phase8` and smoke test with `./scripts/staging-smoke.sh`.
+10. **Two-phone testing** — See `docs/device-test-checklist.md` before calling beta “ready”.
+
+### Do now / near future (before frontend polish & beta)
+
+Priority order for the next sprint:
+
+| # | Task | Why |
+|---|------|-----|
+| 1 | **Deploy to staging** | Pull `main`, migrate, rebuild API + admin, restart services |
+| 2 | **Staging env** | `PUSH_ENABLED=true`, `DIDIT_*`, `CORS_ORIGINS`, strong JWT secrets, `PAYMENT_PROVIDER=none` |
+| 3 | **Smoke + device tests** | `./scripts/staging-smoke.sh` + `docs/device-test-checklist.md` on two physical phones |
+| 4 | **Frontend polish** | Design system, empty/error states, onboarding UX, profile/premium visuals — flows already exist |
+| 5 | **Legal pages** | Privacy policy + terms of service (required for store submission) |
+| 6 | **Store assets** | Icons, screenshots, descriptions for App Store + Play Store |
+
+**Staging deploy checklist (VPS):**
+```bash
+cd /var/www/sites/pingme
+git pull
+pnpm install
+pnpm db:generate
+pnpm db:migrate deploy
+pnpm build
+# restart API (port 3003) and admin (port 3004)
+./scripts/staging-smoke.sh
+```
+
+### Do later (post-beta / pre-scale / when ready)
+
+| Area | Item | Trigger |
+|------|------|---------|
+| **Payments** | Wire Stripe/Paddle/RevenueCat + checkout + webhooks | When payment provider is chosen |
+| **Phase 9 venues** | Geofence rooms, venue wall, QR codes, B2B sales | When density in a launch area justifies partner pitch |
+| **Auth** | Google / Apple sign-in | User demand or store review feedback |
+| **Push** | Native FCM/APNs in API (optional) | If Expo Push limits become a problem |
+| **Ops** | Full `docker-compose.prod.yml`, CI deploy, backup/restore drills | Before scaling traffic |
+| **Monitoring** | Sentry on API + admin, uptime alerts | Before public launch |
+| **Security** | OWASP checklist, pen test on auth/location | Before public launch |
+| **Performance** | Load test 500 concurrent Available users, WS Redis adapter | Before scaling past single VPS |
+| **Tests** | E2E mobile (Detox/Maestro), broader API integration tests with test DB | Ongoing quality investment |
+| **Polish** | Wall feed MMKV cache, draft posts, typing indicators | Nice-to-have UX |
+
+### Explicitly out of scope (for now)
+
+- Venue-first launch / B2B rooms at day one
+- Pay-to-chat or paywalled wall
+- Full KYC for all users (liveness only; admin can escalate to KYC)
+- Horizontal multi-instance WebSocket (until traffic requires it)
+- Automated production deploy pipeline (manual VPS deploy is fine for beta)
+
+### Quick reference — key env vars
+
+```bash
+# Staging / production essentials
+PUSH_ENABLED=true
+PAYMENT_PROVIDER=none
+CORS_ORIGINS=https://admin.hostyler.cloud,https://pingme.hostyler.cloud
+DIDIT_API_KEY=...
+DIDIT_WEBHOOK_SECRET=...
+JWT_ACCESS_SECRET=...          # strong, unique
+JWT_REFRESH_SECRET=...
+JWT_ADMIN_SECRET=...
+NOTIFICATIONS_TEST_ENABLED=false
+```
+
+### When to update this section
+
+- After each phase milestone or deploy
+- When payment provider is chosen
+- When launch city/neighborhood is picked
+- After device test checklist is completed
+- When Phase 9 venues are reconsidered
+
