@@ -23,9 +23,14 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       <Text style={[styles.bubbleText, message.isYou ? styles.bubbleTextYou : styles.bubbleTextThem]}>
         {message.content}
       </Text>
-      <Text style={[styles.bubbleTime, message.isYou ? styles.bubbleTimeYou : styles.bubbleTimeThem]}>
-        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </Text>
+      <View style={styles.bubbleMeta}>
+        <Text style={[styles.bubbleTime, message.isYou ? styles.bubbleTimeYou : styles.bubbleTimeThem]}>
+          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+        {message.isYou && message.read ? (
+          <Text style={styles.readReceipt}>Read</Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -105,7 +110,28 @@ export default function ChatThreadScreen() {
     [id, queryClient],
   );
 
-  useChatSocket(id, onRealtimeMessage);
+  const onRealtimeRead = useCallback(
+    (payload: { chatId: string; messageIds: string[] }) => {
+      queryClient.setQueryData<{ success: boolean; data: ChatMessage[] }>(
+        ['chat-messages', id],
+        (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            data: current.data.map((message) =>
+              message.isYou &&
+              (payload.messageIds.length === 0 || payload.messageIds.includes(message.id))
+                ? { ...message, read: true, status: 'read' }
+                : message,
+            ),
+          };
+        },
+      );
+    },
+    [id, queryClient],
+  );
+
+  useChatSocket(id, onRealtimeMessage, onRealtimeRead);
 
   useEffect(() => {
     if (!id || !messagesData?.data.length) return;
@@ -285,9 +311,11 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 16, lineHeight: 22 },
   bubbleTextYou: { color: '#fff' },
   bubbleTextThem: { color: '#0f172a' },
-  bubbleTime: { fontSize: 11, marginTop: 4 },
-  bubbleTimeYou: { color: 'rgba(255,255,255,0.7)', textAlign: 'right' },
+  bubbleTime: { fontSize: 11 },
+  bubbleMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  bubbleTimeYou: { color: 'rgba(255,255,255,0.7)' },
   bubbleTimeThem: { color: '#94a3b8' },
+  readReceipt: { fontSize: 10, color: 'rgba(255,255,255,0.85)', fontWeight: '600' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 48 },
   emptyText: { color: '#64748b', fontSize: 15 },
   composer: {

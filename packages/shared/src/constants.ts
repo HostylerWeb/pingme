@@ -24,3 +24,27 @@ export const MAX_WALL_REPLY_LENGTH = 300;
 export const MAX_MESSAGE_LENGTH = 2000;
 
 export const MIN_AGE_YEARS = 18;
+
+export const SUBSCRIPTION_PLANS = {
+  free: {
+    id: 'free' as const,
+    name: 'Free',
+    priceLabel: '$0',
+    features: ['Nearby wall', 'Replies & chat', 'Break the ice'],
+  },
+  premium: {
+    id: 'premium' as const,
+    name: 'Premium',
+    priceLabel: 'Coming soon',
+    features: ['Custom avatar themes', 'Read receipts', 'Profile flair'],
+  },
+} as const;
+
+export const PREMIUM_AVATAR_THEMES = [
+  { id: 'aurora', label: 'Aurora', colors: ['#6366f1', '#8b5cf6', '#ec4899'] },
+  { id: 'sunset', label: 'Sunset', colors: ['#f97316', '#ef4444', '#f59e0b'] },
+  { id: 'midnight', label: 'Midnight', colors: ['#0f172a', '#1e3a8a', '#312e81'] },
+  { id: 'forest', label: 'Forest', colors: ['#14532d', '#16a34a', '#84cc16'] },
+] as const;
+
+export type PremiumAvatarThemeId = (typeof PREMIUM_AVATAR_THEMES)[number]['id'];

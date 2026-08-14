@@ -52,6 +52,7 @@ export const UpdateProfileSchema = z.object({
   bio: z.string().max(MAX_BIO_LENGTH).optional(),
   avatarType: z.nativeEnum(AvatarType).optional(),
   dateOfBirth: dateOfBirthSchema.optional(),
+  avatarTheme: z.enum(['aurora', 'sunset', 'midnight', 'forest']).optional(),
 });
 
 export const UpdateSettingsSchema = z.object({
@@ -61,6 +62,7 @@ export const UpdateSettingsSchema = z.object({
   allowPushReplies: z.boolean().optional(),
   allowPushChat: z.boolean().optional(),
   allowPushIcebreaker: z.boolean().optional(),
+  showReadReceipts: z.boolean().optional(),
   language: z.string().min(2).max(10).optional(),
 });
 

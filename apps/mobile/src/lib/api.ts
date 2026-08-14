@@ -109,6 +109,7 @@ export const api = {
     displayName?: string;
     bio?: string;
     dateOfBirth?: string;
+    avatarTheme?: 'aurora' | 'sunset' | 'midnight' | 'forest';
   }) =>
     apiFetch('/users/me/profile', {
       method: 'PATCH',
@@ -256,6 +257,22 @@ export const api = {
       data: UserSettings;
     }>('/users/me/settings'),
 
+  getSubscription: () =>
+    apiFetch<{ success: boolean; data: SubscriptionInfo }>('/subscriptions/me'),
+
+  getSubscriptionPlans: () =>
+    apiFetch<{ success: boolean; data: SubscriptionPlansResponse }>('/subscriptions/plans'),
+
+  startSubscriptionCheckout: () =>
+    apiFetch<{ success: boolean; data: { checkoutUrl: string } }>('/subscriptions/checkout', {
+      method: 'POST',
+    }),
+
+  cancelSubscription: () =>
+    apiFetch<{ success: boolean; data: SubscriptionInfo }>('/subscriptions/cancel', {
+      method: 'POST',
+    }),
+
   updateSettings: (payload: Partial<UserSettings>) =>
     apiFetch<{ success: boolean; data: UserSettings }>('/users/me/settings', {
       method: 'PATCH',
@@ -388,7 +405,41 @@ export interface AuthUser {
     displayName: string;
     bio?: string | null;
     dateOfBirth: string;
+    avatarUrl?: string | null;
+    avatarConfig?: { theme?: string } | null;
   } | null;
+  subscription?: SubscriptionInfo;
+}
+
+export interface SubscriptionInfo {
+  plan: 'free' | 'premium';
+  status: string;
+  isPremium: boolean;
+  paymentProvider: string | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  features: {
+    avatarThemes: boolean;
+    readReceipts: boolean;
+    profileFlair: boolean;
+  };
+}
+
+export interface SubscriptionPlansResponse {
+  paymentsEnabled: boolean;
+  paymentProvider: string | null;
+  plans: Array<{
+    id: string;
+    name: string;
+    priceLabel: string;
+    features: string[];
+  }>;
+  premiumThemes: Array<{
+    id: string;
+    label: string;
+    colors: string[];
+  }>;
 }
 
 export interface UserSettings {
@@ -396,6 +447,7 @@ export interface UserSettings {
   allowPushReplies: boolean;
   allowPushChat: boolean;
   allowPushIcebreaker: boolean;
+  showReadReceipts: boolean;
   radiusMeters: number;
   showDistanceBucket: boolean;
   language: string;
@@ -446,4 +498,5 @@ export interface ChatMessage {
   createdAt: string;
   isYou: boolean;
   status: string;
+  read?: boolean;
 }

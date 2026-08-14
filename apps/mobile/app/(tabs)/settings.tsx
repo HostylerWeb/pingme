@@ -14,6 +14,11 @@ export default function SettingsScreen() {
     queryFn: () => api.getSettings(),
   });
 
+  const { data: subscriptionData } = useQuery({
+    queryKey: ['subscription'],
+    queryFn: () => api.getSubscription(),
+  });
+
   const mutation = useMutation({
     mutationFn: (payload: {
       quietMode?: boolean;
@@ -27,6 +32,7 @@ export default function SettingsScreen() {
   });
 
   const settings = data?.data;
+  const isPremium = subscriptionData?.data?.isPremium ?? false;
 
   if (isLoading || !settings) {
     return (
@@ -38,7 +44,19 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Notifications</Text>
+      <Text style={styles.title}>Settings</Text>
+
+      <Pressable style={styles.premiumLink} onPress={() => router.push('/premium')}>
+        <View>
+          <Text style={styles.premiumTitle}>Premium</Text>
+          <Text style={styles.premiumHint}>
+            {isPremium ? 'Manage themes and read receipts' : 'Avatar themes & more — coming soon'}
+          </Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+
+      <Text style={styles.sectionTitle}>Notifications</Text>
       <Text style={styles.sectionHint}>Choose which notifications you receive.</Text>
 
       <SettingRow
@@ -108,7 +126,20 @@ function SettingRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, paddingTop: 56, backgroundColor: '#fff' },
-  title: { fontSize: 22, fontWeight: '600', marginBottom: 8 },
+  title: { fontSize: 22, fontWeight: '600', marginBottom: 16 },
+  premiumLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fef3c7',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  premiumTitle: { fontSize: 17, fontWeight: '700', color: '#92400e' },
+  premiumHint: { fontSize: 13, color: '#b45309', marginTop: 2 },
+  chevron: { fontSize: 24, color: '#b45309' },
+  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 8 },
   sectionHint: { fontSize: 14, color: '#64748b', marginBottom: 24 },
   row: {
     flexDirection: 'row',

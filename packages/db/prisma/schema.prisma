@@ -60,6 +60,7 @@ model User {
   reportsFiled         Report[]            @relation("ReportsFiled")
   reportsReceived      Report[]            @relation("ReportsReceived")
   verifications        Verification[]
+  subscription         Subscription?
 
   @@map("users")
 }
@@ -90,6 +91,7 @@ model UserSettings {
   allowPushReplies    Boolean @default(true) @map("allow_push_replies")
   allowPushChat       Boolean @default(true) @map("allow_push_chat")
   allowPushIcebreaker Boolean @default(true) @map("allow_push_icebreaker")
+  showReadReceipts    Boolean @default(false) @map("show_read_receipts")
   language            String  @default("en") @db.VarChar(10)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -489,4 +491,44 @@ model AdminAuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("admin_audit_logs")
+}
+
+enum SubscriptionPlan {
+  free
+  premium
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  past_due
+  trialing
+}
+
+enum PaymentProvider {
+  manual
+  stripe
+  paddle
+  revenuecat
+}
+
+model Subscription {
+  id                     String              @id @default(uuid()) @db.Uuid
+  userId                 String              @unique @map("user_id") @db.Uuid
+  plan                   SubscriptionPlan    @default(free)
+  status                 SubscriptionStatus  @default(active)
+  paymentProvider        PaymentProvider?    @map("payment_provider")
+  providerCustomerId     String?             @map("provider_customer_id") @db.VarChar(255)
+  providerSubscriptionId String?             @map("provider_subscription_id") @db.VarChar(255)
+  cancelAtPeriodEnd      Boolean             @default(false) @map("cancel_at_period_end")
+  currentPeriodStart     DateTime?           @map("current_period_start")
+  currentPeriodEnd       DateTime?           @map("current_period_end")
+  metadata               Json?
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([plan, status])
+  @@map("subscriptions")
 }

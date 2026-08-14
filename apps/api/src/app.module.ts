@@ -14,6 +14,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PresenceModule } from './presence/presence.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { UsersModule } from './users/users.module';
 import { VerificationModule } from './verification/verification.module';
 import { WallModule } from './wall/wall.module';
@@ -39,6 +40,7 @@ import { WallModule } from './wall/wall.module';
     ChatModule,
     SafetyModule,
     VerificationModule,
+    SubscriptionsModule,
     AdminModule,
     HealthModule,
   ],

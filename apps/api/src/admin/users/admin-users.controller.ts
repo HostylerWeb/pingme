@@ -331,6 +331,44 @@ export class AdminUsersController {
     return result;
   }
 
+  @Post(':id/subscription/grant-premium')
+  @Roles(AdminRole.moderator, AdminRole.super_admin)
+  async grantPremium(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentAdmin() admin: { id: string },
+    @Body() body: { note?: string },
+  ) {
+    const result = await this.users.grantPremium(id, admin.id, body.note);
+
+    await this.adminAudit.log({
+      adminUserId: admin.id,
+      action: 'user.grant_premium',
+      entityType: 'user',
+      entityId: id,
+      metadata: { note: body.note },
+    });
+
+    return result;
+  }
+
+  @Post(':id/subscription/revoke-premium')
+  @Roles(AdminRole.moderator, AdminRole.super_admin)
+  async revokePremium(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentAdmin() admin: { id: string },
+  ) {
+    const result = await this.users.revokePremium(id);
+
+    await this.adminAudit.log({
+      adminUserId: admin.id,
+      action: 'user.revoke_premium',
+      entityType: 'user',
+      entityId: id,
+    });
+
+    return result;
+  }
+
   @Patch(':id/status')
   @Roles(AdminRole.moderator, AdminRole.super_admin)
   async updateStatus(

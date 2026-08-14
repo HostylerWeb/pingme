@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service';
 import { BlocksService } from '../common/services/blocks.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { ChatGateway } from './chat.gateway';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class ChatService {
     private readonly audit: AuditService,
     private readonly blocks: BlocksService,
     private readonly notifications: NotificationService,
+    private readonly subscriptions: SubscriptionsService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly gateway: ChatGateway,
   ) {}
@@ -122,6 +124,8 @@ export class ChatService {
       take: limit,
     });
 
+    const showReadReceipts = await this.subscriptions.canShowReadReceipts(userId);
+
     return {
       success: true,
       data: messages.map((message) => ({
@@ -130,6 +134,9 @@ export class ChatService {
         createdAt: message.createdAt,
         isYou: message.senderId === userId,
         status: message.status,
+        ...(showReadReceipts && message.senderId === userId
+          ? { read: message.status === MessageStatus.read }
+          : {}),
       })),
       meta: { page, limit },
     };
@@ -239,12 +246,27 @@ export class ChatService {
     const chat = await this.getChatForUser(userId, chatId);
     const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
 
-    this.gateway.emitMessageRead(otherUserId, {
-      chatId,
-      messageIds: messageIds ?? [],
-      readBy: userId,
-      readCount: result.count,
+    const senderIds = await this.prisma.message.findMany({
+      where,
+      select: { senderId: true },
+      distinct: ['senderId'],
     });
+
+    const sendersWithReceipts = new Set<string>();
+    for (const { senderId } of senderIds) {
+      if (await this.subscriptions.canShowReadReceipts(senderId)) {
+        sendersWithReceipts.add(senderId);
+      }
+    }
+
+    if (sendersWithReceipts.size > 0) {
+      this.gateway.emitMessageRead(otherUserId, {
+        chatId,
+        messageIds: messageIds ?? [],
+        readBy: userId,
+        readCount: result.count,
+      });
+    }
 
     return { updated: result.count };
   }

@@ -38,6 +38,13 @@ interface UserDetail {
       radiusMeters: number;
       quietMode: boolean;
     } | null;
+    subscription?: {
+      plan: string;
+      status: string;
+      isPremium: boolean;
+      paymentProvider: string | null;
+      currentPeriodEnd: string | null;
+    } | null;
     verifications: Array<{
       id: string;
       type: string;
@@ -228,6 +235,43 @@ export default function UserDetailPage() {
                 Quiet mode
               </label>
               <Button disabled={saving} onClick={saveProfile}>Save changes</Button>
+            </div>
+          </Card>
+
+          <Card>
+            <h2 className="font-medium text-white">Premium subscription</h2>
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="flex items-center justify-between rounded-lg bg-zinc-900 p-3">
+                <div>
+                  <p className="text-white">Plan</p>
+                  <Badge color={user.subscription?.isPremium ? 'green' : 'zinc'}>
+                    {user.subscription?.isPremium ? 'Premium' : 'Free'}
+                  </Badge>
+                  {user.subscription?.currentPeriodEnd ? (
+                    <p className="mt-1 text-zinc-400">
+                      Until {formatDate(user.subscription.currentPeriodEnd)}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex gap-2">
+                  {!user.subscription?.isPremium ? (
+                    <Button
+                      disabled={saving}
+                      onClick={() => verificationAction('/subscription/grant-premium', 'POST', { note: 'Admin grant' })}
+                    >
+                      Grant premium
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="danger"
+                      disabled={saving}
+                      onClick={() => verificationAction('/subscription/revoke-premium')}
+                    >
+                      Revoke premium
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </Card>
 

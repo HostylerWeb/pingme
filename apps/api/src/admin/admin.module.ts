@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthModule } from '../auth/auth.module';
 import { VerificationModule } from '../verification/verification.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminAdminsController } from './admins/admin-admins.controller';
 import { AdminAdminsService } from './admins/admin-admins.service';
@@ -29,6 +30,7 @@ import { AdminWallService } from './wall/admin-wall.service';
   imports: [
     AuthModule,
     VerificationModule,
+    SubscriptionsModule,
     PassportModule.register({ defaultStrategy: 'admin-jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -127,6 +127,7 @@ export default function RootLayout() {
           <Stack.Screen name="post/[id]" options={{ headerShown: true, title: 'Post' }} />
           <Stack.Screen name="match/[id]" options={{ headerShown: true, title: 'Match' }} />
           <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="premium" options={{ headerShown: false }} />
           <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
         </Stack>
         </AuthGate>

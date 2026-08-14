@@ -14,6 +14,7 @@ import {
 import { AuthService } from '../../auth/auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { VerificationService } from '../../verification/verification.service';
+import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
 
 export interface UpdateAdminUserInput {
   email?: string | null;
@@ -35,6 +36,7 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
     private readonly verificationService: VerificationService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   async list(params: { q?: string; status?: UserStatus; page?: number; limit?: number }) {
@@ -103,6 +105,7 @@ export class AdminUsersService {
       include: {
         profile: true,
         settings: true,
+        subscription: true,
         verifications: { orderBy: { createdAt: 'desc' } },
         _count: {
           select: {
@@ -146,6 +149,7 @@ export class AdminUsersService {
         deletedAt: user.deletedAt,
         profile: user.profile,
         settings: user.settings,
+        subscription: user.subscription,
         verifications: user.verifications,
         counts: user._count,
       },
@@ -508,6 +512,16 @@ export class AdminUsersService {
     ]);
 
     return { items, total, page, limit };
+  }
+
+  async grantPremium(id: string, adminUserId: string, note?: string) {
+    await this.requireUser(id);
+    return this.subscriptionsService.grantPremium(id, adminUserId, note);
+  }
+
+  async revokePremium(id: string) {
+    await this.requireUser(id);
+    return this.subscriptionsService.revokePremium(id);
   }
 
   private async requireUser(id: string) {

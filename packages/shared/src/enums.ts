@@ -16,3 +16,22 @@ export enum AvatarType {
   Photo = 'photo',
   Generated = 'generated',
 }
+
+export enum SubscriptionPlan {
+  Free = 'free',
+  Premium = 'premium',
+}
+
+export enum SubscriptionStatus {
+  Active = 'active',
+  Cancelled = 'cancelled',
+  PastDue = 'past_due',
+  Trialing = 'trialing',
+}
+
+export enum PaymentProvider {
+  Manual = 'manual',
+  Stripe = 'stripe',
+  Paddle = 'paddle',
+  Revenuecat = 'revenuecat',
+}
