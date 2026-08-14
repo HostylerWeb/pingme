@@ -5,6 +5,7 @@ import { adminFetch } from '@/lib/api';
 import { PageHeader } from '@/components/page-header';
 import { LoadingBlock } from '@/components/loading-block';
 import { Card, CardTitle, CardValue } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface HeatmapResponse {
   totalActive: number;
@@ -16,6 +17,43 @@ interface HeatmapResponse {
     isAvailable: boolean;
     displayName: string | null;
   }>;
+}
+
+interface MapBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
+const MIN_SPAN_DEGREES = 0.01;
+
+function buildBounds(lats: number[], lngs: number[]): MapBounds {
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const centerLat = (minLat + maxLat) / 2;
+  const centerLng = (minLng + maxLng) / 2;
+  const latSpan = Math.max(maxLat - minLat, MIN_SPAN_DEGREES);
+  const lngSpan = Math.max(maxLng - minLng, MIN_SPAN_DEGREES);
+
+  return {
+    minLat: centerLat - latSpan / 2,
+    maxLat: centerLat + latSpan / 2,
+    minLng: centerLng - lngSpan / 2,
+    maxLng: centerLng + lngSpan / 2,
+  };
+}
+
+function projectPoint(lat: number, lng: number, bounds: MapBounds) {
+  const x = ((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 100;
+  const y = (1 - (lat - bounds.minLat) / (bounds.maxLat - bounds.minLat)) * 100;
+
+  return {
+    x: Math.min(96, Math.max(4, x)),
+    y: Math.min(96, Math.max(4, y)),
+  };
 }
 
 export default function MapPage() {
@@ -35,27 +73,25 @@ export default function MapPage() {
   }, []);
 
   const bounds = useMemo(() => {
-    if (!data?.points.length) return null;
-    const lats = data.points.map((p) => p.lat).filter((v): v is number => v != null);
-    const lngs = data.points.map((p) => p.lng).filter((v): v is number => v != null);
+    if (!data) return null;
+
+    const lats = [
+      ...data.points.map((point) => point.lat),
+      ...data.cells.map((cell) => cell.lat),
+    ].filter((value): value is number => value != null);
+    const lngs = [
+      ...data.points.map((point) => point.lng),
+      ...data.cells.map((cell) => cell.lng),
+    ].filter((value): value is number => value != null);
+
     if (!lats.length || !lngs.length) return null;
-    return {
-      minLat: Math.min(...lats),
-      maxLat: Math.max(...lats),
-      minLng: Math.min(...lngs),
-      maxLng: Math.max(...lngs),
-    };
+    return buildBounds(lats, lngs);
   }, [data]);
 
-  function project(lat: number, lng: number) {
-    if (!bounds) return { x: 50, y: 50 };
-    const pad = 0.01;
-    const latSpan = Math.max(bounds.maxLat - bounds.minLat, pad);
-    const lngSpan = Math.max(bounds.maxLng - bounds.minLng, pad);
-    const x = ((lng - bounds.minLng) / lngSpan) * 100;
-    const y = (1 - (lat - bounds.minLat) / latSpan) * 100;
-    return { x, y };
-  }
+  const visiblePoints = useMemo(
+    () => (data?.points ?? []).filter((point) => point.lat != null && point.lng != null),
+    [data],
+  );
 
   if (!data && !error) return <LoadingBlock label="Loading live map…" />;
 
@@ -85,50 +121,105 @@ export default function MapPage() {
             </Card>
           </div>
 
-          <Card className="overflow-hidden p-0">
-            <div className="relative aspect-[16/10] w-full bg-zinc-900">
-              {!bounds || data.points.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-sm text-zinc-500">
-                  No active presence data right now.
-                </div>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <Card className="overflow-hidden p-0">
+              <div className="relative aspect-[16/10] w-full overflow-hidden bg-zinc-950">
+                <div
+                  className="absolute inset-0 opacity-40"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(to right, rgb(82 82 91 / 0.35) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgb(82 82 91 / 0.35) 1px, transparent 1px)
+                    `,
+                    backgroundSize: '48px 48px',
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-violet-950/20 via-transparent to-zinc-950/80" />
+
+                {!bounds || visiblePoints.length === 0 ? (
+                  <div className="relative z-10 flex h-full items-center justify-center text-sm text-zinc-500">
+                    No active presence data right now.
+                  </div>
+                ) : (
+                  <>
+                    {data.cells.map((cell) => {
+                      const { x, y } = projectPoint(cell.lat, cell.lng, bounds);
+                      const intensity = Math.min(cell.count / 5, 1);
+                      return (
+                        <div
+                          key={`${cell.lat}-${cell.lng}`}
+                          className="absolute z-10 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full blur-md"
+                          style={{
+                            left: `${x}%`,
+                            top: `${y}%`,
+                            backgroundColor: `rgba(139, 92, 246, ${0.25 + intensity * 0.55})`,
+                          }}
+                        />
+                      );
+                    })}
+                    {visiblePoints.map((point, index) => {
+                      const { x, y } = projectPoint(point.lat!, point.lng!, bounds);
+                      return (
+                        <div
+                          key={`${point.lat}-${point.lng}-${index}`}
+                          className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                          style={{ left: `${x}%`, top: `${y}%` }}
+                        >
+                          <div
+                            title={point.displayName ?? 'User'}
+                            className={`h-3 w-3 rounded-full ring-2 ring-zinc-950 ${
+                              point.isAvailable ? 'bg-emerald-400' : 'bg-zinc-400'
+                            }`}
+                          />
+                          {visiblePoints.length <= 12 ? (
+                            <p className="mt-1 max-w-[8rem] truncate text-center text-[10px] font-medium text-zinc-200">
+                              {point.displayName ?? 'User'}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+
+                {bounds ? (
+                  <div className="absolute bottom-3 left-3 z-30 rounded-md bg-zinc-950/80 px-2 py-1 text-[10px] text-zinc-400 ring-1 ring-zinc-800">
+                    {bounds.minLat.toFixed(4)}, {bounds.minLng.toFixed(4)} → {bounds.maxLat.toFixed(4)}, {bounds.maxLng.toFixed(4)}
+                  </div>
+                ) : null}
+              </div>
+              <div className="border-t border-zinc-800 px-4 py-3 text-xs text-zinc-500">
+                Green dots = available users. Purple glow = density clusters. Locations are fuzzy — never exact GPS.
+              </div>
+            </Card>
+
+            <Card>
+              <h2 className="font-medium text-white">Active users</h2>
+              <p className="mt-1 text-sm text-zinc-400">Who is currently on the map.</p>
+              {visiblePoints.length === 0 ? (
+                <p className="mt-4 text-sm text-zinc-500">No users with location right now.</p>
               ) : (
-                <>
-                  {data.cells.map((cell) => {
-                    const { x, y } = project(cell.lat, cell.lng);
-                    const intensity = Math.min(cell.count / 5, 1);
-                    return (
-                      <div
-                        key={`${cell.lat}-${cell.lng}`}
-                        className="absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full blur-md"
-                        style={{
-                          left: `${x}%`,
-                          top: `${y}%`,
-                          backgroundColor: `rgba(139, 92, 246, ${0.2 + intensity * 0.6})`,
-                        }}
-                      />
-                    );
-                  })}
-                  {data.points.map((point, index) => {
-                    if (point.lat == null || point.lng == null) return null;
-                    const { x, y } = project(point.lat, point.lng);
-                    return (
-                      <div
-                        key={`${point.lat}-${point.lng}-${index}`}
-                        title={point.displayName ?? 'User'}
-                        className={`absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-zinc-950 ${
-                          point.isAvailable ? 'bg-emerald-400' : 'bg-zinc-400'
-                        }`}
-                        style={{ left: `${x}%`, top: `${y}%` }}
-                      />
-                    );
-                  })}
-                </>
+                <ul className="mt-4 space-y-2">
+                  {visiblePoints.map((point, index) => (
+                    <li
+                      key={`${point.displayName}-${index}`}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-zinc-100">{point.displayName ?? 'User'}</p>
+                        <p className="font-mono text-[11px] text-zinc-500">
+                          {point.lat!.toFixed(5)}, {point.lng!.toFixed(5)}
+                        </p>
+                      </div>
+                      <Badge color={point.isAvailable ? 'green' : 'zinc'}>
+                        {point.isAvailable ? 'Available' : 'Hidden'}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </div>
-            <div className="border-t border-zinc-800 px-4 py-3 text-xs text-zinc-500">
-              Green dots = available users. Purple glow = density clusters. Locations are fuzzy — never exact GPS.
-            </div>
-          </Card>
+            </Card>
+          </div>
         </>
       ) : null}
     </div>

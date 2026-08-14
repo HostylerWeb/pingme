@@ -1,6 +1,13 @@
 import { create } from 'zustand';
-import { api, AuthUser } from '../lib/api';
-import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from '../lib/auth-storage';
+import { api, ApiError, AuthUser, ensureValidAccessToken } from '../lib/api';
+import {
+  clearTokens,
+  getAccessToken,
+  getCachedUser,
+  getRefreshToken,
+  saveCachedUser,
+  saveTokens,
+} from '../lib/auth-storage';
 
 interface AuthState {
   user: AuthUser | null;
@@ -20,22 +27,49 @@ interface AuthState {
   refreshMe: () => Promise<void>;
 }
 
+function isAuthError(error: unknown) {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: false,
   isHydrated: false,
 
   hydrate: async () => {
+    const accessToken = await getAccessToken();
+    const refreshToken = await getRefreshToken();
+
+    if (!accessToken && !refreshToken) {
+      set({ user: null, isHydrated: true });
+      return;
+    }
+
+    const cachedUser = (await getCachedUser()) as AuthUser | null;
+
     try {
-      const token = await getAccessToken();
-      if (!token) {
+      const hasValidAccess = await ensureValidAccessToken();
+      if (!hasValidAccess) {
+        await clearTokens();
         set({ user: null, isHydrated: true });
         return;
       }
+
       const response = await api.me();
+      await saveCachedUser(response.data);
       set({ user: response.data, isHydrated: true });
-    } catch {
-      await clearTokens();
+    } catch (error) {
+      if (isAuthError(error)) {
+        await clearTokens();
+        set({ user: null, isHydrated: true });
+        return;
+      }
+
+      if (cachedUser) {
+        set({ user: cachedUser, isHydrated: true });
+        return;
+      }
+
       set({ user: null, isHydrated: true });
     }
   },
@@ -49,7 +83,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           : { email: identifier, password },
       );
       await saveTokens(result.accessToken, result.refreshToken);
-      set({ user: result.user as AuthUser, isLoading: false });
+      const user = result.user as AuthUser;
+      await saveCachedUser(user);
+      set({ user, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -61,7 +97,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const result = await api.register(input);
       await saveTokens(result.accessToken, result.refreshToken);
-      set({ user: result.user as AuthUser, isLoading: false });
+      const user = result.user as AuthUser;
+      await saveCachedUser(user);
+      set({ user, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -80,6 +118,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   refreshMe: async () => {
     const response = await api.me();
+    await saveCachedUser(response.data);
     set({ user: response.data });
   },
 }));

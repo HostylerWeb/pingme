@@ -12,24 +12,61 @@ export class ApiError extends Error {
   }
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+function isAccessTokenExpired(token: string, skewSeconds = 30) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as { exp?: number };
+    if (!payload.exp) return true;
+    return payload.exp * 1000 <= Date.now() + skewSeconds * 1000;
+  } catch {
+    return true;
+  }
+}
+
+export async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = await getRefreshToken();
   if (!refreshToken) return null;
 
-  const response = await fetch(`${API_URL}/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
+  try {
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    });
 
-  if (!response.ok) {
-    await clearTokens();
+    if (response.status === 401 || response.status === 403) {
+      await clearTokens();
+      return null;
+    }
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    await saveTokens(data.accessToken, data.refreshToken);
+    return data.accessToken;
+  } catch {
     return null;
   }
+}
 
-  const data = await response.json();
-  await saveTokens(data.accessToken, data.refreshToken);
-  return data.accessToken;
+export async function ensureValidAccessToken() {
+  const accessToken = await getAccessToken();
+  const refreshToken = await getRefreshToken();
+
+  if (!accessToken && !refreshToken) {
+    return false;
+  }
+
+  if (accessToken && !isAccessTokenExpired(accessToken)) {
+    return true;
+  }
+
+  if (!refreshToken) {
+    return false;
+  }
+
+  return (await refreshAccessToken()) !== null;
 }
 
 export async function apiFetch<T>(
