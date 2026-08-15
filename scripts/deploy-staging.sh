@@ -4,13 +4,18 @@ set -euo pipefail
 
 SITE_DIR="${SITE_DIR:-/var/www/sites/pingme}"
 
+# Re-exec after git reset so this shell runs the updated script (not the pre-pull copy).
+if [[ "${DEPLOY_REEXEC:-}" != "1" ]]; then
+  cd "$SITE_DIR"
+  sudo -u hostyler git fetch origin
+  sudo -u hostyler git reset --hard origin/main
+  exec env DEPLOY_REEXEC=1 bash "$SITE_DIR/scripts/deploy-staging.sh"
+fi
+
 cd "$SITE_DIR"
 set -a
 source "$SITE_DIR/.env"
 set +a
-
-sudo -u hostyler git fetch origin
-sudo -u hostyler git reset --hard origin/main
 
 # Ensure required env flags
 for kv in \
