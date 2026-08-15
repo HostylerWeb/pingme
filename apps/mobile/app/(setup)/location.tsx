@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { AppIcon } from '../../src/components/ui/app-icon';
+import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { locationSetupStorage } from '../../src/lib/location-setup-storage';
 import { Button, Card, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
@@ -10,6 +11,7 @@ import { radius, spacing, typography, useTheme, useThemedStyles } from '../../sr
 export default function LocationSetupScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const wallDefaultMeters = useRequiredDistanceConfig().wall.defaultMeters;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,7 +80,7 @@ export default function LocationSetupScreen() {
 
         <Text style={styles.title}>Enable location</Text>
         <Text style={styles.body}>
-          PingMe uses your location while you use the app to show posts and people within about 250 meters.
+          PingMe uses your location while you use the app to show posts and people within about {wallDefaultMeters} meters.
           We never share your exact coordinates — only fuzzy distance buckets.
         </Text>
 

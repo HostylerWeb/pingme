@@ -852,7 +852,10 @@ STRIPE_SECRET_KEY=          # Phase 6
 STRIPE_WEBHOOK_SECRET=      # Phase 6
 SENTRY_DSN=
 DEFAULT_RADIUS_METERS=250
-ICEBREAKER_RADIUS_METERS=50
+WALL_MIN_RADIUS_METERS=150
+WALL_MAX_RADIUS_METERS=500
+ICEBREAKER_RADIUS_METERS=150
+EVENTS_DISCOVERY_RADIUS_METERS=15000
 ICEBREAKER_WINDOW_MINUTES=10
 PRESENCE_TTL_SECONDS=300
 ```
@@ -1477,6 +1480,7 @@ Mobile app                    NestJS API                    didit.me
 ## Complete API Endpoint Index
 
 ### Public / Auth
+- `GET /config` — distance limits (wall min/max/default, icebreaker, events)
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/refresh`
@@ -1666,11 +1670,12 @@ Priority order for the next sprint:
 | # | Task | Why |
 |---|------|-----|
 | 1 | **Deploy to staging** | Pull `main`, migrate, rebuild API + admin, restart services |
-| 2 | **Staging env** | `PUSH_ENABLED=true`, `DIDIT_*`, `CORS_ORIGINS`, strong JWT secrets, `PAYMENT_PROVIDER=none` |
+| 2 | **Staging env** | `PUSH_ENABLED=true`, `DIDIT_*` (liveness + KYC workflow when ready), `CORS_ORIGINS`, strong JWT secrets, `PAYMENT_PROVIDER=none` |
 | 3 | **Smoke + device tests** | `./scripts/staging-smoke.sh` + `docs/device-test-checklist.md` on two physical phones |
-| 4 | **Frontend polish** | Design system, empty/error states, onboarding UX, profile/premium visuals — flows already exist |
-| 5 | **Legal pages** | Privacy policy + terms of service (required for store submission) |
-| 6 | **Store assets** | Icons, screenshots, descriptions for App Store + Play Store |
+| 4 | **Events Phase 0** | ✅ Locked — see Events feature plan (E0.1–E0.8) |
+| 5 | **Events Phase 1 (KYC)** | Didit KYC workflow + user-facing ID verification for event hosts |
+| 6 | **Legal pages** | Privacy policy + terms of service (required for store submission) |
+| 7 | **Store assets** | Icons, screenshots, descriptions for App Store + Play Store |
 
 **Staging deploy checklist (VPS):**
 ```bash
@@ -1728,7 +1733,8 @@ NOTIFICATIONS_TEST_ENABLED=false
 - When payment provider is chosen
 - When launch city/neighborhood is picked
 - After device test checklist is completed
-- When Phase 9 venues are reconsidered
+- When Events Phase 0 decisions are locked
+- When `DIDIT_WORKFLOW_ID_KYC` is configured
 
 ---
 
@@ -1742,7 +1748,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | **Partial** | Started or backend-only; UX or polish still missing |
 | **Not started** | No meaningful implementation yet |
 
-*Last reviewed: 2026-08-15 (after Warm Ink admin redesign + mobile UX sprint).*
+*Last reviewed: 2026-08-16 (after custom icons sprint + Events feature planning).*
 
 ### Do first (high impact, relatively small)
 
@@ -1761,9 +1767,9 @@ NOTIFICATIONS_TEST_ENABLED=false
 | Post-login permission flow (no skip) | **Done** | Location → Notifications → tour → Wall |
 | Delete own Wall posts | **Done** | API + long-press / post detail |
 | Premium UX for existing members | **Done** | Profile, settings, premium page |
-| Notifications settings redesign | **Done** | Card layout + toggles |
-| Toast redesign | **Done** | Icons + themed styles |
-| Admin dashboard Warm Ink theme + mobile responsive | **Done** | Deployed to `admin.hostyler.cloud` |
+| Notifications settings redesign | **Done** | Simple toggle rows (not heavy cards) |
+| Custom Solar icons + tab bar polish | **Done** | `AppIcon`, `react-native-svg`, darker light-theme tab tints |
+| EAS dev build + `google-services.json` secret | **Done** | `app.config.ts` + `GOOGLE_SERVICES_JSON` on EAS |
 | Icebreaker match reset (staging ops) | **Done** | Manual DB/Redis cleanup as needed |
 
 ### Premium & monetization
@@ -1794,6 +1800,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | 17 | **Report flow in-app copy** — What happens after you report | **Done** | Moderator review footer on report sheet + confirmation toast |
 | 18 | **Auto-flag repeat offenders** | **Partial** | `requiresAdminReview` + admin dashboard; no mobile surfacing |
 | 19 | **Verification badge** — Email/phone/liveness on profile | **Partial** | “Email verified” on own profile; not on others in feed/cards |
+| 19b | **ID verification (KYC) for event hosts** — Didit ID + liveness | **Partial** | `startKycForUser()` + `VerificationType.document` exist; admin-only today; `DIDIT_WORKFLOW_ID_KYC` unset; no user-facing flow |
 | 20 | **Underage / DOB enforcement** | **Partial** | `MIN_AGE_YEARS` on register/DOB field; not audited everywhere |
 
 ### Admin & ops
@@ -1822,24 +1829,166 @@ NOTIFICATIONS_TEST_ENABLED=false
 |---|---------|--------|-------|
 | 31 | **Native in-app purchases** | **Not started** | |
 | 32 | **Premium add-ons à la carte** — e.g. visibility boost | **Not started** | |
-| 33 | **Events / pinned wall posts** | **Not started** | |
+| 33 | **Events (user-created meetups)** — Couchsurfing-style | **Not started** | See **Events feature plan** below; browse nearby, host needs liveness + ID KYC |
 | 34 | **Web app** — Read-only wall for desktop | **Not started** | |
 | 35 | **Analytics** — DAU, match rate, icebreaker → chat conversion | **Partial** | Admin dashboard DAU (24h) only |
+
+### Events feature plan (Couchsurfing-style)
+
+**Product goal:** Users can create real-world meetups (title, description, images, date/time, location). Anyone nearby can browse and read details + see the host. **Creating** an event requires a higher trust bar than Wall posts.
+
+**Verification ladder**
+
+| Action | Requirement |
+|--------|-------------|
+| Browse events | None (like browsing Wall) |
+| Post on Wall / chat / icebreaker | Liveness (`DIDIT_WORKFLOW_ID_LIVENESS`) — **already enforced** |
+| **Create / host an event** | Liveness **+** full ID KYC (`DIDIT_WORKFLOW_ID_KYC`) |
+
+**What already exists in code**
+
+- Didit liveness flow (mobile WebView, webhook, `verifications` table)
+- KYC session creation: `VerificationService.startKycForUser()` → `VerificationType.document`
+- KYC today is **admin-triggered only** (`POST /admin/users/:id/verification/start-kyc`)
+- `DIDIT_WORKFLOW_ID_KYC` is empty in `.env` — must be set in Didit console first
+- Avatar/image upload (R2 or local) — extend for event cover/gallery
+- Wall nearby query (PostGIS) — pattern to copy for `GET /events/nearby`
+
+**Phase 0 — Product decisions** ✅ *Locked 2026-08-16*
+
+| # | Question | Decision |
+|---|----------|----------|
+| E0.1 | Where do events live? | **New Events tab** (5th bottom-nav tab) |
+| E0.2 | RSVP / attendance (MVP) | **Full RSVP** — going / maybe + visible counts |
+| E0.3 | Event location | **Map picker** with free geocoding (e.g. Nominatim/OSM): search place name; if not found, user pans map / drops pin on street. Store coords + optional place label/address. Show pin on detail map (exact pin for event venue — not Wall-style fuzzing). |
+| E0.4 | Discovery radius | **15 km** fixed (much wider than Wall’s 150–500m; revisit after beta) |
+| E0.5 | Images | **Up to 5** — 1 cover (main) + up to 4 gallery images |
+| E0.6 | Event lifetime | **`starts_at` + `ends_at` required**; remove from active/discovery feed when ended; host can cancel early |
+| E0.7 | Host contact | **(1) Message host** — opt-in per event (`allow_messages`, toggle on create/edit). **(2) Public comment thread** on event (Wall-style replies; threaded discussion). |
+| E0.8 | Past events | Hide from main feed when ended; **“Past events”** section later (not MVP) |
+
+**MVP scope note:** RSVP + comments + map picker + 5 images is a **large** MVP — build in slices: KYC → events CRUD + list/detail → RSVP → comments → map search.
+
+**Phase 1 — ID verification (prerequisite for hosting)**
+
+| # | Task | Status |
+|---|------|--------|
+| E1.1 | Create **full KYC workflow** in Didit console (ID + liveness + age) | **Not started** |
+| E1.2 | Set `DIDIT_WORKFLOW_ID_KYC` in local + staging `.env` | **Not started** |
+| E1.3 | Add `hasPassedIdVerification(userId)` on API | **Not started** |
+| E1.4 | Fix webhook pass logic for KYC — check `id_verifications` + liveness, not liveness alone | **Not started** |
+| E1.5 | `POST /verification/start-kyc` — **user-initiated** (not admin-only) | **Not started** |
+| E1.6 | Extend `GET /verification/status` with `idVerified` | **Not started** |
+| E1.7 | Mobile: “Verify ID to host events” screen (WebView, same as liveness) | **Not started** |
+| E1.8 | Profile badge: “ID verified” (distinct from liveness) | **Not started** |
+
+**Phase 2 — Database**
+
+| # | Task | Status |
+|---|------|--------|
+| E2.1 | Migration: `events` table — `user_id`, title, description, lat/lng, `place_name`, `address`, `starts_at`, `ends_at`, `allow_messages`, status | **Not started** |
+| E2.2 | Migration: `event_images` table — up to 5 (`is_cover`, `sort_order`) | **Not started** |
+| E2.3 | Migration: `event_rsvps` — `user_id`, `event_id`, status (`going` / `maybe` / `cancelled`) | **Not started** |
+| E2.4 | Migration: `event_comments` — threaded replies (like `wall_replies`) | **Not started** |
+| E2.5 | Indexes: geo (15km queries), `starts_at`, `status`, `user_id` | **Not started** |
+
+**Phase 3 — API**
+
+| # | Task | Status |
+|---|------|--------|
+| E3.1 | `GET /events/nearby` — **15 km** radius, blocks, distance | **Not started** |
+| E3.2 | `GET /events/:id` — detail + images + host + RSVP counts | **Not started** |
+| E3.3 | `POST /events` — guard: liveness + ID verified; `allow_messages` flag | **Not started** |
+| E3.4 | `PATCH /events/:id` · `DELETE /events/:id` — host only | **Not started** |
+| E3.5 | `POST /events/:id/images` — up to 5 (1 cover + gallery) | **Not started** |
+| E3.6 | `POST /events/:id/rsvp` · `DELETE /events/:id/rsvp` — going / maybe | **Not started** |
+| E3.7 | `GET /events/:id/comments` · `POST` · `DELETE` — public thread | **Not started** |
+| E3.8 | `POST /events/:id/message-host` — only if `allow_messages` + liveness | **Not started** |
+| E3.9 | Report event — reuse reports module | **Not started** |
+
+**Phase 4 — Mobile**
+
+| # | Task | Status |
+|---|------|--------|
+| E4.1 | **Events tab** — list (cover, title, date, distance, host, RSVP count) | **Not started** |
+| E4.2 | Event detail — carousel, map pin, description, host card | **Not started** |
+| E4.3 | Create/edit — KYC gate → form → map search/pin → up to 5 images → `allow_messages` toggle | **Not started** |
+| E4.4 | RSVP buttons (Going / Maybe) + counts | **Not started** |
+| E4.5 | Comment thread on event detail | **Not started** |
+| E4.6 | “Message host” CTA when allowed | **Not started** |
+| E4.7 | “My events” on You tab — edit / cancel | **Not started** |
+
+**Phase 5 — Admin & safety**
+
+| # | Task | Status |
+|---|------|--------|
+| E5.1 | Admin: list / remove events | **Not started** |
+| E5.2 | Admin: see host verification status on event | **Not started** |
+| E5.3 | Push: “New event near you” (optional, post-MVP) | **Not started** |
+
+**Suggested build order:** E1 (KYC) → E2 → E3 core (CRUD + nearby) → E4 list/detail/create → E3/E4 RSVP → comments → message host. Phase 0 locked.
+
+**Rough effort:** ~3–4 weeks given RSVP + comments + map (larger than initial estimate).
+
+### Distance & radius configuration
+
+**Decision (2026-08-16):** Server-side limits live in **API `.env`** (VPS), not mobile `.env` and not hardcoded-only in app code. Mobile reads effective limits from the API so you can tune staging without rebuilding the app.
+
+| Variable | Feature | Default | Who sets it | Notes |
+|----------|---------|---------|-------------|-------|
+| `DEFAULT_RADIUS_METERS` | Wall — default when user has no preference | `250` | Ops (`.env`) | Already used by API (`wall.service`, `presence.service`) |
+| `WALL_MIN_RADIUS_METERS` | Wall — floor for user picker | `150` | Ops (`.env`) | **To wire:** clamp `user_settings.radius_meters` + mobile picker options |
+| `WALL_MAX_RADIUS_METERS` | Wall — ceiling for user picker | `500` | Ops (`.env`) | **To wire:** same as above |
+| `ICEBREAKER_RADIUS_METERS` | Break the ice — fixed match radius | `150` | Ops (`.env`) | Already used by API (`icebreaker.service`). Staging `.env` may still be `50` — align when testing |
+| `EVENTS_DISCOVERY_RADIUS_METERS` | Events — nearby discovery | `15000` (15 km) | Ops (`.env`) | **To wire** when Events ship (Phase E3) |
+
+**Why API `.env` (not mobile `.env`)?**
+- Change on VPS → restart API → all app users pick it up (no APK rebuild).
+- One source of truth for enforcement (clients cannot cheat radius).
+- Mobile `EXPO_PUBLIC_*` is for API URLs only, not product tuning.
+
+**Why not database-only?**
+- DB is right for **per-user Wall preference** (`user_settings.radius_meters`) — already exists.
+- DB is wrong for **global policy** (icebreaker 50m vs 150m, events 15km) — requires admin UI or migrations to change.
+
+**Recommended pattern (hybrid)**
+
+```
+API .env          → global caps & fixed radii (wall min/max/default, icebreaker, events)
+user_settings DB  → each user's Wall choice within min–max
+GET /config       → public app limits (distance radii); mobile prefetches at launch
+```
+
+**Implementation TODO**
+
+| # | Task | Status |
+|---|------|--------|
+| D1 | Add vars to `apps/api/.env.example` + staging VPS `.env` | **Done** |
+| D2 | API: clamp `radiusMeters` updates to `WALL_MIN`–`WALL_MAX` | **Done** |
+| D3 | API: `GET /config` — return all radii for mobile UI | **Done** |
+| D4 | Mobile: build radius picker options from API config (not hardcoded `RADIUS_OPTIONS`) | **Done** |
+| D5 | Mobile: icebreaker subtitle from API config | **Done** |
+| D6 | Events module: use `EVENTS_DISCOVERY_RADIUS_METERS` | **Not started** (with Events E3) |
+
+**Architecture:** API `.env` → `AppConfigService` (single parser) → enforces on wall/presence/icebreaker + exposes `GET /v1/config`. Mobile prefetches config at launch. Per-user Wall radius stays in `user_settings` but is clamped to server min/max.
 
 ### Suggested implementation order
 
 | Phase | Items | Rationale |
 |-------|-------|-----------|
-| **Done (this sprint)** | 1, 2, 3, 4, 5 | Clarity, Premium visibility, empty states, onboarding tour |
-| **Next** | 6, 7, 19, 27 | Monetization + verification badge + contrast audit |
-| **Before public launch** | 17, 19, 21, 27 | Trust, verification surfacing, admin map, contrast |
-| **Growth** | 30, 35 | Invite loop + funnel metrics |
+| **Done (icons sprint)** | Custom icons, tab bar, settings notifications, EAS build | Mobile polish shipped `da5b1c3` / `f554957` |
+| **Immediate** | Staging deploy + device test checklist | Validate core flows on two phones before new features |
+| **Next (Events)** | E0 decisions → E1 KYC → E2–E4 Events MVP | Host trust gate + Couchsurfing-style meetups |
+| **Parallel track** | 6, 7 (Stripe) OR 26, legal pages (store prep) | Monetization vs beta launch — pick one |
+| **Before public launch** | 19, 19b, 21, 27, legal pages | Trust badges, ID verification, admin map, contrast |
+| **Growth** | 30, 35, E5.3 | Invite loop + funnel metrics + event push |
 
 ### Goal-based top 5 (pick one track)
 
 | Goal | Top 5 |
 |------|-------|
 | **Monetize soon** | 6 → 7 → 8 → 10 → (Stripe webhooks) |
-| **Grow / test icebreaker** | 16 → 11 → push device test → report copy (#17) |
-| **Polish for launch** | 17 → 19 → 21 → 27 → 12 |
+| **Grow / test icebreaker** | Device test checklist → 16 → 11 → E0 decisions |
+| **Ship Events** | E0 → E1 (KYC) → E2–E4 → E5 |
+| **Polish for launch** | 17 → 19 → 19b → 21 → 27 → legal pages |
 

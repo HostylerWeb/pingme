@@ -1,35 +1,40 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { AppIcon, type AppIconName } from '../../src/components/ui/app-icon';
+import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { onboardingStorage } from '../../src/lib/onboarding-storage';
 import { Button, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
-const SLIDES = [
-  {
-    icon: 'people' as AppIconName,
-    title: 'Meet people nearby',
-    body: 'Connect with others within 250m. Real people, real proximity — cafés, parks, and everyday moments.',
-  },
-  {
-    icon: 'verified' as AppIconName,
-    title: 'Privacy first',
-    body: 'We never show your exact location. Others only see distance buckets like "Very near" or "~200m away".',
-  },
-  {
-    icon: 'location' as AppIconName,
-    title: 'You stay in control',
-    body: 'Choose "Allow only while using the app" for location. Background access is only requested when you turn Visible on Wall on.',
-  },
-];
+function buildSlides(wallDefaultMeters: number) {
+  return [
+    {
+      icon: 'people' as AppIconName,
+      title: 'Meet people nearby',
+      body: `Connect with others within ${wallDefaultMeters}m. Real people, real proximity — cafés, parks, and everyday moments.`,
+    },
+    {
+      icon: 'verified' as AppIconName,
+      title: 'Privacy first',
+      body: 'We never show your exact location. Others only see distance buckets like "Very near" or "~200m away".',
+    },
+    {
+      icon: 'location' as AppIconName,
+      title: 'You stay in control',
+      body: 'Choose "Allow only while using the app" for location. Background access is only requested when you turn Visible on Wall on.',
+    },
+  ];
+}
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const wallDefaultMeters = useRequiredDistanceConfig().wall.defaultMeters;
+  const slides = useMemo(() => buildSlides(wallDefaultMeters), [wallDefaultMeters]);
   const [step, setStep] = useState(0);
-  const slide = SLIDES[step];
-  const isLast = step === SLIDES.length - 1;
+  const slide = slides[step];
+  const isLast = step === slides.length - 1;
 
   const styles = useThemedStyles(({ colors }) => ({
     container: { flex: 1, padding: spacing.container },
@@ -112,7 +117,7 @@ export default function OnboardingScreen() {
 
         <View style={styles.footer}>
           <View style={styles.dots}>
-            {SLIDES.map((_, index) => (
+            {slides.map((_, index) => (
               <View key={index} style={[styles.dot, index === step && styles.dotActive]} />
             ))}
           </View>

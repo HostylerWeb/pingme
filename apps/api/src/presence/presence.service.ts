@@ -6,7 +6,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@pingme/db';
 import {
   distanceBucket,
@@ -15,6 +14,7 @@ import {
   PRESENCE_TTL_SECONDS,
 } from '@pingme/shared';
 import { BlocksService } from '../common/services/blocks.service';
+import { AppConfigService } from '../config/app-config.service';
 import { loadPublicProfileMap } from '../common/utils/public-profile.util';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,7 +29,7 @@ export class PresenceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly config: ConfigService,
+    private readonly appConfig: AppConfigService,
     private readonly rateLimit: RateLimitService,
     private readonly blocks: BlocksService,
     private readonly verification: VerificationService,
@@ -194,9 +194,7 @@ export class PresenceService {
     }
 
     const settings = await this.prisma.userSettings.findUnique({ where: { userId } });
-    const radius =
-      settings?.radiusMeters ??
-      Number(this.config.get('DEFAULT_RADIUS_METERS', 250));
+    const radius = this.appConfig.resolveWallRadius(settings?.radiusMeters);
 
     const blockedIds = await this.blocks.getBlockedUserIds(userId);
     const redisCount = await this.redis.client.zcard(GEO_AVAILABLE_KEY);
@@ -253,9 +251,7 @@ export class PresenceService {
     }
 
     const settings = await this.prisma.userSettings.findUnique({ where: { userId } });
-    const radius =
-      settings?.radiusMeters ??
-      Number(this.config.get('DEFAULT_RADIUS_METERS', 250));
+    const radius = this.appConfig.resolveWallRadius(settings?.radiusMeters);
 
     const blockedIds = await this.blocks.getBlockedUserIds(userId);
     const blockedSet = new Set(blockedIds);

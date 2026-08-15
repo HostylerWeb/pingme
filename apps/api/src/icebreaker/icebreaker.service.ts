@@ -5,20 +5,15 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { IcebreakerSessionStatus, MatchStatus } from '@pingme/db';
 import {
-  ICEBREAKER_HIDE_MINUTES,
-  ICEBREAKER_INTEREST_EXPIRY_MINUTES,
-  ICEBREAKER_RADIUS_METERS,
-  ICEBREAKER_STARTS_PER_HOUR,
-  ICEBREAKER_WINDOW_MINUTES,
   MATCH_EXPIRY_MINUTES,
   NOTIFICATION_TYPES,
   distanceBucket,
   isUserActiveNow,
 } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
+import { AppConfigService } from '../config/app-config.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { BlocksService } from '../common/services/blocks.service';
 import { loadPublicProfileMap } from '../common/utils/public-profile.util';
@@ -39,7 +34,7 @@ interface NearbySessionRow {
 export class IcebreakerService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
+    private readonly appConfig: AppConfigService,
     private readonly audit: AuditService,
     private readonly blocks: BlocksService,
     private readonly rateLimit: RateLimitService,
@@ -49,9 +44,10 @@ export class IcebreakerService {
   ) {}
 
   async start(userId: string, options: StartIcebreakerDto = {}) {
+    const icebreakerConfig = this.appConfig.getIcebreakerConfig();
     const allowed = await this.rateLimit.incrementWithinWindow(
       `rate:icebreaker:${userId}`,
-      ICEBREAKER_STARTS_PER_HOUR,
+      icebreakerConfig.startsPerHour,
       3600,
     );
     if (!allowed) {
@@ -73,9 +69,7 @@ export class IcebreakerService {
       });
     }
 
-    const windowMinutes = Number(
-      this.config.get('ICEBREAKER_WINDOW_MINUTES', ICEBREAKER_WINDOW_MINUTES),
-    );
+    const windowMinutes = icebreakerConfig.windowMinutes;
     const expiresAt = new Date(Date.now() + windowMinutes * 60 * 1000);
     const introMessage = options.introMessage?.trim() || null;
 
@@ -250,7 +244,7 @@ export class IcebreakerService {
       });
     }
 
-    const radius = Number(this.config.get('ICEBREAKER_RADIUS_METERS', ICEBREAKER_RADIUS_METERS));
+    const radius = this.appConfig.getDistanceConfig().icebreaker.radiusMeters;
 
     const rows = await this.prisma.$queryRaw<NearbySessionRow[]>`
       SELECT
@@ -423,12 +417,9 @@ export class IcebreakerService {
       throw new BadRequestException('Cannot connect with this user');
     }
 
-    const hideMinutes = Number(
-      this.config.get('ICEBREAKER_HIDE_MINUTES', ICEBREAKER_HIDE_MINUTES),
-    );
-    const interestExpiryMinutes = Number(
-      this.config.get('ICEBREAKER_INTEREST_EXPIRY_MINUTES', ICEBREAKER_INTEREST_EXPIRY_MINUTES),
-    );
+    const icebreakerConfig = this.appConfig.getIcebreakerConfig();
+    const hideMinutes = icebreakerConfig.hideMinutes;
+    const interestExpiryMinutes = icebreakerConfig.interestExpiryMinutes;
     const hiddenUntil = interested
       ? null
       : new Date(Date.now() + hideMinutes * 60 * 1000);

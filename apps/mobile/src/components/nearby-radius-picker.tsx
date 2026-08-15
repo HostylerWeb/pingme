@@ -1,22 +1,33 @@
+import { wallRadiusRangeLabel } from '@pingme/shared';
 import { Pressable, Text, View } from 'react-native';
 import { radius, spacing, typography, useThemedStyles } from '../theme';
 
-export const RADIUS_OPTIONS = [
-  { meters: 150, label: '150m', hint: 'Close' },
-  { meters: 250, label: '250m', hint: 'Default' },
-  { meters: 350, label: '350m', hint: 'Wide' },
-  { meters: 500, label: '500m', hint: 'Far' },
-] as const;
-
-export const RADIUS_RANGE_LABEL = '150–500m';
+function optionHint(meters: number, defaultMeters: number, minMeters: number, maxMeters: number) {
+  if (meters === defaultMeters) return 'Default';
+  if (meters === minMeters) return 'Close';
+  if (meters === maxMeters) return 'Far';
+  return 'Wide';
+}
 
 type NearbyRadiusPickerProps = {
   value: number;
   onChange: (meters: number) => void;
   disabled?: boolean;
+  optionsMeters: number[];
+  defaultMeters: number;
+  minMeters: number;
+  maxMeters: number;
 };
 
-export function NearbyRadiusPicker({ value, onChange, disabled }: NearbyRadiusPickerProps) {
+export function NearbyRadiusPicker({
+  value,
+  onChange,
+  disabled,
+  optionsMeters,
+  defaultMeters,
+  minMeters,
+  maxMeters,
+}: NearbyRadiusPickerProps) {
   const styles = useThemedStyles(({ colors }) => ({
     grid: {
       flexDirection: 'row',
@@ -43,15 +54,15 @@ export function NearbyRadiusPicker({ value, onChange, disabled }: NearbyRadiusPi
 
   return (
     <View style={styles.grid}>
-      {RADIUS_OPTIONS.map((option) => {
-        const active = value === option.meters;
+      {optionsMeters.map((meters) => {
+        const active = value === meters;
         return (
           <Pressable
-            key={option.meters}
+            key={meters}
             disabled={disabled}
             onPress={() => {
-              if (value === option.meters) return;
-              onChange(option.meters);
+              if (value === meters) return;
+              onChange(meters);
             }}
             style={({ pressed }) => [
               styles.option,
@@ -59,11 +70,17 @@ export function NearbyRadiusPicker({ value, onChange, disabled }: NearbyRadiusPi
               pressed && styles.optionPressed,
             ]}
           >
-            <Text style={[styles.label, active && styles.labelActive]}>{option.label}</Text>
-            <Text style={styles.hint}>{option.hint}</Text>
+            <Text style={[styles.label, active && styles.labelActive]}>{`${meters}m`}</Text>
+            <Text style={styles.hint}>
+              {optionHint(meters, defaultMeters, minMeters, maxMeters)}
+            </Text>
           </Pressable>
         );
       })}
     </View>
   );
+}
+
+export function wallRadiusRangeLabelFromConfig(minMeters: number, maxMeters: number): string {
+  return wallRadiusRangeLabel(minMeters, maxMeters);
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { adminFetch } from '@/lib/api';
+import { adminFetch, API_BASE_URL } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { PageHeader } from '@/components/page-header';
 import { LoadingBlock } from '@/components/loading-block';
@@ -85,13 +85,27 @@ export default function UserDetailPage() {
     phone: '',
     displayName: '',
     bio: '',
-    radiusMeters: 250,
+    radiusMeters: 0,
     quietMode: false,
   });
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      let defaultWallRadius: number | undefined;
+      try {
+        const configResponse = await fetch(`${API_BASE_URL}/config`);
+        const configJson = (await configResponse.json()) as {
+          data?: { distance?: { wall?: { defaultMeters?: number } } };
+        };
+        const meters = configJson.data?.distance?.wall?.defaultMeters;
+        if (typeof meters === 'number') {
+          defaultWallRadius = meters;
+        }
+      } catch {
+        // Admin form falls back to the user's saved radius only.
+      }
+
       const result = await adminFetch<UserDetail>(`/admin/users/${params.id}`);
       setData(result);
       setForm({
@@ -99,7 +113,7 @@ export default function UserDetailPage() {
         phone: result.user.phone ?? '',
         displayName: result.user.profile?.displayName ?? '',
         bio: result.user.profile?.bio ?? '',
-        radiusMeters: result.user.settings?.radiusMeters ?? 250,
+        radiusMeters: result.user.settings?.radiusMeters ?? defaultWallRadius ?? 0,
         quietMode: result.user.settings?.quietMode ?? false,
       });
     } catch (err) {

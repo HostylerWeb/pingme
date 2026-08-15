@@ -37,8 +37,8 @@ export class UpdateSettingsDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(150)
-  @Max(500)
+  @Min(1)
+  @Max(100_000)
   radiusMeters?: number;
 
   @IsOptional()

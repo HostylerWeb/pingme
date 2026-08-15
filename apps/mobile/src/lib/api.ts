@@ -364,6 +364,12 @@ export const api = {
       data: UserSettings;
     }>('/users/me/settings'),
 
+  getAppConfig: () =>
+    apiFetch<{
+      success: boolean;
+      data: AppConfig;
+    }>('/config'),
+
   getSubscription: () =>
     apiFetch<{ success: boolean; data: SubscriptionInfo }>('/subscriptions/me'),
 
@@ -617,6 +623,28 @@ export interface SubscriptionInfo {
     avatarThemes: boolean;
     readReceipts: boolean;
     profileFlair: boolean;
+  };
+}
+
+export interface AppConfig {
+  version: 1;
+  distance: {
+    wall: {
+      defaultMeters: number;
+      minMeters: number;
+      maxMeters: number;
+      pickerOptionsMeters: number[];
+    };
+    icebreaker: {
+      radiusMeters: number;
+      startsPerHour: number;
+      windowMinutes: number;
+      hideMinutes: number;
+      interestExpiryMinutes: number;
+    };
+    events: {
+      discoveryRadiusMeters: number;
+    };
   };
 }
 

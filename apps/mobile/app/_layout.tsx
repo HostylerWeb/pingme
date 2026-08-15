@@ -3,7 +3,7 @@ import { Stack, usePathname, useRouter, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../src/lib/background-location';
 import { AppSocketProvider } from '../src/lib/app-socket';
@@ -11,12 +11,20 @@ import { locationSetupStorage } from '../src/lib/location-setup-storage';
 import { notificationsSetupStorage } from '../src/lib/notifications-setup-storage';
 import { onboardingStorage } from '../src/lib/onboarding-storage';
 import { productTourStorage } from '../src/lib/product-tour-storage';
-import { addNotificationResponseListener, addNotificationReceivedListener, getInitialNotificationPayload, navigateFromNotification, registerForPushNotifications, type NotificationNavigationPayload } from '../src/lib/push-notifications';
+import {
+  addNotificationResponseListener,
+  addNotificationReceivedListener,
+  getInitialNotificationPayload,
+  navigateFromNotification,
+  registerForPushNotifications,
+  type NotificationNavigationPayload,
+} from '../src/lib/push-notifications';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
+import { useAppConfig } from '../src/hooks/use-app-config';
 import { useAppFonts } from '../src/hooks/use-app-fonts';
-import { ToastHost } from '../src/components/ui';
-import { ThemeProvider, useTheme } from '../src/theme';
+import { Button, ToastHost } from '../src/components/ui';
+import { ThemeProvider, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 initSentry();
@@ -30,6 +38,38 @@ function BootstrapLoading() {
       <ActivityIndicator size="large" color={colors.accent} />
     </View>
   );
+}
+
+function ConfigBootstrap({ children }: { children: React.ReactNode }) {
+  const { data: appConfig, isPending, refetch, isFetching } = useAppConfig();
+  const styles = useThemedStyles(({ colors }) => ({
+    wrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+      padding: spacing.container,
+      gap: spacing.lg,
+    },
+    title: { ...typography.title, color: colors.ink, textAlign: 'center' },
+    body: { ...typography.body, color: colors.inkSecondary, textAlign: 'center' },
+  }));
+
+  if (!appConfig) {
+    if (isPending) {
+      return <BootstrapLoading />;
+    }
+
+    return (
+      <View style={styles.wrap}>
+        <Text style={styles.title}>Could not load app settings</Text>
+        <Text style={styles.body}>Check your connection and try again.</Text>
+        <Button label="Retry" onPress={() => void refetch()} loading={isFetching} />
+      </View>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -171,24 +211,26 @@ function RootLayoutContent() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
-        <AppSocketProvider>
-          <AuthGate>
-            <ToastHost />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(onboarding)" />
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(setup)" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-              <Stack.Screen name="premium" options={{ headerShown: false }} />
-              <Stack.Screen name="settings" options={{ headerShown: false }} />
-              <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
-            </Stack>
-          </AuthGate>
-        </AppSocketProvider>
+        <ConfigBootstrap>
+          <AppSocketProvider>
+            <AuthGate>
+              <ToastHost />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(onboarding)" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(setup)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="premium" options={{ headerShown: false }} />
+                <Stack.Screen name="settings" options={{ headerShown: false }} />
+                <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
+              </Stack>
+            </AuthGate>
+          </AppSocketProvider>
+        </ConfigBootstrap>
       </QueryClientProvider>
     </SafeAreaProvider>
   );

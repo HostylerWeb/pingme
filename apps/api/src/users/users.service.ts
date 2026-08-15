@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { Profile, Prisma, UserStatus } from '@pingme/db';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
+import { AppConfigService } from '../config/app-config.service';
 import { R2Service } from '../common/services/r2.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
@@ -18,6 +19,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly appConfig: AppConfigService,
     private readonly r2: R2Service,
     private readonly verification: VerificationService,
     private readonly subscriptions: SubscriptionsService,
@@ -121,19 +123,48 @@ export class UsersService {
       }
     }
 
+    const payload = { ...dto };
+    if (dto.radiusMeters !== undefined) {
+      const { minMeters, maxMeters } = this.appConfig.getDistanceConfig().wall;
+      const clamped = this.appConfig.clampWallRadius(dto.radiusMeters);
+      if (clamped !== dto.radiusMeters) {
+        throw new BadRequestException(
+          `radiusMeters must be between ${minMeters} and ${maxMeters}`,
+        );
+      }
+      payload.radiusMeters = clamped;
+    }
+
     return this.prisma.userSettings.upsert({
       where: { userId },
-      update: { ...dto },
-      create: { userId, ...dto },
+      update: payload,
+      create: {
+        userId,
+        radiusMeters: payload.radiusMeters ?? this.appConfig.getDistanceConfig().wall.defaultMeters,
+        ...payload,
+      },
     });
   }
 
   async getSettings(userId: string) {
     const settings = await this.prisma.userSettings.findUnique({ where: { userId } });
     if (!settings) {
-      return this.prisma.userSettings.create({ data: { userId } });
+      const created = await this.prisma.userSettings.create({
+        data: {
+          userId,
+          radiusMeters: this.appConfig.getDistanceConfig().wall.defaultMeters,
+        },
+      });
+      return this.normalizeSettings(created);
     }
-    return settings;
+    return this.normalizeSettings(settings);
+  }
+
+  private normalizeSettings<T extends { radiusMeters: number }>(settings: T): T {
+    return {
+      ...settings,
+      radiusMeters: this.appConfig.resolveWallRadius(settings.radiusMeters),
+    };
   }
 
   async deleteAccount(userId: string, meta: { ipAddress?: string; userAgent?: string }) {

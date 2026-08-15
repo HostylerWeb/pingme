@@ -12,7 +12,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.pingme.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "PingMe uses your location to show nearby posts and people within ~250m.",
+        "NSLocationWhenInUseUsageDescription": "PingMe uses your location to show nearby posts and people around you.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "PingMe uses your location in the background while you're Available so nearby people can see you're open to connect.",
         "NSCameraUsageDescription": "PingMe uses your camera for identity verification (liveness check).",
         "NSMicrophoneUsageDescription": "PingMe may use your microphone during identity verification if required by the verification provider.",
@@ -50,7 +50,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "PingMe uses your location to show nearby posts and people within ~250m.",
+          "locationWhenInUsePermission": "PingMe uses your location to show nearby posts and people around you.",
           "locationAlwaysAndWhenInUsePermission": "PingMe uses your location in the background while you're Visible on Wall so nearby people can see you're around.",
           "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": true

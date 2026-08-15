@@ -1,12 +1,4 @@
-export const DEFAULT_RADIUS_METERS = 250;
-export const MIN_RADIUS_METERS = 150;
-export const MAX_RADIUS_METERS = 500;
-export const ICEBREAKER_RADIUS_METERS = 150;
-export const ICEBREAKER_WINDOW_MINUTES = 10;
-export const ICEBREAKER_HIDE_MINUTES = 10;
-export const ICEBREAKER_INTEREST_EXPIRY_MINUTES = 10;
 export const MATCH_EXPIRY_MINUTES = 30;
-export const ICEBREAKER_STARTS_PER_HOUR = 5;
 /** Foreground location pings while Wall / Break the ice tabs are open (~1/min). */
 export const LOCATION_PINGS_PER_HOUR = 120;
 export const FOREGROUND_PING_INTERVAL_MS = 60_000;

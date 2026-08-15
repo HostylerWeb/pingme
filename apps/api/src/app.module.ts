@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AppConfigModule } from './config/app-config.module';
 import { CommonModule } from './common/common.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
@@ -25,6 +26,7 @@ import { WallModule } from './wall/wall.module';
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
+    AppConfigModule,
     PrismaModule,
     RedisModule,
     CommonModule,

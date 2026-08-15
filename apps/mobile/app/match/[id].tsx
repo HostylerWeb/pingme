@@ -5,6 +5,7 @@ import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { api } from '../../src/lib/api';
+import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { clearDismissedMatchPrompt, dismissMatchPrompt } from '../../src/lib/match-prompt-dismiss';
 import { showToast } from '../../src/stores/toast-store';
@@ -18,6 +19,8 @@ export default function MatchScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { ensureVerified, handleLivenessError } = useLivenessGate();
+  const distanceConfig = useRequiredDistanceConfig();
+  const icebreakerRadiusText = icebreakerRadiusLabel(distanceConfig.icebreaker.radiusMeters);
 
   const styles = useThemedStyles(({ colors }) => ({
     page: {
@@ -305,7 +308,7 @@ export default function MatchScreen() {
             </View>
           </View>
 
-          <DistancePill label={icebreakerRadiusLabel()} tone="near" />
+          <DistancePill label={icebreakerRadiusText} tone="near" />
         </View>
 
         <View style={styles.copyBlock}>

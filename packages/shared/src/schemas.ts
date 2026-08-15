@@ -65,7 +65,7 @@ export const UpdateProfileSchema = z.object({
 });
 
 export const UpdateSettingsSchema = z.object({
-  radiusMeters: z.number().int().min(150).max(500).optional(),
+  radiusMeters: z.number().int().min(1).max(100_000).optional(),
   quietMode: z.boolean().optional(),
   showDistanceBucket: z.boolean().optional(),
   allowPushReplies: z.boolean().optional(),

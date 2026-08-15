@@ -1,4 +1,4 @@
-import { icebreakerRadiusLabel } from '@pingme/shared';
+import { formatDurationMinutes, icebreakerRadiusLabel } from '@pingme/shared';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { api, ApiError, IcebreakerNearbyUser, MatchSummary } from '../../src/lib/api';
+import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
@@ -274,6 +275,9 @@ function IcebreakerRow({
   loading: boolean;
 }) {
   const { colors } = useTheme();
+  const distanceConfig = useRequiredDistanceConfig();
+  const icebreakerRadiusText = icebreakerRadiusLabel(distanceConfig.icebreaker.radiusMeters);
+  const interestExpiryLabel = formatDurationMinutes(distanceConfig.icebreaker.interestExpiryMinutes);
   const featured = person.highlight !== null;
   const waiting = person.myResponse === 'yes' && person.highlight !== 'mutual_match';
 
@@ -338,7 +342,7 @@ function IcebreakerRow({
           <DisplayNameWithFlair name={person.displayName} isPremium={person.isPremium} isVerified={person.livenessVerified} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
             <DistancePill
-              label={icebreakerRadiusLabel()}
+              label={icebreakerRadiusText}
               tone={distanceTone(person.distanceBucket)}
             />
             {person.activeNow ? <ActiveNowBadge /> : null}
@@ -364,7 +368,7 @@ function IcebreakerRow({
       ) : waiting ? (
         <View style={styles.waitingRow}>
           <AppIcon name="hourglass" size={14} color={colors.inkTertiary} />
-          <Text style={styles.waitingText}>Waiting for their response — up to 10 min</Text>
+          <Text style={styles.waitingText}>Waiting for their response — up to {interestExpiryLabel}</Text>
         </View>
       ) : (
         <View style={styles.responseRow}>
@@ -395,6 +399,9 @@ export default function IcebreakerScreen() {
   const [introMessage, setIntroMessage] = useState('');
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [icebreakerOn, setIcebreakerOn] = useState(false);
+  const distanceConfig = useRequiredDistanceConfig();
+  const icebreakerRadiusText = icebreakerRadiusLabel(distanceConfig.icebreaker.radiusMeters);
+  const icebreakerRadiusTextLower = icebreakerRadiusText.toLowerCase();
   const [celebration, setCelebration] = useState<{
     kind: 'mutual_yes' | 'connected';
     matchId?: string;
@@ -778,7 +785,7 @@ export default function IcebreakerScreen() {
           ) : null}
           <Text style={styles.hint}>
             {icebreakerOn
-              ? `People with Break the ice ON ${icebreakerRadiusLabel().toLowerCase()} show up below. Tap Yes to connect.`
+              ? `People with Break the ice ON ${icebreakerRadiusTextLower} show up below. Tap Yes to connect.`
               : 'Turn on to appear in the list. Interested people are shown first.'}
           </Text>
         </View>
@@ -821,7 +828,7 @@ export default function IcebreakerScreen() {
                 title={icebreakerOn ? 'No one else yet' : 'Turn on Break the ice'}
                 message={
                   icebreakerOn
-                    ? `Keep it on — someone ${icebreakerRadiusLabel().toLowerCase()} may appear soon.`
+                    ? `Keep it on — someone ${icebreakerRadiusTextLower} may appear soon.`
                     : 'Switch Break the ice on to browse people nearby who also want to connect.'
                 }
                 action={
@@ -877,7 +884,7 @@ export default function IcebreakerScreen() {
         onClose={() => setIcebreakerSetupOpen(false)}
       >
         <Text style={styles.sheetBody}>
-          You&apos;ll appear to others {icebreakerRadiusLabel().toLowerCase()} who also have Break the
+          You&apos;ll appear to others {icebreakerRadiusTextLower} who also have Break the
           ice on. Add an optional intro — your photo stays hidden unless you choose to show it.
         </Text>
         <View style={styles.toggleRow}>

@@ -20,7 +20,8 @@ import {
 import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
-import { NearbyRadiusPicker, RADIUS_RANGE_LABEL } from '../../src/components/nearby-radius-picker';
+import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
+import { NearbyRadiusPicker, wallRadiusRangeLabelFromConfig } from '../../src/components/nearby-radius-picker';
 import { showToast } from '../../src/stores/toast-store';
 import {
   AppHeader,
@@ -243,6 +244,15 @@ export default function WallScreen() {
     queryFn: () => api.getSettings(),
   });
 
+  const distanceConfig = useRequiredDistanceConfig();
+  const wallDistance = distanceConfig.wall;
+  const wallDefaultMeters = wallDistance.defaultMeters;
+  const wallRangeLabel = wallRadiusRangeLabelFromConfig(
+    wallDistance.minMeters,
+    wallDistance.maxMeters,
+  );
+  const icebreakerRadiusMeters = distanceConfig.icebreaker.radiusMeters;
+
   const radiusMutation = useMutation({
     mutationFn: (radiusMeters: number) => api.updateSettings({ radiusMeters }),
     onSuccess: () => {
@@ -293,7 +303,7 @@ export default function WallScreen() {
 
   const nearbyUsers = nearbyUsersData?.data.users ?? [];
   const radiusMeters =
-    settingsData?.data.radiusMeters ?? nearbyUsersData?.data.radiusMeters ?? 250;
+    settingsData?.data.radiusMeters ?? nearbyUsersData?.data.radiusMeters ?? wallDefaultMeters;
 
   const onCreatePost = useCallback(async () => {
     if (!coords || !draft.trim()) return;
@@ -515,12 +525,16 @@ export default function WallScreen() {
       <BottomSheet
         visible={radiusSheetOpen}
         title="Nearby radius"
-        subtitle={`How far you see the Wall and who can spot you nearby (${RADIUS_RANGE_LABEL}). Break the ice stays closer (~150m).`}
+        subtitle={`How far you see the Wall and who can spot you nearby (${wallRangeLabel}). Break the ice stays closer (~${icebreakerRadiusMeters}m).`}
         onClose={() => setRadiusSheetOpen(false)}
       >
         <NearbyRadiusPicker
           value={radiusMeters}
           disabled={radiusMutation.isPending}
+          optionsMeters={wallDistance.pickerOptionsMeters}
+          defaultMeters={wallDistance.defaultMeters}
+          minMeters={wallDistance.minMeters}
+          maxMeters={wallDistance.maxMeters}
           onChange={(meters) => radiusMutation.mutate(meters)}
         />
       </BottomSheet>

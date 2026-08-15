@@ -4,10 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Prisma, WallPostStatus, WallReplyStatus } from '@pingme/db';
 import { distanceBucket, NOTIFICATION_TYPES, CreateWallPostInput, CreateWallReplyInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
+import { AppConfigService } from '../config/app-config.service';
 import { BlocksService } from '../common/services/blocks.service';
 import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
 import { NotificationService } from '../notifications/notification.service';
@@ -37,7 +37,7 @@ interface WallPostRow {
 export class WallService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
+    private readonly appConfig: AppConfigService,
     private readonly audit: AuditService,
     private readonly blocks: BlocksService,
     private readonly notifications: NotificationService,
@@ -50,8 +50,7 @@ export class WallService {
     }
 
     const settings = await this.prisma.userSettings.findUnique({ where: { userId } });
-    const radius =
-      settings?.radiusMeters ?? Number(this.config.get('DEFAULT_RADIUS_METERS', 250));
+    const radius = this.appConfig.resolveWallRadius(settings?.radiusMeters);
     const blockedIds = await this.blocks.getBlockedUserIds(userId);
     const offset = (page - 1) * limit;
 

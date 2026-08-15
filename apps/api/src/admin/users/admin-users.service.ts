@@ -12,6 +12,7 @@ import {
   VerificationType,
 } from '@pingme/db';
 import { AuthService } from '../../auth/auth.service';
+import { AppConfigService } from '../../config/app-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { VerificationService } from '../../verification/verification.service';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
@@ -35,6 +36,7 @@ export class AdminUsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: AuthService,
+    private readonly appConfig: AppConfigService,
     private readonly verificationService: VerificationService,
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
@@ -198,7 +200,9 @@ export class AdminUsersService {
           ? {
               settings: {
                 update: {
-                  ...(input.radiusMeters !== undefined ? { radiusMeters: input.radiusMeters } : {}),
+                  ...(input.radiusMeters !== undefined
+                    ? { radiusMeters: this.appConfig.clampWallRadius(input.radiusMeters) }
+                    : {}),
                   ...(input.quietMode !== undefined ? { quietMode: input.quietMode } : {}),
                 },
               },
