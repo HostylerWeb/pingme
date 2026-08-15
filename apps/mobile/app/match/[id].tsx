@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { api } from '../../src/lib/api';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
+import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { clearDismissedMatchPrompt, dismissMatchPrompt } from '../../src/lib/match-prompt-dismiss';
 import { showToast } from '../../src/stores/toast-store';
@@ -132,11 +133,17 @@ export default function MatchScreen() {
     },
   }));
 
+  const matchRefetchInterval = useSocketAwareRefetchInterval({
+    foreground: 15_000,
+    mode: 'stop',
+  });
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ['match', id],
     queryFn: () => api.getMatch(id!),
     enabled: !!id,
-    refetchInterval: 15_000,
+    refetchInterval: matchRefetchInterval,
+    refetchIntervalInBackground: false,
   });
 
   const goHome = () => {

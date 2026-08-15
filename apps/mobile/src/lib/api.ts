@@ -1,3 +1,4 @@
+import { handleAuthFailure } from './auth-session';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from './auth-storage';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
@@ -12,6 +13,10 @@ export class ApiError extends Error {
   }
 }
 
+export function isAuthApiError(error: unknown) {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}
+
 function isAccessTokenExpired(token: string, skewSeconds = 30) {
   try {
     const payload = JSON.parse(atob(token.split('.')[1] ?? '')) as { exp?: number };
@@ -22,7 +27,9 @@ function isAccessTokenExpired(token: string, skewSeconds = 30) {
   }
 }
 
-export async function refreshAccessToken(): Promise<string | null> {
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function performRefreshAccessToken(): Promise<string | null> {
   const refreshToken = await getRefreshToken();
   if (!refreshToken) return null;
 
@@ -50,6 +57,18 @@ export async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
+  refreshInFlight = performRefreshAccessToken().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
 export async function ensureValidAccessToken() {
   const accessToken = await getAccessToken();
   const refreshToken = await getRefreshToken();
@@ -74,7 +93,11 @@ export async function apiFetch<T>(
   options: RequestInit = {},
   retry = true,
 ): Promise<T> {
-  const accessToken = await getAccessToken();
+  let accessToken = await getAccessToken();
+  if (accessToken && isAccessTokenExpired(accessToken)) {
+    accessToken = await refreshAccessToken();
+  }
+
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
 
@@ -87,11 +110,14 @@ export async function apiFetch<T>(
     headers,
   });
 
-  if (response.status === 401 && retry) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      return apiFetch<T>(path, options, false);
+  if (response.status === 401) {
+    if (retry) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        return apiFetch<T>(path, options, false);
+      }
     }
+    await handleAuthFailure();
   }
 
   const body = await response.json().catch(() => ({}));

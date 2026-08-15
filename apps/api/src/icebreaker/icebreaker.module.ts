@@ -1,7 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { ChatModule } from '../chat/chat.module';
 import { BlocksService } from '../common/services/blocks.service';
-import { RateLimitService } from '../common/services/rate-limit.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { VerificationModule } from '../verification/verification.module';
 import { IcebreakerController } from './icebreaker.controller';
@@ -15,7 +14,6 @@ import { IcebreakerService } from './icebreaker.service';
     IcebreakerService,
     IcebreakerMatchingService,
     BlocksService,
-    RateLimitService,
   ],
   exports: [IcebreakerService],
 })

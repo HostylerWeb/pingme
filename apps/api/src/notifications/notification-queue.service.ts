@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
+import { shouldRunWorkers } from '../common/utils/run-mode';
 import { PushPayload } from './notification.service';
 import { PushSenderService } from './push-sender.service';
 
@@ -26,6 +27,11 @@ export class NotificationQueueService implements OnModuleInit, OnModuleDestroy {
     this.connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 
     this.queue = new Queue<PushJobData>('notifications', { connection: this.connection });
+
+    if (!shouldRunWorkers()) {
+      this.logger.log('Notification worker skipped (RUN_MODE=api)');
+      return;
+    }
 
     this.worker = new Worker<PushJobData>(
       'notifications',

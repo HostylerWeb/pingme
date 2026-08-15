@@ -13,6 +13,7 @@ import {
 import { api, ApiError, IcebreakerNearbyUser, MatchSummary } from '../../src/lib/api';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { useLocationPing } from '../../src/hooks/use-location-ping';
+import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { useToastStore, showToast } from '../../src/stores/toast-store';
@@ -470,6 +471,26 @@ export default function IcebreakerScreen() {
     toggleLabel: { ...typography.bodyMd, color: colors.ink },
   }));
 
+  const matchesRefetchInterval = useSocketAwareRefetchInterval({
+    foreground: 30_000,
+    mode: 'stop',
+  });
+  const nearbyRefetchInterval = useSocketAwareRefetchInterval({
+    foreground: 5_000,
+    connected: 15_000,
+    mode: 'slow',
+  });
+  const statusRefetchIntervalActive = useSocketAwareRefetchInterval({
+    foreground: 5_000,
+    connected: 60_000,
+    mode: 'slow',
+  });
+  const statusRefetchIntervalIdle = useSocketAwareRefetchInterval({
+    foreground: 30_000,
+    connected: 60_000,
+    mode: 'slow',
+  });
+
   const { data: icebreakerData } = useQuery({
     queryKey: ['icebreaker-status'],
     queryFn: () => api.getIcebreakerStatus(),
@@ -478,7 +499,7 @@ export default function IcebreakerScreen() {
     refetchInterval: (query) => {
       const serverActive = query.state.data?.data?.session?.status === 'active';
       const on = optimisticIcebreakerOn ?? serverActive;
-      return on ? 5_000 : 30_000;
+      return on ? statusRefetchIntervalActive : statusRefetchIntervalIdle;
     },
     refetchIntervalInBackground: false,
   });
@@ -493,7 +514,7 @@ export default function IcebreakerScreen() {
     queryFn: () => api.getMatches(),
     placeholderData: keepPreviousData,
     staleTime: 10_000,
-    refetchInterval: 30_000,
+    refetchInterval: matchesRefetchInterval,
     refetchIntervalInBackground: false,
   });
 
@@ -516,7 +537,7 @@ export default function IcebreakerScreen() {
     enabled: !!coords && canBrowse,
     placeholderData: keepPreviousData,
     staleTime: 5_000,
-    refetchInterval: canBrowse ? 5_000 : false,
+    refetchInterval: canBrowse ? nearbyRefetchInterval : false,
     refetchIntervalInBackground: false,
   });
 

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, ApiError, AuthUser, ensureValidAccessToken } from '../lib/api';
+import { api, AuthUser, ensureValidAccessToken, isAuthApiError } from '../lib/api';
 import {
   clearTokens,
   getAccessToken,
@@ -25,10 +25,6 @@ interface AuthState {
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
-}
-
-function isAuthError(error: unknown) {
-  return error instanceof ApiError && (error.status === 401 || error.status === 403);
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -59,7 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await saveCachedUser(response.data);
       set({ user: response.data, isHydrated: true });
     } catch (error) {
-      if (isAuthError(error)) {
+      if (isAuthApiError(error)) {
         await clearTokens();
         set({ user: null, isHydrated: true });
         return;
@@ -117,8 +113,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   refreshMe: async () => {
-    const response = await api.me();
-    await saveCachedUser(response.data);
-    set({ user: response.data });
+    try {
+      const response = await api.me();
+      await saveCachedUser(response.data);
+      set({ user: response.data });
+    } catch (error) {
+      if (isAuthApiError(error)) {
+        await clearTokens();
+        set({ user: null });
+        return;
+      }
+      throw error;
+    }
   },
 }));

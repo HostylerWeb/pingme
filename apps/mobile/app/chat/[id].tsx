@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ChatMessage } from '../../src/lib/api';
 import { useChatSocket } from '../../src/hooks/use-chat-socket';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { REPORT_SHEET_FOOTER, REPORT_SUBMITTED_MESSAGE } from '../../src/lib/report-copy';
 import { showToast } from '../../src/stores/toast-store';
 import {
@@ -178,11 +179,17 @@ export default function ChatThreadScreen() {
     enabled: !!id,
   });
 
+  const messagesRefetchInterval = useSocketAwareRefetchInterval({
+    foreground: 5_000,
+    mode: 'stop',
+  });
+
   const { data: messagesData, isLoading: messagesLoading, isError: messagesError } = useQuery({
     queryKey: ['chat-messages', id],
     queryFn: () => api.getChatMessages(id!),
     enabled: !!id,
-    refetchInterval: 5_000,
+    refetchInterval: messagesRefetchInterval,
+    refetchIntervalInBackground: false,
   });
 
   const sendMutation = useMutation({

@@ -1,7 +1,7 @@
 import { BACKGROUND_PING_INTERVAL_MS } from '@pingme/shared';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { getAccessToken } from './auth-storage';
+import { ensureValidAccessToken } from './api';
 
 export const BACKGROUND_LOCATION_TASK = 'pingme-background-location';
 
@@ -14,6 +14,10 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   const location = locations?.[0];
   if (!location) return;
 
+  const hasValidToken = await ensureValidAccessToken();
+  if (!hasValidToken) return;
+
+  const { getAccessToken } = await import('./auth-storage');
   const token = await getAccessToken();
   if (!token) return;
 

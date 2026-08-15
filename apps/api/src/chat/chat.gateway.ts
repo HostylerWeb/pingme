@@ -11,11 +11,14 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { RateLimitService } from '../common/services/rate-limit.service';
 import { createCorsOriginDelegate, parseCorsOrigins } from '../common/utils/cors.util';
 import { ChatService } from './chat.service';
 
 const wsNodeEnv = process.env.NODE_ENV ?? 'development';
 const wsAllowedOrigins = parseCorsOrigins(process.env.CORS_ORIGINS, wsNodeEnv);
+const WS_MESSAGE_SEND_LIMIT = 30;
+const WS_CONNECT_LIMIT = 30;
 
 @WebSocketGateway({
   namespace: '/ws',
@@ -35,12 +38,28 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly rateLimit: RateLimitService,
     @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
   ) {}
 
+  private userRoom(userId: string) {
+    return `user:${userId}`;
+  }
+
   async handleConnection(client: Socket) {
     try {
+      const ip = client.handshake.address;
+      const connectAllowed = await this.rateLimit.incrementWithinWindow(
+        `rate:ws:connect:${ip}`,
+        WS_CONNECT_LIMIT,
+        60,
+      );
+      if (!connectAllowed) {
+        client.disconnect();
+        return;
+      }
+
       const token = (client.handshake.auth?.token ?? client.handshake.query?.token) as
         | string
         | undefined;
@@ -54,6 +73,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       client.data.userId = payload.sub;
+      await client.join(this.userRoom(payload.sub));
       const sockets = this.userSockets.get(payload.sub) ?? new Set<string>();
       sockets.add(client.id);
       this.userSockets.set(payload.sub, sockets);
@@ -90,6 +110,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { success: false };
     }
 
+    const sendAllowed = await this.rateLimit.incrementWithinWindow(
+      `rate:ws:send:${userId}`,
+      WS_MESSAGE_SEND_LIMIT,
+      60,
+    );
+    if (!sendAllowed) {
+      return { success: false, error: 'Rate limit exceeded' };
+    }
+
     try {
       const result = await this.chatService.sendMessage(userId, body.chatId, body.content);
       return { success: true, data: result.data };
@@ -102,50 +131,30 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   emitMessageNew(userId: string, payload: { chatId: string; message: unknown }) {
-    const sockets = this.userSockets.get(userId);
-    if (!sockets?.size) return;
-
-    for (const socketId of sockets) {
-      this.server.to(socketId).emit('message.new', payload);
-    }
+    this.server.to(this.userRoom(userId)).emit('message.new', payload);
   }
 
-  isUserOnline(userId: string): boolean {
-    const sockets = this.userSockets.get(userId);
-    return !!sockets?.size;
+  async isUserOnline(userId: string): Promise<boolean> {
+    const sockets = await this.server.in(this.userRoom(userId)).fetchSockets();
+    return sockets.length > 0;
   }
 
   emitMatchUpdated(userId: string, payload: { matchId: string; status: string; chatId?: string | null }) {
-    const sockets = this.userSockets.get(userId);
-    if (!sockets?.size) return;
-
-    for (const socketId of sockets) {
-      this.server.to(socketId).emit('match.updated', payload);
-    }
+    this.server.to(this.userRoom(userId)).emit('match.updated', payload);
   }
 
   emitIcebreakerInterest(
     userId: string,
     payload: { fromUserId: string; displayName: string },
   ) {
-    const sockets = this.userSockets.get(userId);
-    if (!sockets?.size) return;
-
-    for (const socketId of sockets) {
-      this.server.to(socketId).emit('icebreaker.interest', payload);
-    }
+    this.server.to(this.userRoom(userId)).emit('icebreaker.interest', payload);
   }
 
   emitMessageRead(
     userId: string,
     payload: { chatId: string; messageIds: string[]; readBy: string; readCount: number },
   ) {
-    const sockets = this.userSockets.get(userId);
-    if (!sockets?.size) return;
-
-    for (const socketId of sockets) {
-      this.server.to(socketId).emit('message.read', payload);
-    }
+    this.server.to(this.userRoom(userId)).emit('message.read', payload);
   }
 
   @SubscribeMessage('message.read')

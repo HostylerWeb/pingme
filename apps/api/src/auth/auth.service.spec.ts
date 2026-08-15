@@ -8,6 +8,7 @@ import { SecurityEventsService } from '../audit/security-events.service';
 import { EmailService } from '../common/services/email.service';
 import { SmsService } from '../common/services/sms.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { VerificationService } from '../verification/verification.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -43,6 +44,7 @@ describe('AuthService', () => {
   const securityEvents = { log: jest.fn() };
   const emailService = { sendOtp: jest.fn() };
   const smsService = { sendOtp: jest.fn(), verifyOtp: jest.fn(), usesTwilioVerify: jest.fn().mockReturnValue(false) };
+  const verification = { hasPassedLiveness: jest.fn().mockResolvedValue(false) };
   const jwtService = { signAsync: jest.fn().mockResolvedValue('access-token') };
   const config = {
     get: jest.fn((key: string, fallback?: string) => {
@@ -65,6 +67,7 @@ describe('AuthService', () => {
         { provide: ConfigService, useValue: config },
         { provide: EmailService, useValue: emailService },
         { provide: SmsService, useValue: smsService },
+        { provide: VerificationService, useValue: verification },
       ],
     }).compile();
 

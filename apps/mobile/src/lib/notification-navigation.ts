@@ -2,6 +2,8 @@ import type { Href } from 'expo-router';
 
 export type NotificationNavigationPayload = {
   type: string;
+  title?: string;
+  body?: string;
   postId?: string;
   replyId?: string;
   matchId?: string;
@@ -15,11 +17,30 @@ export function parseNotificationData(
 
   return {
     type: data.type,
+    title: typeof data.title === 'string' ? data.title : undefined,
+    body: typeof data.body === 'string' ? data.body : undefined,
     postId: data.postId != null ? String(data.postId) : undefined,
     replyId: data.replyId != null ? String(data.replyId) : undefined,
     matchId: data.matchId != null ? String(data.matchId) : undefined,
     chatId: data.chatId != null ? String(data.chatId) : undefined,
   };
+}
+
+export function shouldSuppressIncomingBanner(
+  pathname: string,
+  payload: NotificationNavigationPayload,
+): boolean {
+  if (payload.chatId && pathname.includes(`/chat/${payload.chatId}`)) return true;
+  if (payload.postId && pathname.includes(`/post/${payload.postId}`)) return true;
+  if (payload.type === 'icebreaker.interest' && pathname.includes('icebreaker')) return true;
+  if (
+    (payload.type === 'icebreaker.match' || payload.type === 'match.request') &&
+    payload.matchId &&
+    pathname.includes(`/match/${payload.matchId}`)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function getNotificationHref(payload: NotificationNavigationPayload): Href | null {

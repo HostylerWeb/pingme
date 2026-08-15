@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack, usePathname, useRouter, type Href } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -17,19 +17,21 @@ import {
   getInitialNotificationPayload,
   navigateFromNotification,
   registerForPushNotifications,
+  shouldSuppressIncomingBanner,
   type NotificationNavigationPayload,
 } from '../src/lib/push-notifications';
+import { registerAuthFailureHandler } from '../src/lib/auth-session';
+import { queryClient } from '../src/lib/query-client';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
+import { iconForNotificationType, showIncomingBanner } from '../src/stores/incoming-banner-store';
 import { useAppConfig } from '../src/hooks/use-app-config';
 import { useAppFonts } from '../src/hooks/use-app-fonts';
-import { Button, ToastHost } from '../src/components/ui';
+import { Button, IncomingBannerHost, ToastHost } from '../src/components/ui';
 import { ThemeProvider, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 initSentry();
-
-const queryClient = new QueryClient();
 
 function BootstrapLoading() {
   const { colors } = useTheme();
@@ -92,6 +94,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    registerAuthFailureHandler(() => {
+      useAuthStore.setState({ user: null });
+      queryClient.clear();
+    });
     hydrate();
     refreshSetupProgress();
     void getInitialNotificationPayload().then((payload) => {
@@ -132,9 +138,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           queryClient.invalidateQueries({ queryKey: ['wall-post', payload.postId] });
         }
       }
+      if (!shouldSuppressIncomingBanner(pathname, payload)) {
+        showIncomingBanner({
+          title: payload.title?.trim() || 'PingMe',
+          body: payload.body?.trim() || 'You have a new notification',
+          icon: iconForNotificationType(payload.type),
+          payload,
+        });
+      }
     });
     return () => subscription.remove();
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isHydrated || onboardingComplete === null) return;
@@ -214,6 +228,7 @@ function RootLayoutContent() {
         <ConfigBootstrap>
           <AppSocketProvider>
             <AuthGate>
+              <IncomingBannerHost />
               <ToastHost />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />

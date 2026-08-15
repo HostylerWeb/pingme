@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PRESENCE_TTL_SECONDS } from '@pingme/shared';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
+import { shouldRunWorkers } from '../common/utils/run-mode';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 
@@ -22,6 +23,11 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
+    if (!shouldRunWorkers()) {
+      this.logger.log('Presence expiry worker skipped (RUN_MODE=api)');
+      return;
+    }
+
     const redisUrl = this.config.get<string>('REDIS_URL', 'redis://localhost:6381');
     this.connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 

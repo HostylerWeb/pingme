@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppConfigModule } from './config/app-config.module';
 import { CommonModule } from './common/common.module';
 import { AuditModule } from './audit/audit.module';
@@ -26,6 +28,13 @@ import { WallModule } from './wall/wall.module';
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000,
+        limit: 120,
+      },
+    ]),
     AppConfigModule,
     PrismaModule,
     RedisModule,
@@ -45,6 +54,12 @@ import { WallModule } from './wall/wall.module';
     SubscriptionsModule,
     AdminModule,
     HealthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

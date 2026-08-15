@@ -1,0 +1,18 @@
+[Unit]
+Description=PingMe API (HTTP + WebSocket)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=hostyler
+WorkingDirectory=/var/www/sites/pingme
+EnvironmentFile=/var/www/sites/pingme/.env
+Environment=RUN_MODE=api
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node apps/api/dist/main.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

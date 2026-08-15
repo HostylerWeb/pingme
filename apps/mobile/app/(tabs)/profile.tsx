@@ -10,6 +10,7 @@ import { showToast } from '../../src/stores/toast-store';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { useAvatarPicker } from '../../src/hooks/use-avatar-picker';
 import { AvatarWithTheme } from '../../src/components/avatar-with-theme';
+import { PremiumCta } from '../../src/components/premium-cta';
 import { ActionSheet, AppHeader, BottomSheet, Button, GenderPicker, GenderReadOnly, Input, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
@@ -139,70 +140,6 @@ export default function ProfileScreen() {
     },
     badgeTextPremium: { color: colors.premiumOnSurface },
     badgeTextVerified: { color: colors.online },
-    premiumCta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.premiumSurface,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
-      marginBottom: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.premiumSurfaceBorder,
-      gap: spacing.md,
-    },
-    premiumCtaPressed: { opacity: 0.9 },
-    premiumIcon: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.premiumSurfaceMuted,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    premiumCopy: { flex: 1 },
-    premiumTitle: {
-      ...typography.bodySemiBold,
-      color: colors.premiumOnSurface,
-      fontSize: 16,
-    },
-    premiumHint: {
-      ...typography.caption,
-      color: colors.premiumOnSurfaceMuted,
-      marginTop: 2,
-    },
-    premiumMemberCta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.onlineSoft,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
-      marginBottom: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.online,
-      gap: spacing.md,
-    },
-    premiumMemberCtaPressed: { opacity: 0.92 },
-    premiumMemberIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.online,
-    },
-    premiumMemberTitle: {
-      ...typography.bodySemiBold,
-      color: colors.online,
-      fontSize: 16,
-    },
-    premiumMemberHint: {
-      ...typography.caption,
-      color: colors.inkSecondary,
-      marginTop: 4,
-      lineHeight: 18,
-    },
     cta: { marginBottom: spacing.md },
     sectionLabel: {
       ...typography.overline,
@@ -392,37 +329,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {isPremium ? (
-          <Pressable
-            style={({ pressed }) => [styles.premiumMemberCta, pressed && styles.premiumMemberCtaPressed]}
-            onPress={() => router.push('/premium')}
-          >
-            <View style={styles.premiumMemberIcon}>
-              <AppIcon name="premium-star" size={20} color={colors.online} />
-            </View>
-            <View style={styles.premiumCopy}>
-              <Text style={styles.premiumMemberTitle}>You&apos;re a Premium member</Text>
-              <Text style={styles.premiumMemberHint}>
-                Tap to pick your profile ring, turn read receipts on or off, and manage your perks.
-              </Text>
-            </View>
-            <AppIcon name="chevron-forward" size={18} color={colors.online} />
-          </Pressable>
-        ) : (
-          <Pressable
-            style={({ pressed }) => [styles.premiumCta, pressed && styles.premiumCtaPressed]}
-            onPress={() => router.push('/premium')}
-          >
-            <View style={styles.premiumIcon}>
-              <AppIcon name="premium-star" size={18} color={colors.premiumOnSurfaceMuted} />
-            </View>
-            <View style={styles.premiumCopy}>
-              <Text style={styles.premiumTitle}>Explore Premium</Text>
-              <Text style={styles.premiumHint}>Avatar themes, read receipts, and more</Text>
-            </View>
-            <AppIcon name="chevron-forward" size={18} color={colors.premiumOnSurfaceMuted} />
-          </Pressable>
-        )}
+        <PremiumCta isPremium={isPremium} onPress={() => router.push('/premium')} />
 
         {!user?.livenessVerified ? (
           <Button

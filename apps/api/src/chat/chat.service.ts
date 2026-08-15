@@ -214,7 +214,7 @@ export class ChatService {
       metadata: { chatId },
     });
 
-    const recipientOnline = this.gateway.isUserOnline(otherUserId);
+    const recipientOnline = await this.gateway.isUserOnline(otherUserId);
     if (!recipientOnline) {
       await this.notifications.sendToUser(otherUserId, {
         type: NOTIFICATION_TYPES.CHAT_MESSAGE,

@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
+import { shouldRunWorkers } from '../common/utils/run-mode';
 import { IcebreakerService } from './icebreaker.service';
 
 @Injectable()
@@ -17,6 +18,11 @@ export class IcebreakerMatchingService implements OnModuleInit, OnModuleDestroy 
   ) {}
 
   onModuleInit() {
+    if (!shouldRunWorkers()) {
+      this.logger.log('Icebreaker matching worker skipped (RUN_MODE=api)');
+      return;
+    }
+
     const redisUrl = this.config.get<string>('REDIS_URL', 'redis://localhost:6381');
     this.connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 

@@ -21,6 +21,7 @@ import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
+import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { NearbyRadiusPicker, wallRadiusRangeLabelFromConfig } from '../../src/components/nearby-radius-picker';
 import { showToast } from '../../src/stores/toast-store';
 import {
@@ -211,10 +212,20 @@ export default function WallScreen() {
     enabled: !!coords,
   });
 
+  const presenceRefetchInterval = useSocketAwareRefetchInterval({
+    foreground: 60_000,
+    ignoreSocket: true,
+  });
+  const nearbyUsersRefetchInterval = useSocketAwareRefetchInterval({
+    foreground: 30_000,
+    ignoreSocket: true,
+  });
+
   const { data: presenceData } = useQuery({
     queryKey: ['presence-status'],
     queryFn: () => api.getPresenceStatus(),
-    refetchInterval: 60_000,
+    refetchInterval: presenceRefetchInterval,
+    refetchIntervalInBackground: false,
   });
 
   const serverAvailable = presenceData?.data.isAvailable ?? false;
@@ -236,7 +247,8 @@ export default function WallScreen() {
     queryKey: ['nearby-users'],
     queryFn: () => api.getNearbyUsers(),
     enabled: !!coords,
-    refetchInterval: 30_000,
+    refetchInterval: nearbyUsersRefetchInterval,
+    refetchIntervalInBackground: false,
   });
 
   const { data: settingsData } = useQuery({
@@ -291,6 +303,10 @@ export default function WallScreen() {
       queryClient.invalidateQueries({ queryKey: ['presence-status'] });
       queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
       setConfirmOpen(false);
+      showToast(
+        isAvailable ? "You're visible on the Wall" : "You're hidden on the Wall",
+        isAvailable ? 'success' : 'info',
+      );
     },
     onError: (error: Error) => {
       setAvailableOn(serverAvailable);

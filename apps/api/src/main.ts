@@ -5,8 +5,10 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { createCorsOriginDelegate, parseCorsOrigins } from './common/utils/cors.util';
+import { getRunMode, shouldRunApi } from './common/utils/run-mode';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
@@ -14,6 +16,10 @@ async function bootstrap() {
   const nodeEnv = config.get<string>('NODE_ENV', 'development');
   const allowedOrigins = parseCorsOrigins(config.get<string>('CORS_ORIGINS'), nodeEnv);
   const uploadsDir = config.get<string>('UPLOADS_DIR', 'uploads');
+
+  const redisAdapter = new RedisIoAdapter(app, config);
+  await redisAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisAdapter);
 
   app.useBodyParser('json', { limit: '10mb' });
   app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
@@ -49,10 +55,16 @@ async function bootstrap() {
 
   const port = config.get<number>('PORT', 3000);
   const host = config.get<string>('HOST', '0.0.0.0');
-  await app.listen(port, host);
+  const runMode = getRunMode();
 
-  console.log(`API running on http://localhost:${port}/v1`);
-  console.log(`Swagger docs at http://localhost:${port}/docs`);
+  if (shouldRunApi()) {
+    await app.listen(port, host);
+    console.log(`API running on http://localhost:${port}/v1 (RUN_MODE=${runMode})`);
+    console.log(`Swagger docs at http://localhost:${port}/docs`);
+  } else {
+    await app.init();
+    console.log(`Worker mode active — HTTP API disabled (RUN_MODE=${runMode})`);
+  }
 }
 
 bootstrap();

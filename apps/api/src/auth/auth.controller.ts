@@ -1,5 +1,6 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import {
   ForgotPasswordSchema,
   LoginSchema,
@@ -28,6 +29,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('register')
   @ApiOperation({ summary: 'Create account' })
   register(@Body(new ZodValidationPipe(SignUpSchema)) dto: SignUpInput, @Req() req: Request) {
@@ -35,6 +37,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   @ApiOperation({ summary: 'Login' })
   login(@Body(new ZodValidationPipe(LoginSchema)) dto: LoginInput, @Req() req: Request) {
@@ -42,6 +45,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh tokens' })
   refresh(@Body() dto: RefreshTokenDto, @Req() req: Request) {
@@ -93,6 +97,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('forgot-password')
   @ApiOperation({ summary: 'Request password reset' })
   forgotPassword(@Body(new ZodValidationPipe(ForgotPasswordSchema)) dto: ForgotPasswordInput) {

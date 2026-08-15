@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { api, ChatSummary } from '../../src/lib/api';
+import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { AppHeader, Avatar, Button, DisplayNameWithFlair, EmptyState, ListSkeleton, Screen } from '../../src/components/ui';
 import { spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
@@ -101,10 +102,16 @@ export default function ChatsScreen() {
     separator: { height: 1, backgroundColor: colors.divider },
   }));
 
+  const chatsRefetchInterval = useSocketAwareRefetchInterval({
+    foreground: 15_000,
+    mode: 'stop',
+  });
+
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['chats'],
     queryFn: () => api.getChats(),
-    refetchInterval: 15_000,
+    refetchInterval: chatsRefetchInterval,
+    refetchIntervalInBackground: false,
   });
 
   useFocusEffect(

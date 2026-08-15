@@ -2,23 +2,25 @@ import Constants from 'expo-constants';
 import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { api } from './api';
 import {
   navigateFromNotification,
   parseNotificationData,
+  shouldSuppressIncomingBanner,
   type NotificationNavigationPayload,
 } from './notification-navigation';
 
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
+    const inForeground = AppState.currentState === 'active';
     const data = notification.request.content.data as { type?: string };
     const isWallReply = data?.type === 'wall.reply';
 
     return {
-      shouldPlaySound: true,
+      shouldPlaySound: !inForeground,
       shouldSetBadge: false,
-      shouldShowBanner: true,
+      shouldShowBanner: !inForeground,
       shouldShowList: true,
       priority: isWallReply
         ? Notifications.AndroidNotificationPriority.HIGH
@@ -137,14 +139,16 @@ export function addNotificationReceivedListener(
   onReceived: (payload: NotificationNavigationPayload) => void,
 ) {
   return Notifications.addNotificationReceivedListener((notification) => {
-    const payload = parseNotificationData(
-      notification.request.content.data as Record<string, unknown>,
-    );
+    const payload = parseNotificationData({
+      ...(notification.request.content.data as Record<string, unknown>),
+      title: notification.request.content.title,
+      body: notification.request.content.body,
+    });
     if (payload) {
       onReceived(payload);
     }
   });
 }
 
-export { navigateFromNotification, parseNotificationData };
+export { navigateFromNotification, parseNotificationData, shouldSuppressIncomingBanner };
 export type { NotificationNavigationPayload };

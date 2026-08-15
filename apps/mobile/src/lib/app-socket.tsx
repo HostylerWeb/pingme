@@ -12,12 +12,15 @@ import {
 } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
+import { ensureValidAccessToken } from './api';
 import { getAccessToken } from './auth-storage';
 import { isMatchPromptDismissed } from './match-prompt-dismiss';
 import { useAuthStore } from '../stores/auth-store';
-import { showToast } from '../stores/toast-store';
+import { iconForNotificationType, showIncomingBanner } from '../stores/incoming-banner-store';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
 
 function wsBaseUrl() {
   const explicit = process.env.EXPO_PUBLIC_WS_URL;
@@ -29,6 +32,18 @@ function wsBaseUrl() {
     return httpBase.replace('https://', 'wss://');
   }
   return httpBase.replace('http://', 'ws://');
+}
+
+function reconnectDelayMs(attempt: number) {
+  const exponential = RECONNECT_BASE_MS * 2 ** Math.min(attempt, 5);
+  const jitter = Math.floor(Math.random() * 500);
+  return Math.min(exponential + jitter, RECONNECT_MAX_MS);
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function shouldOpenMatchPrompt(pathname: string) {
@@ -62,10 +77,14 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const pathnameRef = useRef(pathname);
+  const reconnectingRef = useRef(false);
+  const reconnectAttemptRef = useRef(0);
 
   pathnameRef.current = pathname;
 
   const disconnect = useCallback(() => {
+    reconnectingRef.current = false;
+    reconnectAttemptRef.current = 0;
     socketRef.current?.removeAllListeners();
     socketRef.current?.disconnect();
     socketRef.current = null;
@@ -73,10 +92,37 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
     setConnected(false);
   }, []);
 
+  const scheduleReconnect = useCallback(async () => {
+    if (reconnectingRef.current || !socketRef.current) return;
+    reconnectingRef.current = true;
+
+    try {
+      await sleep(reconnectDelayMs(reconnectAttemptRef.current));
+
+      if (!socketRef.current) return;
+
+      const valid = await ensureValidAccessToken();
+      const token = valid ? await getAccessToken() : null;
+      if (!token || !socketRef.current) {
+        return;
+      }
+
+      socketRef.current.auth = { token };
+      socketRef.current.connect();
+    } finally {
+      reconnectingRef.current = false;
+      if (socketRef.current && !socketRef.current.connected) {
+        reconnectAttemptRef.current += 1;
+      }
+    }
+  }, []);
+
   const attachSocketListeners = useCallback(
     (nextSocket: Socket) => {
       nextSocket.on('connect', () => {
         setConnected(true);
+        reconnectAttemptRef.current = 0;
+        reconnectingRef.current = false;
         nextSocket.emit('ping');
       });
 
@@ -84,13 +130,20 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
         setConnected(false);
       });
 
+      nextSocket.on('connect_error', () => {
+        setConnected(false);
+        void scheduleReconnect();
+      });
+
       nextSocket.on('message.new', (payload: { chatId: string }) => {
         void queryClient.invalidateQueries({ queryKey: ['chats'] });
         void queryClient.invalidateQueries({ queryKey: ['chat', payload.chatId] });
+        void queryClient.invalidateQueries({ queryKey: ['chat-messages', payload.chatId] });
       });
 
       nextSocket.on('match.updated', (payload: { matchId: string; status: string; chatId?: string | null }) => {
         void queryClient.invalidateQueries({ queryKey: ['matches'] });
+        void queryClient.invalidateQueries({ queryKey: ['match', payload.matchId] });
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
         if (
@@ -105,13 +158,26 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
       nextSocket.on('icebreaker.interest', (payload: { fromUserId: string; displayName: string }) => {
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
-        showToast(`${payload.displayName} said yes in Break the ice`, 'info');
+        if (!pathnameRef.current.includes('icebreaker')) {
+          showIncomingBanner({
+            title: payload.displayName,
+            body: 'Said yes in Break the ice',
+            icon: iconForNotificationType('icebreaker.interest'),
+            payload: { type: 'icebreaker.interest' },
+          });
+        }
       });
     },
-    [queryClient, router],
+    [queryClient, router, scheduleReconnect],
   );
 
   const connect = useCallback(async () => {
+    const hasValidToken = await ensureValidAccessToken();
+    if (!hasValidToken) {
+      disconnect();
+      return;
+    }
+
     const token = await getAccessToken();
     if (!token) {
       disconnect();
@@ -123,6 +189,7 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
     }
 
     if (socketRef.current) {
+      socketRef.current.auth = { token };
       socketRef.current.connect();
       return;
     }
@@ -147,8 +214,8 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
     void connect();
 
     const onAppStateChange = (state: AppStateStatus) => {
-      if (state === 'active' && socketRef.current && !socketRef.current.connected) {
-        socketRef.current.connect();
+      if (state === 'active') {
+        void connect();
       }
     };
 

@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { useCallback, useState } from 'react';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../src/lib/api';
 import { showToast } from '../src/stores/toast-store';
 import { useThemeStore } from '../src/stores/theme-store';
 import { AppHeader, AppSwitch, Button, EmptyState, LoadingView, Screen, SectionLabel } from '../src/components/ui';
+import { PremiumCta } from '../src/components/premium-cta';
 import { AppIcon } from '../src/components/ui/app-icon';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
@@ -40,6 +43,18 @@ export default function SettingsScreen() {
   const { colors } = useTheme();
   const darkMode = useThemeStore((s) => s.darkMode);
   const setDarkMode = useThemeStore((s) => s.setDarkMode);
+  const [osNotificationsGranted, setOsNotificationsGranted] = useState<boolean | null>(null);
+
+  const refreshOsPermission = useCallback(async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    setOsNotificationsGranted(status === 'granted');
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshOsPermission();
+    }, [refreshOsPermission]),
+  );
 
   const { data: subscriptionData } = useQuery({
     queryKey: ['subscription'],
@@ -48,69 +63,32 @@ export default function SettingsScreen() {
 
   const styles = useThemedStyles(({ colors }) => ({
     content: { paddingHorizontal: spacing.container },
-    premiumCta: {
+    permissionCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.premiumSurface,
+      backgroundColor: colors.surfaceElevated,
       borderRadius: radius.xl,
       padding: spacing.lg,
-      marginBottom: spacing.xxl,
+      marginBottom: spacing.md,
       borderWidth: 1,
-      borderColor: colors.premiumSurfaceBorder,
+      borderColor: colors.border,
       gap: spacing.md,
     },
-    premiumCtaPressed: { opacity: 0.9 },
-    premiumIcon: {
+    permissionCardPressed: { opacity: 0.9 },
+    permissionIcon: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: colors.premiumSurfaceMuted,
+      backgroundColor: colors.surfaceMuted,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    premiumMemberCta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.onlineSoft,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
-      marginBottom: spacing.xxl,
-      borderWidth: 1,
-      borderColor: colors.online,
-      gap: spacing.md,
-    },
-    premiumMemberCtaPressed: { opacity: 0.92 },
-    premiumMemberIcon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.online,
-    },
-    premiumCopy: { flex: 1 },
-    premiumTitle: {
-      ...typography.bodySemiBold,
-      color: colors.premiumOnSurface,
-      fontSize: 16,
-    },
-    premiumHint: {
-      ...typography.caption,
-      color: colors.premiumOnSurfaceMuted,
-      marginTop: 4,
-      lineHeight: 18,
-    },
-    premiumMemberTitle: {
-      ...typography.bodySemiBold,
-      color: colors.online,
-      fontSize: 16,
-    },
-    premiumMemberHint: {
+    permissionCopy: { flex: 1 },
+    permissionTitle: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
+    permissionHint: {
       ...typography.caption,
       color: colors.inkSecondary,
-      marginTop: 4,
+      marginTop: 2,
       lineHeight: 18,
     },
     sectionHint: {
@@ -180,37 +158,9 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
-          {isPremium ? (
-            <Pressable
-              onPress={() => router.push('/premium')}
-              style={({ pressed }) => [styles.premiumMemberCta, pressed && styles.premiumMemberCtaPressed]}
-            >
-              <View style={styles.premiumMemberIcon}>
-                <AppIcon name="premium-star" size={20} color={colors.online} />
-              </View>
-              <View style={styles.premiumCopy}>
-                <Text style={styles.premiumMemberTitle}>You&apos;re a Premium member</Text>
-                <Text style={styles.premiumMemberHint}>
-                  Tap to pick your profile ring, turn read receipts on or off, and manage your perks.
-                </Text>
-              </View>
-              <AppIcon name="chevron-forward" size={18} color={colors.online} />
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={() => router.push('/premium')}
-              style={({ pressed }) => [styles.premiumCta, pressed && styles.premiumCtaPressed]}
-            >
-              <View style={styles.premiumIcon}>
-                <AppIcon name="premium-star" size={18} color={colors.premiumOnSurfaceMuted} />
-              </View>
-              <View style={styles.premiumCopy}>
-                <Text style={styles.premiumTitle}>Explore Premium</Text>
-                <Text style={styles.premiumHint}>Avatar themes, read receipts, and more</Text>
-              </View>
-              <AppIcon name="chevron-forward" size={18} color={colors.premiumOnSurfaceMuted} />
-            </Pressable>
-          )}
+          <View style={{ marginBottom: spacing.lg }}>
+            <PremiumCta isPremium={isPremium} onPress={() => router.push('/premium')} />
+          </View>
 
           <SectionLabel>Appearance</SectionLabel>
           <Text style={styles.sectionHint}>Customize how PingMe looks on your device.</Text>
@@ -227,7 +177,25 @@ export default function SettingsScreen() {
           </View>
 
           <SectionLabel>Push notifications</SectionLabel>
-          <Text style={styles.sectionHint}>Choose which alerts PingMe can send.</Text>
+          {osNotificationsGranted === false ? (
+            <Pressable
+              onPress={() => void Linking.openSettings()}
+              style={({ pressed }) => [styles.permissionCard, pressed && styles.permissionCardPressed]}
+            >
+              <View style={styles.permissionIcon}>
+                <AppIcon name="notifications" size={20} color={colors.inkTertiary} />
+              </View>
+              <View style={styles.permissionCopy}>
+                <Text style={styles.permissionTitle}>Notifications are off</Text>
+                <Text style={styles.permissionHint}>
+                  Turn them on in system settings to get replies, chats, and Break the ice alerts.
+                </Text>
+              </View>
+              <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
+            </Pressable>
+          ) : (
+            <Text style={styles.sectionHint}>Choose which alerts PingMe can send.</Text>
+          )}
 
           <View style={styles.group}>
             {NOTIFICATION_OPTIONS.map((option, index) => (
