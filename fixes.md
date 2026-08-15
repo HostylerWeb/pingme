@@ -156,7 +156,7 @@ sshpass -f sshpass.txt ssh root@145.223.88.74 \
 
 Deploy script:
 
-1. `git reset --hard origin/main`
+1. `git fetch` + `git reset --hard origin/main`, then **re-execs itself** (so nginx/systemd/env steps from the new commit actually run)
 2. Ensures `JWT_ACCESS_EXPIRES=1h`, `CORS_ORIGINS`, etc. in `.env`
 3. Installs systemd units
 4. `pnpm install`, `db:generate`, `migrate:deploy`, `build`
