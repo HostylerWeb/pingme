@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../src/components/ui/app-icon';
 import { api } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
 import { Button, LoadingView, Screen } from '../src/components/ui';
@@ -100,7 +100,7 @@ export default function VerificationCompleteScreen() {
         {error ? (
           <>
             <View style={styles.iconWrap}>
-              <Ionicons name="close-circle-outline" size={48} color={colors.error} />
+              <AppIcon name="close-circle" size={48} color={colors.error} />
             </View>
             <Text style={styles.error}>{error}</Text>
             <Button label="Try again" onPress={() => router.replace('/(setup)/liveness')} />

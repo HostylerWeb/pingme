@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { radius, spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
+import { AppIcon } from './app-icon';
 
 export function LivenessBanner() {
   const router = useRouter();
@@ -35,13 +35,13 @@ export function LivenessBanner() {
   return (
     <Pressable style={styles.banner} onPress={() => router.push('/(setup)/liveness')}>
       <View style={styles.iconWrap}>
-        <Ionicons name="shield-checkmark" size={18} color={colors.accent} />
+        <AppIcon name="verified" size={18} color={colors.accent} />
       </View>
       <View style={styles.textWrap}>
         <Text style={styles.title}>Verify to post and connect</Text>
         <Text style={styles.body}>A quick liveness check keeps PingMe safe for everyone nearby.</Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.inkTertiary} />
+      <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
     </Pressable>
   );
 }

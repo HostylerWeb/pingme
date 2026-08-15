@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, TextInputProps, View } from 'react-native';
 import { radius, spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
+import { AppIcon } from './app-icon';
 
 export function PasswordInput({
   label,
@@ -78,11 +78,7 @@ export function PasswordInput({
           accessibilityRole="button"
           accessibilityLabel={visible ? 'Hide password' : 'Show password'}
         >
-          <Ionicons
-            name={visible ? 'eye-off-outline' : 'eye-outline'}
-            size={20}
-            color={colors.inkTertiary}
-          />
+          <AppIcon name={visible ? 'eye-off' : 'eye'} size={20} color={colors.inkTertiary} />
         </Pressable>
       </View>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}

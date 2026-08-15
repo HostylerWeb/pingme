@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from './ui/app-icon';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
 import { AnimatedGradientRing } from './ui/animated-gradient-ring';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../theme';
@@ -106,7 +106,7 @@ export function AvatarThemePicker({
                     {loading ? (
                       <ActivityIndicator size={10} color={colors.onPrimary} />
                     ) : (
-                      <Ionicons name="checkmark" size={12} color={colors.onPrimary} />
+                      <AppIcon name="check" size={12} color={colors.onPrimary} />
                     )}
                   </View>
                 ) : null}

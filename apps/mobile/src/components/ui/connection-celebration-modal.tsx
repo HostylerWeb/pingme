@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from './app-icon';
 import { useEffect, useRef } from 'react';
 import { Animated, Modal, Pressable, Text, View } from 'react-native';
 import { hapticSuccess } from './avatar';
@@ -124,8 +124,8 @@ export function ConnectionCelebrationModal({
       <View style={styles.backdrop}>
         <Animated.View style={[styles.card, { opacity, transform: [{ scale }] }]}>
           <View style={styles.iconWrap}>
-            <Ionicons
-              name={kind === 'connected' ? 'chatbubbles' : 'sparkles'}
+            <AppIcon
+              name={kind === 'connected' ? 'chat-bubbles' : 'sparkles'}
               size={40}
               color={colors.accent}
             />

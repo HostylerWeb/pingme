@@ -7,6 +7,9 @@ export const ICEBREAKER_HIDE_MINUTES = 10;
 export const ICEBREAKER_INTEREST_EXPIRY_MINUTES = 10;
 export const MATCH_EXPIRY_MINUTES = 30;
 export const ICEBREAKER_STARTS_PER_HOUR = 5;
+/** Foreground location pings while Wall / Break the ice tabs are open (~1/min). */
+export const LOCATION_PINGS_PER_HOUR = 120;
+export const FOREGROUND_PING_INTERVAL_MS = 60_000;
 export const MAX_ICEBREAKER_INTRO_LENGTH = 100;
 export const ACTIVE_NOW_THRESHOLD_MINUTES = 3;
 export const PRESENCE_TTL_SECONDS = 300;

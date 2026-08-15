@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { api } from '../../src/lib/api';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { clearDismissedMatchPrompt, dismissMatchPrompt } from '../../src/lib/match-prompt-dismiss';
@@ -190,7 +190,7 @@ export default function MatchScreen() {
         <AppHeader title="Connection" showBrand={false} onBack={() => router.back()} centerTitle />
         <View style={styles.centered}>
           <EmptyState
-            icon="heart-dislike-outline"
+            icon="heart-no"
             title="Connection not found"
             message="This request may have expired or been removed."
             action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
@@ -206,7 +206,7 @@ export default function MatchScreen() {
         <AppHeader title="Connected" showBrand={false} onBack={goHome} centerTitle />
         <View style={styles.centered}>
           <View style={styles.successIcon}>
-            <Ionicons name="heart" size={32} color={colors.accent} />
+            <AppIcon name="heart-yes" size={32} color={colors.accent} />
           </View>
           <Text style={styles.heroTitle}>You&apos;re connected!</Text>
           <Text style={styles.heroBody}>Your private chat is ready. Say hello when you&apos;re ready.</Text>
@@ -230,7 +230,7 @@ export default function MatchScreen() {
         <AppHeader title="Connection" showBrand={false} onBack={() => router.replace('/(tabs)/home')} centerTitle />
         <View style={styles.centered}>
           <EmptyState
-            icon="close-circle-outline"
+            icon="close-circle"
             title="Connection declined"
             message="This connection request was declined. You can keep browsing the wall or try Break the ice again."
             action={
@@ -248,7 +248,7 @@ export default function MatchScreen() {
         <AppHeader title="Connection" showBrand={false} onBack={() => router.replace('/(tabs)/home')} centerTitle />
         <View style={styles.centered}>
           <EmptyState
-            icon="time-outline"
+            icon="clock"
             title="Request expired"
             message="This request timed out before both people accepted. Try Break the ice again when you're ready."
             action={
@@ -266,7 +266,7 @@ export default function MatchScreen() {
         <AppHeader title="Connection" showBrand={false} onBack={() => router.back()} centerTitle />
         <View style={styles.centered}>
           <EmptyState
-            icon="alert-circle-outline"
+            icon="alert-circle"
             title="Connection unavailable"
             message="This connection request is no longer available."
             action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
@@ -294,7 +294,7 @@ export default function MatchScreen() {
             <View style={styles.connector}>
               <View style={styles.connectorLine} />
               <View style={styles.connectorDot}>
-                <Ionicons name="link" size={14} color={colors.accent} />
+                <AppIcon name="connection" size={14} color={colors.accent} />
               </View>
               <View style={styles.connectorLine} />
             </View>
@@ -337,7 +337,7 @@ export default function MatchScreen() {
         </View>
 
         <View style={styles.trust}>
-          <Ionicons name="lock-closed-outline" size={14} color={colors.inkTertiary} />
+          <AppIcon name="lock" size={14} color={colors.inkTertiary} />
           <Text style={styles.trustText}>Your profile is only visible to people you&apos;re connected with.</Text>
         </View>
       </View>

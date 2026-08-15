@@ -1,5 +1,5 @@
 import { distanceLabel } from '@pingme/shared';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -255,7 +255,7 @@ export default function PostDetailScreen() {
       <View style={styles.container}>
         <AppHeader title="Post" showBrand={false} onBack={() => router.back()} centerTitle />
         <EmptyState
-          icon="document-text-outline"
+          icon="document"
           title="Post not found"
           message="This post may have been removed or is no longer nearby."
           action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
@@ -289,7 +289,7 @@ export default function PostDetailScreen() {
               {deleteMutation.isPending ? (
                 <ActivityIndicator size="small" color={colors.error} />
               ) : (
-                <Ionicons name="trash-outline" size={22} color={colors.error} />
+                <AppIcon name="delete" size={22} color={colors.error} />
               )}
             </Pressable>
           ) : undefined
@@ -334,7 +334,7 @@ export default function PostDetailScreen() {
         }
         ListEmptyComponent={
           <EmptyState
-            icon="chatbubble-outline"
+            icon="chat-bubble"
             title="No replies yet"
             message="Be the first to respond to this post."
           />
@@ -399,7 +399,7 @@ export default function PostDetailScreen() {
           {submitting ? (
             <ActivityIndicator color={colors.onAccent} size="small" />
           ) : (
-            <Ionicons name="send" size={18} color={colors.onAccent} />
+            <AppIcon name="send" size={18} color={colors.onAccent} />
           )}
         </Pressable>
       </View>

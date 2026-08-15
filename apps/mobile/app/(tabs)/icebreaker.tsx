@@ -1,8 +1,8 @@
 import { icebreakerRadiusLabel } from '@pingme/shared';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -67,7 +67,7 @@ function HighlightBadge({ label }: { label: string }) {
 
   return (
     <View style={styles.badge}>
-      <Ionicons name="sparkles" size={12} color={colors.accent} />
+      <AppIcon name="sparkles" size={12} color={colors.accent} />
       <Text style={styles.badgeText}>{label}</Text>
     </View>
   );
@@ -245,7 +245,7 @@ function PendingConnectionCard({
       </View>
       {connection.myAccepted ? (
         <View style={styles.waitingRow}>
-          <Ionicons name="hourglass-outline" size={14} color={colors.inkTertiary} />
+          <AppIcon name="hourglass" size={14} color={colors.inkTertiary} />
           <Text style={styles.waitingText}>Accepted — waiting for them</Text>
         </View>
       ) : (
@@ -363,7 +363,7 @@ function IcebreakerRow({
         </View>
       ) : waiting ? (
         <View style={styles.waitingRow}>
-          <Ionicons name="hourglass-outline" size={14} color={colors.inkTertiary} />
+          <AppIcon name="hourglass" size={14} color={colors.inkTertiary} />
           <Text style={styles.waitingText}>Waiting for their response — up to 10 min</Text>
         </View>
       ) : (
@@ -381,7 +381,14 @@ export default function IcebreakerScreen() {
   const queryClient = useQueryClient();
   const { contentBottom } = useTabBarInsets();
   const { colors } = useTheme();
-  const { coords, permissionGranted } = useLocationPing(true);
+  const [screenFocused, setScreenFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setScreenFocused(true);
+      return () => setScreenFocused(false);
+    }, []),
+  );
+  const { coords, permissionGranted } = useLocationPing(screenFocused);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
   const [icebreakerSetupOpen, setIcebreakerSetupOpen] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
@@ -701,7 +708,7 @@ export default function IcebreakerScreen() {
         />
         <View style={[styles.denied, { paddingBottom: contentBottom }]}>
           <EmptyState
-            icon="location-outline"
+            icon="location"
             title="Location permission needed"
             message="Turn on location to browse people nearby in Break the ice mode."
           />
@@ -727,7 +734,7 @@ export default function IcebreakerScreen() {
         {unanswered.map((notice) => (
           <Card key={notice.interestId} variant="muted" style={styles.unansweredCard}>
             <View style={styles.unansweredRow}>
-              <Ionicons name="time-outline" size={18} color={colors.inkTertiary} />
+              <AppIcon name="clock" size={18} color={colors.inkTertiary} />
               <Text style={styles.unansweredText}>
                 {notice.displayName} didn&apos;t respond in time. Your request was removed.
               </Text>
@@ -737,7 +744,7 @@ export default function IcebreakerScreen() {
                 hitSlop={8}
                 style={({ pressed }) => pressed && styles.dismissPressed}
               >
-                <Ionicons name="close" size={18} color={colors.inkTertiary} />
+                <AppIcon name="close" size={18} color={colors.inkTertiary} />
               </Pressable>
             </View>
           </Card>
@@ -747,7 +754,7 @@ export default function IcebreakerScreen() {
           <View style={styles.icebreakerHeader}>
             <View style={styles.icebreakerTitleRow}>
               <View style={[styles.icebreakerIcon, icebreakerOn && { backgroundColor: colors.surface }]}>
-                <Ionicons name="flash" size={18} color={icebreakerOn ? colors.online : colors.accent} />
+                <AppIcon name="flash" size={18} color={icebreakerOn ? colors.online : colors.accent} />
               </View>
               <View style={styles.icebreakerTitleBlock}>
                 <Text style={styles.icebreakerTitle}>Break the ice</Text>
@@ -810,7 +817,7 @@ export default function IcebreakerScreen() {
               <ActivityIndicator color={colors.accent} style={styles.nearbyLoader} />
             ) : nearbyPeople.length === 0 ? (
               <EmptyState
-                icon="people-outline"
+                icon="people"
                 title={icebreakerOn ? 'No one else yet' : 'Turn on Break the ice'}
                 message={
                   icebreakerOn

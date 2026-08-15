@@ -1,4 +1,3 @@
-import { MAX_RADIUS_METERS, MIN_RADIUS_METERS } from '@pingme/shared';
 import { Pressable, Text, View } from 'react-native';
 import { radius, spacing, typography, useThemedStyles } from '../theme';
 
@@ -9,7 +8,7 @@ export const RADIUS_OPTIONS = [
   { meters: 500, label: '500m', hint: 'Far' },
 ] as const;
 
-export const RADIUS_RANGE_LABEL = `${MIN_RADIUS_METERS}–${MAX_RADIUS_METERS}m`;
+export const RADIUS_RANGE_LABEL = '150–500m';
 
 type NearbyRadiusPickerProps = {
   value: number;

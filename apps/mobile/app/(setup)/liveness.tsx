@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { api } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { Button } from '../../src/components/ui';
@@ -123,7 +123,7 @@ export default function LivenessScreen() {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <Pressable onPress={() => router.back()} disabled={polling} hitSlop={8} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.ink} />
+          <AppIcon name="back" size={22} color={colors.ink} />
         </Pressable>
         <Text style={styles.title}>Verify it&apos;s you</Text>
         <Text style={styles.subtitle}>

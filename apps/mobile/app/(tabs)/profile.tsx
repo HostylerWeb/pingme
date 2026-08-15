@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { genderLabel, type GenderValue } from '@pingme/shared';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
@@ -333,7 +333,7 @@ export default function ProfileScreen() {
             accessibilityLabel="Settings"
             style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
           >
-            <Ionicons name="settings-outline" size={20} color={colors.ink} />
+            <AppIcon name="settings" size={20} color={colors.ink} />
           </Pressable>
         }
       />
@@ -358,7 +358,7 @@ export default function ProfileScreen() {
               {uploading ? (
                 <ActivityIndicator size="small" color={colors.surface} />
               ) : (
-                <Ionicons name="camera" size={16} color={colors.surface} />
+                <AppIcon name="camera" size={16} color={colors.surface} />
               )}
             </View>
           </Pressable>
@@ -373,19 +373,19 @@ export default function ProfileScreen() {
           <View style={styles.badges}>
             {isPremium ? (
               <View style={[styles.badge, styles.badgePremium]}>
-                <Ionicons name="star" size={13} color={colors.premiumStart} />
+                <AppIcon name="premium-star" size={13} color={colors.premiumStart} />
                 <Text style={[styles.badgeText, styles.badgeTextPremium]}>Premium</Text>
               </View>
             ) : null}
             {user?.emailVerified ? (
               <View style={styles.badge}>
-                <Ionicons name="mail" size={13} color={colors.accent} />
+                <AppIcon name="email" size={13} color={colors.accent} />
                 <Text style={styles.badgeText}>Email verified</Text>
               </View>
             ) : null}
             {user?.livenessVerified ? (
               <View style={[styles.badge, styles.badgeVerified]}>
-                <Ionicons name="shield-checkmark" size={13} color={colors.online} />
+                <AppIcon name="verified" size={13} color={colors.online} />
                 <Text style={[styles.badgeText, styles.badgeTextVerified]}>Verified</Text>
               </View>
             ) : null}
@@ -398,7 +398,7 @@ export default function ProfileScreen() {
             onPress={() => router.push('/premium')}
           >
             <View style={styles.premiumMemberIcon}>
-              <Ionicons name="star" size={20} color={colors.online} />
+              <AppIcon name="premium-star" size={20} color={colors.online} />
             </View>
             <View style={styles.premiumCopy}>
               <Text style={styles.premiumMemberTitle}>You&apos;re a Premium member</Text>
@@ -406,7 +406,7 @@ export default function ProfileScreen() {
                 Tap to pick your profile ring, turn read receipts on or off, and manage your perks.
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.online} />
+            <AppIcon name="chevron-forward" size={18} color={colors.online} />
           </Pressable>
         ) : (
           <Pressable
@@ -414,13 +414,13 @@ export default function ProfileScreen() {
             onPress={() => router.push('/premium')}
           >
             <View style={styles.premiumIcon}>
-              <Ionicons name="star" size={18} color={colors.premiumStart} />
+              <AppIcon name="premium-star" size={18} color={colors.premiumOnSurfaceMuted} />
             </View>
             <View style={styles.premiumCopy}>
               <Text style={styles.premiumTitle}>Explore Premium</Text>
               <Text style={styles.premiumHint}>Avatar themes, read receipts, and more</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.premiumOnSurfaceMuted} />
+            <AppIcon name="chevron-forward" size={18} color={colors.premiumOnSurfaceMuted} />
           </Pressable>
         )}
 
@@ -450,18 +450,18 @@ export default function ProfileScreen() {
             style={({ pressed }) => [styles.menuRow, styles.menuRowBorder, pressed && styles.menuRowPressed]}
           >
             <View style={styles.menuIcon}>
-              <Ionicons name="settings-outline" size={18} color={colors.ink} />
+              <AppIcon name="settings" size={18} color={colors.ink} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.menuLabel}>Settings</Text>
               <Text style={styles.menuHint}>Notifications, dark mode, and preferences</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.inkTertiary} />
+            <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
           </Pressable>
         </View>
 
         <Pressable style={styles.logout} onPress={onLogout}>
-          <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          <AppIcon name="logout" size={20} color={colors.error} />
           <Text style={styles.logoutText}>Logout</Text>
         </Pressable>
       </ScrollView>

@@ -1,16 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ToastType, useToastStore } from '../../stores/toast-store';
 import { radius, spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
+import { AppIcon, type AppIconName } from './app-icon';
 
 function toastMeta(type: ToastType, colors: ReturnType<typeof useTheme>['colors']) {
   switch (type) {
     case 'error':
       return {
-        icon: 'alert-circle' as const,
+        icon: 'alert-circle' as AppIconName,
         background: colors.errorContainer,
         border: colors.error,
         iconColor: colors.error,
@@ -18,7 +18,7 @@ function toastMeta(type: ToastType, colors: ReturnType<typeof useTheme>['colors'
       };
     case 'success':
       return {
-        icon: 'checkmark-circle' as const,
+        icon: 'check-circle' as AppIconName,
         background: colors.onlineSoft,
         border: colors.online,
         iconColor: colors.online,
@@ -26,7 +26,7 @@ function toastMeta(type: ToastType, colors: ReturnType<typeof useTheme>['colors'
       };
     default:
       return {
-        icon: 'information-circle' as const,
+        icon: 'info' as AppIconName,
         background: colors.surfaceElevated,
         border: colors.border,
         iconColor: colors.accent,
@@ -87,7 +87,7 @@ export function ToastHost() {
           shadows.card,
         ]}
       >
-        <Ionicons name={meta.icon} size={22} color={meta.iconColor} />
+        <AppIcon name={meta.icon} size={22} color={meta.iconColor} />
         <Text style={[styles.text, { color: meta.textColor }]}>{message}</Text>
       </View>
     </Pressable>

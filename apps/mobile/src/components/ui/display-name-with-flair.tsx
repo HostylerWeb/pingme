@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import { typography, useTheme, useThemedStyles } from '../../theme';
+import { AppIcon } from './app-icon';
 
 export function DisplayNameWithFlair({
   name,
@@ -36,15 +36,10 @@ export function DisplayNameWithFlair({
         {name}
       </Text>
       {isVerified ? (
-        <Ionicons
-          name="shield-checkmark"
-          size={13}
-          color={colors.online}
-          accessibilityLabel="Identity verified"
-        />
+        <AppIcon name="verified" size={13} color={colors.online} accessibilityLabel="Identity verified" />
       ) : null}
       {isPremium ? (
-        <Ionicons name="star" size={13} color={colors.premiumStart} accessibilityLabel="Premium member" />
+        <AppIcon name="premium-star" size={13} color={colors.premiumStart} accessibilityLabel="Premium member" />
       ) : null}
     </View>
   );

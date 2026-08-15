@@ -1,19 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import type { ComponentProps } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useChatsUnreadCount } from '../../src/hooks/use-chats-unread';
 import { TAB_BAR_CONTENT_HEIGHT, TAB_BAR_VERTICAL_PADDING, useBottomInset } from '../../src/hooks/use-tab-bar-insets';
+import { AppIcon, type AppIconName } from '../../src/components/ui/app-icon';
 import { typography, useTheme, useThemedStyles } from '../../src/theme';
-
-type TabIconName = ComponentProps<typeof Ionicons>['name'];
 
 function TabIcon({
   name,
   color,
   focused,
 }: {
-  name: TabIconName;
+  name: AppIconName;
   color: string;
   focused: boolean;
 }) {
@@ -21,13 +18,13 @@ function TabIcon({
     iconWrap: {
       alignItems: 'center',
       justifyContent: 'center',
-      height: 28,
+      height: 32,
     },
   }));
 
   return (
     <View style={styles.iconWrap}>
-      <Ionicons name={name} size={focused ? 24 : 22} color={color} />
+      <AppIcon name={name} size={focused ? 28 : 26} color={color} />
     </View>
   );
 }
@@ -44,8 +41,8 @@ export default function TabLayout() {
       safeAreaInsets={{ top: 0, right: 0, bottom: bottomInset, left: 0 }}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.inkMuted,
+        tabBarActiveTintColor: colors.tabBarIconActive,
+        tabBarInactiveTintColor: colors.tabBarIconInactive,
         tabBarStyle: {
           backgroundColor: colors.tabBar,
           borderTopColor: colors.tabBarBorder,
@@ -76,7 +73,7 @@ export default function TabLayout() {
         options={{
           title: 'Wall',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'layers' : 'layers-outline'} color={String(color)} focused={focused} />
+            <TabIcon name="wall-filled" color={String(color)} focused={focused} />
           ),
         }}
       />
@@ -85,7 +82,7 @@ export default function TabLayout() {
         options={{
           title: 'Break the ice',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'radio' : 'radio-outline'} color={String(color)} focused={focused} />
+            <TabIcon name="icebreaker-filled" color={String(color)} focused={focused} />
           ),
         }}
       />
@@ -96,11 +93,7 @@ export default function TabLayout() {
           tabBarBadge: chatsTabBadge,
           tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.onAccent, fontSize: 10 },
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
-              color={String(color)}
-              focused={focused}
-            />
+            <TabIcon name="chats-filled" color={String(color)} focused={focused} />
           ),
         }}
       />
@@ -109,7 +102,7 @@ export default function TabLayout() {
         options={{
           title: 'You',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'person-circle' : 'person-circle-outline'} color={String(color)} focused={focused} />
+            <TabIcon name="profile-filled" color={String(color)} focused={focused} />
           ),
         }}
       />

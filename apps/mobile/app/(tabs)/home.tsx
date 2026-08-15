@@ -1,5 +1,5 @@
 import { distanceLabel } from '@pingme/shared';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -105,7 +105,7 @@ function PostRow({
       </View>
       <Text style={styles.postContent}>{post.content}</Text>
       <View style={styles.postFooter}>
-        <Ionicons name="chatbubble-outline" size={15} color={colors.inkTertiary} />
+        <AppIcon name="chat-reply" size={15} color={colors.inkTertiary} />
         <Text style={styles.replyCount}>
           {post.replyCount === 0 ? 'Reply' : `${post.replyCount} ${post.replyCount === 1 ? 'reply' : 'replies'}`}
         </Text>
@@ -123,7 +123,14 @@ export default function WallScreen() {
   const queryClient = useQueryClient();
   const { contentBottom } = useTabBarInsets();
   const { colors } = useTheme();
-  const { coords, error: locationError, permissionGranted, requestPermission, ping } = useLocationPing(true);
+  const [screenFocused, setScreenFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setScreenFocused(true);
+      return () => setScreenFocused(false);
+    }, []),
+  );
+  const { coords, error: locationError, permissionGranted, requestPermission, ping } = useLocationPing(screenFocused);
   const [modalOpen, setModalOpen] = useState(false);
   const [radiusSheetOpen, setRadiusSheetOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -257,9 +264,7 @@ export default function WallScreen() {
         if (!foregroundGranted) {
           throw new Error('Location permission is required to go visible on the Wall.');
         }
-        if (coords) {
-          await api.pingLocation(coords);
-        } else {
+        if (!coords) {
           const location = await ping({ preferCached: true });
           if (!location) {
             throw new Error('Could not get your location. Try again in a moment.');
@@ -357,7 +362,7 @@ export default function WallScreen() {
         />
         <View style={styles.center}>
           <EmptyState
-            icon={permissionDenied ? 'location-outline' : 'navigate-outline'}
+            icon={permissionDenied ? 'location' : 'navigate'}
             title={permissionDenied ? 'Location needed' : 'Location unavailable'}
             message={
               permissionDenied
@@ -436,7 +441,7 @@ export default function WallScreen() {
               accessibilityLabel={`Nearby radius, ${radiusMeters} meters`}
               style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
             >
-              <Ionicons name="settings-outline" size={20} color={colors.ink} />
+              <AppIcon name="settings" size={20} color={colors.ink} />
             </Pressable>
             <AvailableChip isAvailable={availableOn} />
           </View>
@@ -458,7 +463,7 @@ export default function WallScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             <EmptyState
-              icon="megaphone-outline"
+              icon="megaphone"
               title="No posts yet"
               message={`Be the first to say something to people within about ${radiusMeters} meters.`}
               action={
@@ -489,7 +494,7 @@ export default function WallScreen() {
           setModalOpen(true);
         }}
       >
-        <Ionicons name="add" size={28} color={colors.onAccent} />
+        <AppIcon name="add" size={28} color={colors.onAccent} />
       </Pressable>
 
       <BottomSheet

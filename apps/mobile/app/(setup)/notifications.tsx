@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import * as Notifications from 'expo-notifications';
 import { notificationsSetupStorage } from '../../src/lib/notifications-setup-storage';
 import { registerForPushNotifications } from '../../src/lib/push-notifications';
@@ -77,7 +77,7 @@ export default function NotificationsSetupScreen() {
       <View style={styles.content}>
         <Text style={styles.step}>Step 2 of 2</Text>
         <View style={styles.iconWrap}>
-          <Ionicons name="notifications" size={36} color={colors.accent} />
+          <AppIcon name="notifications" size={36} color={colors.accent} />
         </View>
 
         <Text style={styles.title}>Stay in the loop</Text>
@@ -87,7 +87,7 @@ export default function NotificationsSetupScreen() {
         </Text>
 
         <Card variant="muted" style={styles.noteCard}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.inkSecondary} />
+          <AppIcon name="info" size={18} color={colors.inkSecondary} />
           <Text style={styles.note}>
             We never spam — only activity that matters to you within your area.
           </Text>

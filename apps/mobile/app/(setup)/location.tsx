@@ -2,7 +2,7 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { locationSetupStorage } from '../../src/lib/location-setup-storage';
 import { Button, Card, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
@@ -73,7 +73,7 @@ export default function LocationSetupScreen() {
       <View style={styles.content}>
         <Text style={styles.step}>Step 1 of 2</Text>
         <View style={styles.iconWrap}>
-          <Ionicons name="location" size={36} color={colors.accent} />
+          <AppIcon name="location" size={36} color={colors.accent} />
         </View>
 
         <Text style={styles.title}>Enable location</Text>
@@ -83,7 +83,7 @@ export default function LocationSetupScreen() {
         </Text>
 
         <Card variant="muted" style={styles.noteCard}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.inkSecondary} />
+          <AppIcon name="info" size={18} color={colors.inkSecondary} />
           <Text style={styles.note}>
             On the next screen, tap &quot;Allow only while using the app&quot;. Do not choose &quot;Allow all
             the time&quot; — that is only needed later if you turn Visible on Wall on.

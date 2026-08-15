@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
 import { radius, spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
+import { AppIcon, type AppIconName } from './app-icon';
 
 export function EmptyState({
   icon,
@@ -9,7 +9,7 @@ export function EmptyState({
   message,
   action,
 }: {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   title: string;
   message: string;
   action?: React.ReactNode;
@@ -53,7 +53,7 @@ export function EmptyState({
   return (
     <View style={styles.wrap}>
       <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={26} color={colors.accent} />
+        <AppIcon name={icon} size={26} color={colors.accent} />
       </View>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>

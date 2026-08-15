@@ -8,7 +8,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@pingme/db';
-import { distanceBucket, fuzzyCoordinate, PRESENCE_TTL_SECONDS } from '@pingme/shared';
+import {
+  distanceBucket,
+  fuzzyCoordinate,
+  LOCATION_PINGS_PER_HOUR,
+  PRESENCE_TTL_SECONDS,
+} from '@pingme/shared';
 import { BlocksService } from '../common/services/blocks.service';
 import { loadPublicProfileMap } from '../common/utils/public-profile.util';
 import { RateLimitService } from '../common/services/rate-limit.service';
@@ -31,7 +36,11 @@ export class PresenceService {
   ) {}
 
   async ping(userId: string, dto: PresencePingInput) {
-    const allowed = await this.rateLimit.checkLimit(`rate:ping:${userId}`, 60);
+    const allowed = await this.rateLimit.incrementWithinWindow(
+      `rate:ping:${userId}`,
+      LOCATION_PINGS_PER_HOUR,
+      3600,
+    );
     if (!allowed) {
       throw new HttpException('Location ping rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
     }

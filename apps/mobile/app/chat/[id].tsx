@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ChatMessage } from '../../src/lib/api';
 import { useChatSocket } from '../../src/hooks/use-chat-socket';
@@ -305,7 +305,7 @@ export default function ChatThreadScreen() {
       <Screen>
         <AppHeader title="Chat" showBrand={false} onBack={() => router.back()} centerTitle />
         <EmptyState
-          icon="chatbubble-outline"
+          icon="chat-bubble"
           title="Chat unavailable"
           message="This conversation could not be loaded."
           action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
@@ -327,7 +327,7 @@ export default function ChatThreadScreen() {
         centerTitle
         right={
           <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={styles.menuBtn}>
-            <Ionicons name="ellipsis-vertical" size={20} color={colors.inkSecondary} />
+            <AppIcon name="more-menu" size={20} color={colors.inkSecondary} />
           </Pressable>
         }
       />
@@ -354,7 +354,7 @@ export default function ChatThreadScreen() {
         renderItem={({ item }) => <MessageBubble message={item} />}
         ListEmptyComponent={
           <EmptyState
-            icon="chatbubble-outline"
+            icon="chat-bubble"
             title="No messages yet"
             message="Say hello — your conversation starts here."
           />
@@ -379,7 +379,7 @@ export default function ChatThreadScreen() {
           {sendMutation.isPending ? (
             <ActivityIndicator color={colors.onAccent} size="small" />
           ) : (
-            <Ionicons name="send" size={18} color={colors.onAccent} />
+            <AppIcon name="send" size={18} color={colors.onAccent} />
           )}
         </Pressable>
       </View>

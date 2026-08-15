@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { api, ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { showToast } from '../../src/stores/toast-store';
@@ -88,8 +88,8 @@ export default function VerifyScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.iconWrap}>
-            <Ionicons
-              name={usePhone ? 'phone-portrait-outline' : 'mail-outline'}
+            <AppIcon
+              name={usePhone ? 'phone' : 'email'}
               size={32}
               color={colors.accent}
             />

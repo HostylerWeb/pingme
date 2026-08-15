@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../src/components/ui/app-icon';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
 import { api, SubscriptionInfo } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
@@ -282,7 +282,7 @@ export default function PremiumScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <View style={styles.heroBadge}>
-            <Ionicons name="diamond-outline" size={20} color={colors.premiumOnSurface} />
+            <AppIcon name="premium-diamond" size={20} color={colors.premiumOnSurface} />
           </View>
           <Text style={styles.title}>{isPremium ? 'Premium membership' : 'Go Premium'}</Text>
           <Text style={styles.subtitle}>
@@ -314,7 +314,7 @@ export default function PremiumScreen() {
                 </View>
                 {plan.features.map((feature: string) => (
                   <View key={feature} style={styles.featureRow}>
-                    <Ionicons name="checkmark" size={16} color={colors.premiumStart} />
+                    <AppIcon name="check" size={16} color={colors.premiumStart} />
                     <Text style={styles.planFeature}>{feature}</Text>
                   </View>
                 ))}
@@ -354,7 +354,7 @@ export default function PremiumScreen() {
                         style={[styles.themeSwatch, styles.themeSwatchLocked]}
                       />
                       <View style={styles.lockBadge}>
-                        <Ionicons name="lock-closed" size={12} color={colors.premiumOnSurface} />
+                        <AppIcon name="lock" size={12} color={colors.premiumOnSurface} />
                       </View>
                     </View>
                     <Text style={styles.themeLabel}>{theme.label}</Text>
@@ -374,7 +374,7 @@ export default function PremiumScreen() {
                   'Optional read receipts in chat',
                 ].map((feature) => (
                   <View key={feature} style={styles.featureRow}>
-                    <Ionicons name="checkmark-circle" size={18} color={colors.premiumStart} />
+                    <AppIcon name="check-circle" size={18} color={colors.premiumStart} />
                     <Text style={styles.planFeature}>{feature}</Text>
                   </View>
                 ))}
@@ -401,7 +401,7 @@ export default function PremiumScreen() {
                         />
                         {isSelected ? (
                           <View style={styles.themeCheck}>
-                            <Ionicons name="checkmark" size={12} color={colors.onPrimary} />
+                            <AppIcon name="check" size={12} color={colors.onPrimary} />
                           </View>
                         ) : null}
                       </View>
@@ -449,7 +449,7 @@ export default function PremiumScreen() {
             </View>
             {premiumPlan.features.slice(0, 3).map((feature) => (
               <View key={feature} style={styles.featureRow}>
-                <Ionicons name="checkmark" size={16} color={colors.premiumStart} />
+                <AppIcon name="check" size={16} color={colors.premiumStart} />
                 <Text style={styles.planFeature}>{feature}</Text>
               </View>
             ))}

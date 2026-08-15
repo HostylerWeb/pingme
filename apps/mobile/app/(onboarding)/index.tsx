@@ -1,24 +1,24 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon, type AppIconName } from '../../src/components/ui/app-icon';
 import { onboardingStorage } from '../../src/lib/onboarding-storage';
 import { Button, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 const SLIDES = [
   {
-    icon: 'people' as const,
+    icon: 'people' as AppIconName,
     title: 'Meet people nearby',
     body: 'Connect with others within 250m. Real people, real proximity — cafés, parks, and everyday moments.',
   },
   {
-    icon: 'shield-checkmark' as const,
+    icon: 'verified' as AppIconName,
     title: 'Privacy first',
     body: 'We never show your exact location. Others only see distance buckets like "Very near" or "~200m away".',
   },
   {
-    icon: 'location' as const,
+    icon: 'location' as AppIconName,
     title: 'You stay in control',
     body: 'Choose "Allow only while using the app" for location. Background access is only requested when you turn Visible on Wall on.',
   },
@@ -104,7 +104,7 @@ export default function OnboardingScreen() {
 
         <View style={styles.hero}>
           <View style={styles.iconCircle}>
-            <Ionicons name={slide.icon} size={36} color={colors.accent} />
+            <AppIcon name={slide.icon} size={36} color={colors.accent} />
           </View>
           <Text style={styles.title}>{slide.title}</Text>
           <Text style={styles.body}>{slide.body}</Text>

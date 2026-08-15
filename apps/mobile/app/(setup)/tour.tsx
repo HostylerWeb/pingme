@@ -1,24 +1,24 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon, type AppIconName } from '../../src/components/ui/app-icon';
 import { productTourStorage } from '../../src/lib/product-tour-storage';
 import { Button, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 const SLIDES = [
   {
-    icon: 'layers' as const,
+    icon: 'wall-filled' as AppIconName,
     title: 'Wall — local feed',
     body: 'Read and post short notes to people within ~250m. Reply to someone’s post to start a conversation.',
   },
   {
-    icon: 'radio' as const,
+    icon: 'icebreaker-filled' as AppIconName,
     title: 'Break the ice — meet people',
     body: 'Browse who’s open to connecting nearby. Tap Yes on someone — if they say Yes too, you can connect.',
   },
   {
-    icon: 'chatbubble-ellipses' as const,
+    icon: 'chats-filled' as AppIconName,
     title: 'Chats — private talks',
     body: 'After you both accept, your private chat opens here. Wall and Break the ice stay separate.',
   },
@@ -90,7 +90,7 @@ export default function ProductTourScreen() {
 
         <View style={styles.hero}>
           <View style={styles.iconCircle}>
-            <Ionicons name={slide.icon} size={36} color={colors.accent} />
+            <AppIcon name={slide.icon} size={36} color={colors.accent} />
           </View>
           <Text style={styles.title}>{slide.title}</Text>
           <Text style={styles.body}>{slide.body}</Text>

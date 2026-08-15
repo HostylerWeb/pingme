@@ -58,6 +58,8 @@ export type AppColors = {
   surfaceVariant: string;
   tabBar: string;
   tabBarBorder: string;
+  tabBarIconActive: string;
+  tabBarIconInactive: string;
   switchTrackOff: string;
   switchThumbOff: string;
 };
@@ -123,6 +125,8 @@ export const lightColors: AppColors = {
   surfaceVariant: '#E5E3DD',
   tabBar: '#FFFFFF',
   tabBarBorder: 'rgba(20, 20, 20, 0.06)',
+  tabBarIconActive: '#B8442E',
+  tabBarIconInactive: '#8C8C8C',
   switchTrackOff: '#D8D6D0',
   switchThumbOff: '#FFFFFF',
 };
@@ -188,6 +192,8 @@ export const darkColors: AppColors = {
   surfaceVariant: '#3A3935',
   tabBar: '#1C1B18',
   tabBarBorder: 'rgba(255, 255, 255, 0.08)',
+  tabBarIconActive: '#E05A42',
+  tabBarIconInactive: '#7A7872',
   switchTrackOff: '#5C5A54',
   switchThumbOff: '#E8E6E0',
 };

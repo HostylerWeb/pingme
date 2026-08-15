@@ -137,7 +137,7 @@ export default function ChatsScreen() {
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             <EmptyState
-              icon="chatbubbles-outline"
+              icon="chat-bubbles"
               title="No chats yet"
               message="Connect with someone on the Wall or in Break the ice — when you both accept, your chat appears here."
               action={

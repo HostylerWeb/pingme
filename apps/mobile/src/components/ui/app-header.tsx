@@ -1,9 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
 import { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
+import { AppIcon } from './app-icon';
 
 export function AppHeader({
   title = 'PingMe',
@@ -114,7 +114,7 @@ export function AppHeader({
       <View style={[styles.row, centerTitle && styles.rowCentered]}>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={8} style={styles.sideSlot} accessibilityRole="button" accessibilityLabel="Go back">
-            <Ionicons name="arrow-back" size={22} color={colors.ink} />
+            <AppIcon name="back" size={22} color={colors.ink} />
           </Pressable>
         ) : null}
         <View style={[styles.titleBlock, centerTitle && styles.titleBlockCentered]}>

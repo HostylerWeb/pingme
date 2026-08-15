@@ -1,3 +1,4 @@
+import { FOREGROUND_PING_INTERVAL_MS } from '@pingme/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
@@ -129,7 +130,7 @@ export function useLocationPing(enabled = true) {
       await ping({ preferCached: true });
       intervalRef.current = setInterval(() => {
         void ping({ preferCached: true });
-      }, 60_000);
+      }, FOREGROUND_PING_INTERVAL_MS);
     })();
 
     return () => {

@@ -1,5 +1,5 @@
 import { MIN_AGE_YEARS } from '@pingme/shared';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from './app-icon';
 import { useMemo, useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import { radius, spacing, typography, useTheme } from '../../theme';
@@ -135,7 +135,7 @@ export function DateOfBirthField({
         <Text style={[styles.value, !displayValue && styles.placeholder]}>
           {displayValue || 'DD/MM/YYYY'}
         </Text>
-        <Ionicons name="calendar-outline" size={20} color={colors.inkTertiary} />
+        <AppIcon name="calendar" size={20} color={colors.inkTertiary} />
       </Pressable>
 
       <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => setShowPicker(false)}>

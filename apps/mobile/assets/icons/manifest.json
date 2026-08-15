@@ -1,0 +1,345 @@
+[
+  {
+    "file": "icon-wall.svg",
+    "pingme_use": "wall",
+    "solar_icon": "feed-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-wall-filled.svg",
+    "pingme_use": "wall-filled",
+    "solar_icon": "feed-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-icebreaker.svg",
+    "pingme_use": "icebreaker",
+    "solar_icon": "people-nearby-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-icebreaker-filled.svg",
+    "pingme_use": "icebreaker-filled",
+    "solar_icon": "people-nearby-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-chats.svg",
+    "pingme_use": "chats",
+    "solar_icon": "chat-round-dots-linear",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-chats-filled.svg",
+    "pingme_use": "chats-filled",
+    "solar_icon": "chat-round-dots-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-profile.svg",
+    "pingme_use": "profile",
+    "solar_icon": "user-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-profile-filled.svg",
+    "pingme_use": "profile-filled",
+    "solar_icon": "user-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-settings.svg",
+    "pingme_use": "settings",
+    "solar_icon": "settings-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-add.svg",
+    "pingme_use": "add",
+    "solar_icon": "add-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-send.svg",
+    "pingme_use": "send",
+    "solar_icon": "send-square-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-back.svg",
+    "pingme_use": "back",
+    "solar_icon": "arrow-left-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-chevron-forward.svg",
+    "pingme_use": "chevron-forward",
+    "solar_icon": "alt-arrow-right-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-close.svg",
+    "pingme_use": "close",
+    "solar_icon": "close-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-more-menu.svg",
+    "pingme_use": "more-menu",
+    "solar_icon": "menu-dots-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-delete.svg",
+    "pingme_use": "delete",
+    "solar_icon": "trash-bin-trash-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-logout.svg",
+    "pingme_use": "logout",
+    "solar_icon": "logout-2-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-camera.svg",
+    "pingme_use": "camera",
+    "solar_icon": "camera-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-calendar.svg",
+    "pingme_use": "calendar",
+    "solar_icon": "calendar-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-eye.svg",
+    "pingme_use": "eye",
+    "solar_icon": "eye-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-eye-off.svg",
+    "pingme_use": "eye-off",
+    "solar_icon": "eye-closed-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-email.svg",
+    "pingme_use": "email",
+    "solar_icon": "letter-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-phone.svg",
+    "pingme_use": "phone",
+    "solar_icon": "phone-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-notifications.svg",
+    "pingme_use": "notifications",
+    "solar_icon": "bell-bing-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-info.svg",
+    "pingme_use": "info",
+    "solar_icon": "info-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-check.svg",
+    "pingme_use": "check",
+    "solar_icon": "check-read-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-check-circle.svg",
+    "pingme_use": "check-circle",
+    "solar_icon": "check-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-alert-circle.svg",
+    "pingme_use": "alert-circle",
+    "solar_icon": "danger-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-close-circle.svg",
+    "pingme_use": "close-circle",
+    "solar_icon": "close-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-cloud-offline.svg",
+    "pingme_use": "cloud-offline",
+    "solar_icon": "cloud-cross-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-verified.svg",
+    "pingme_use": "verified",
+    "solar_icon": "shield-check-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-premium-star.svg",
+    "pingme_use": "premium-star",
+    "solar_icon": "star-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-premium-diamond.svg",
+    "pingme_use": "premium-diamond",
+    "solar_icon": "medal-star-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-lock.svg",
+    "pingme_use": "lock",
+    "solar_icon": "lock-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-connection.svg",
+    "pingme_use": "connection",
+    "solar_icon": "link-round-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-heart-yes.svg",
+    "pingme_use": "heart-yes",
+    "solar_icon": "heart-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-heart-no.svg",
+    "pingme_use": "heart-no",
+    "solar_icon": "dislike-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-sparkles.svg",
+    "pingme_use": "sparkles",
+    "solar_icon": "stars-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-flash.svg",
+    "pingme_use": "flash",
+    "solar_icon": "bolt-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-chat-reply.svg",
+    "pingme_use": "chat-reply",
+    "solar_icon": "chat-round-line-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-location.svg",
+    "pingme_use": "location",
+    "solar_icon": "map-point-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-navigate.svg",
+    "pingme_use": "navigate",
+    "solar_icon": "compass-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-people.svg",
+    "pingme_use": "people",
+    "solar_icon": "users-group-rounded-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-hourglass.svg",
+    "pingme_use": "hourglass",
+    "solar_icon": "hourglass-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-clock.svg",
+    "pingme_use": "clock",
+    "solar_icon": "clock-circle-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-megaphone.svg",
+    "pingme_use": "megaphone",
+    "solar_icon": "volume-loud-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-document.svg",
+    "pingme_use": "document",
+    "solar_icon": "document-text-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-chat-bubbles.svg",
+    "pingme_use": "chat-bubbles",
+    "solar_icon": "chat-square-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  },
+  {
+    "file": "icon-chat-bubble.svg",
+    "pingme_use": "chat-bubble",
+    "solar_icon": "chat-round-bold",
+    "source": "Solar Bold Icons (Iconify / same set as svgrepo.com/collection/solar-bold-icons)",
+    "license": "CC BY 4.0 \u2014 https://www.svgrepo.com/page/licensing/#CC%20Attribution"
+  }
+]

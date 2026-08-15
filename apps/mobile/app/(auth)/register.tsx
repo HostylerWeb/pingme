@@ -1,7 +1,7 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import type { GenderValue } from '@pingme/shared';
 import { ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
@@ -129,14 +129,14 @@ export default function RegisterScreen() {
             <GenderPicker value={gender} onChange={setGender} />
 
             <View style={styles.notice}>
-              <Ionicons name="information-circle-outline" size={18} color={colors.accent} />
+              <AppIcon name="info" size={18} color={colors.accent} />
               <Text style={styles.noticeText}>
                 Gender is required and cannot be changed later. Choose carefully before signing up.
               </Text>
             </View>
 
             <View style={styles.privacy}>
-              <Ionicons name="shield-checkmark-outline" size={18} color={colors.online} />
+              <AppIcon name="verified" size={18} color={colors.online} />
               <Text style={styles.privacyText}>Your exact location is never shared.</Text>
             </View>
 

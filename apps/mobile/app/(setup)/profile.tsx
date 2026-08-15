@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppIcon } from '../../src/components/ui/app-icon';
 import { genderLabel, type GenderValue } from '@pingme/shared';
 import { api, ApiError } from '../../src/lib/api';
 import { uploadAvatarFromUri } from '../../src/lib/avatar-upload';
@@ -116,7 +116,7 @@ export default function ProfileSetupScreen() {
               <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
             ) : (
               <>
-                <Ionicons name="camera-outline" size={28} color={colors.accent} />
+                <AppIcon name="camera" size={28} color={colors.accent} />
                 <Text style={styles.avatarPlaceholder}>Add photo</Text>
               </>
             )}
