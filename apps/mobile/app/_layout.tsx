@@ -52,7 +52,7 @@ function ConfigBootstrap({ children }: { children: React.ReactNode }) {
       gap: spacing.lg,
     },
     title: { ...typography.title, color: colors.ink, textAlign: 'center' },
-    body: { ...typography.body, color: colors.inkSecondary, textAlign: 'center' },
+    body: { ...typography.bodyMd, color: colors.inkSecondary, textAlign: 'center' },
   }));
 
   if (!appConfig) {
