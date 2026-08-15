@@ -8,5 +8,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     ...appJson.expo.android,
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
+    softwareKeyboardLayoutMode: 'resize' as const,
   },
 });
