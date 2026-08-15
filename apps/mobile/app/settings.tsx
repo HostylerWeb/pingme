@@ -48,7 +48,7 @@ export default function SettingsScreen() {
 
   const styles = useThemedStyles(({ colors }) => ({
     content: { paddingHorizontal: spacing.container },
-    premiumRow: {
+    premiumCta: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.premiumSurface,
@@ -59,11 +59,7 @@ export default function SettingsScreen() {
       borderColor: colors.premiumSurfaceBorder,
       gap: spacing.md,
     },
-    premiumRowMember: {
-      backgroundColor: colors.onlineSoft,
-      borderColor: colors.online,
-    },
-    premiumRowPressed: { opacity: 0.9 },
+    premiumCtaPressed: { opacity: 0.9 },
     premiumIcon: {
       width: 40,
       height: 40,
@@ -72,10 +68,51 @@ export default function SettingsScreen() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    premiumText: { flex: 1 },
-    premiumTitle: { ...typography.bodySemiBold, color: colors.premiumOnSurface, fontSize: 16 },
-    premiumTitleMember: { color: colors.online },
-    premiumHint: { ...typography.caption, color: colors.premiumOnSurfaceMuted, marginTop: 2 },
+    premiumMemberCta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.onlineSoft,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      marginBottom: spacing.xxl,
+      borderWidth: 1,
+      borderColor: colors.online,
+      gap: spacing.md,
+    },
+    premiumMemberCtaPressed: { opacity: 0.92 },
+    premiumMemberIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.online,
+    },
+    premiumCopy: { flex: 1 },
+    premiumTitle: {
+      ...typography.bodySemiBold,
+      color: colors.premiumOnSurface,
+      fontSize: 16,
+    },
+    premiumHint: {
+      ...typography.caption,
+      color: colors.premiumOnSurfaceMuted,
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    premiumMemberTitle: {
+      ...typography.bodySemiBold,
+      color: colors.online,
+      fontSize: 16,
+    },
+    premiumMemberHint: {
+      ...typography.caption,
+      color: colors.inkSecondary,
+      marginTop: 4,
+      lineHeight: 18,
+    },
     sectionHint: {
       ...typography.caption,
       color: colors.inkSecondary,
@@ -143,29 +180,37 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
-          <Pressable
-            onPress={() => router.push('/premium')}
-            style={({ pressed }) => [
-              styles.premiumRow,
-              isPremium && styles.premiumRowMember,
-              pressed && styles.premiumRowPressed,
-            ]}
-          >
-            <View style={[styles.premiumIcon, isPremium && { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.online }]}>
-              <AppIcon name="premium-star" size={20} color={isPremium ? colors.online : colors.premiumStart} />
-            </View>
-            <View style={styles.premiumText}>
-              <Text style={[styles.premiumTitle, isPremium && styles.premiumTitleMember]}>
-                {isPremium ? "You're a Premium member" : 'Premium'}
-              </Text>
-              <Text style={styles.premiumHint}>
-                {isPremium
-                  ? 'Pick your profile ring, read receipts, and more'
-                  : 'Avatar themes and read receipts'}
-              </Text>
-            </View>
-            <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
-          </Pressable>
+          {isPremium ? (
+            <Pressable
+              onPress={() => router.push('/premium')}
+              style={({ pressed }) => [styles.premiumMemberCta, pressed && styles.premiumMemberCtaPressed]}
+            >
+              <View style={styles.premiumMemberIcon}>
+                <AppIcon name="premium-star" size={20} color={colors.online} />
+              </View>
+              <View style={styles.premiumCopy}>
+                <Text style={styles.premiumMemberTitle}>You&apos;re a Premium member</Text>
+                <Text style={styles.premiumMemberHint}>
+                  Tap to pick your profile ring, turn read receipts on or off, and manage your perks.
+                </Text>
+              </View>
+              <AppIcon name="chevron-forward" size={18} color={colors.online} />
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => router.push('/premium')}
+              style={({ pressed }) => [styles.premiumCta, pressed && styles.premiumCtaPressed]}
+            >
+              <View style={styles.premiumIcon}>
+                <AppIcon name="premium-star" size={18} color={colors.premiumOnSurfaceMuted} />
+              </View>
+              <View style={styles.premiumCopy}>
+                <Text style={styles.premiumTitle}>Explore Premium</Text>
+                <Text style={styles.premiumHint}>Avatar themes, read receipts, and more</Text>
+              </View>
+              <AppIcon name="chevron-forward" size={18} color={colors.premiumOnSurfaceMuted} />
+            </Pressable>
+          )}
 
           <SectionLabel>Appearance</SectionLabel>
           <Text style={styles.sectionHint}>Customize how PingMe looks on your device.</Text>

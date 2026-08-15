@@ -525,7 +525,11 @@ export default function WallScreen() {
       <BottomSheet
         visible={radiusSheetOpen}
         title="Nearby radius"
-        subtitle={`How far you see the Wall and who can spot you nearby (${wallRangeLabel}). Break the ice stays closer (~${icebreakerRadiusMeters}m).`}
+        subtitle={
+          radiusMeters === wallDefaultMeters
+            ? `How far you see the Wall and who can spot you nearby (${wallRangeLabel}). Saved to your account.`
+            : `Your radius is ${radiusMeters}m (app default is ${wallDefaultMeters}m). Saved to your account — reinstalling won't change it.`
+        }
         onClose={() => setRadiusSheetOpen(false)}
       >
         <NearbyRadiusPicker
@@ -537,6 +541,15 @@ export default function WallScreen() {
           maxMeters={wallDistance.maxMeters}
           onChange={(meters) => radiusMutation.mutate(meters)}
         />
+        {radiusMeters !== wallDefaultMeters ? (
+          <Button
+            label={`Use default (${wallDefaultMeters}m)`}
+            variant="ghost"
+            onPress={() => radiusMutation.mutate(wallDefaultMeters)}
+            loading={radiusMutation.isPending}
+            style={{ marginTop: spacing.md }}
+          />
+        ) : null}
       </BottomSheet>
 
       <BottomSheet visible={modalOpen} title="Post to the wall" subtitle="Only people nearby will see this." onClose={() => setModalOpen(false)}>

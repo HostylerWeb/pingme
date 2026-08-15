@@ -85,6 +85,16 @@ ip -4 route get 1.1.1.1 | awk '{print $7; exit}'
 EXPO_PUBLIC_API_URL=http://10.0.2.2:3000/v1
 ```
 
+**Staging VPS (phone on any network — API already deployed):**
+
+```env
+EXPO_PUBLIC_API_URL=https://pingme.hostyler.cloud/v1
+EXPO_PUBLIC_WS_URL=wss://pingme.hostyler.cloud/ws
+EXPO_PUBLIC_ENV=staging
+```
+
+No local API or Metro LAN IP needed when using staging; the phone only needs internet.
+
 ### 3b. Android SDK (one-time)
 
 If `expo run:android` fails with “SDK location not found”:
@@ -106,7 +116,21 @@ npx expo install --fix   # align packages with Expo SDK 57
 ANDROID_HOME=$HOME/Android/Sdk npx expo run:android
 ```
 
-This compiles the APK **on your PC** and installs it via USB. Metro bundler starts on port `8081` and serves JavaScript to the app.
+This compiles the APK **on your PC** and installs it via USB. By default, Metro also starts on port `8081` and serves JavaScript to the app.
+
+**Build/install without starting Metro** (e.g. Metro is already running in another terminal):
+
+```bash
+cd apps/mobile
+ANDROID_HOME=$HOME/Android/Sdk npx expo run:android --no-bundler
+```
+
+`--no-bundler` is a flag on **`run:android`**, not on `expo` itself. This is wrong:
+
+```bash
+# wrong — "unknown or unexpected option: --no-bundler"
+npx expo --no-bundler run:android
+```
 
 ### 3d. Start Metro only (after dev client is already installed)
 
@@ -116,6 +140,17 @@ pnpm start
 ```
 
 Open the **PingMe** dev client on your phone (not Expo Go).
+
+### 3e. Shareable APK (EAS cloud build)
+
+`expo run:android` installs to a USB-connected device from your PC. For a **downloadable APK** (share with testers, no USB):
+
+```bash
+cd apps/mobile
+eas build --profile development --platform android
+```
+
+Use the build URL from [expo.dev](https://expo.dev) to download and install the APK. Ensure `apps/mobile/.env` has the API URL you want **before** building (staging or local LAN).
 
 ---
 

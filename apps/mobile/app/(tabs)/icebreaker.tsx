@@ -398,7 +398,7 @@ export default function IcebreakerScreen() {
   const [showPhoto, setShowPhoto] = useState(false);
   const [introMessage, setIntroMessage] = useState('');
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
-  const [icebreakerOn, setIcebreakerOn] = useState(false);
+  const [optimisticIcebreakerOn, setOptimisticIcebreakerOn] = useState<boolean | null>(null);
   const distanceConfig = useRequiredDistanceConfig();
   const icebreakerRadiusText = icebreakerRadiusLabel(distanceConfig.icebreaker.radiusMeters);
   const icebreakerRadiusTextLower = icebreakerRadiusText.toLowerCase();
@@ -431,70 +431,19 @@ export default function IcebreakerScreen() {
       lineHeight: 18,
     },
     dismissPressed: { opacity: 0.6 },
-    toggleCard: {
+    toggleBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
       backgroundColor: colors.surfaceElevated,
       borderRadius: radius.xl,
       padding: spacing.lg,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    toggleCardActive: {
-      backgroundColor: colors.onlineSoft,
-      borderColor: colors.online,
-    },
-    activePill: {
-      alignSelf: 'flex-start',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      backgroundColor: colors.surface,
-      paddingHorizontal: spacing.md,
-      paddingVertical: 6,
-      borderRadius: radius.full,
-      marginTop: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.online,
-    },
-    activePillDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.online,
-    },
-    activePillText: {
-      ...typography.labelSm,
-      color: colors.online,
-      textTransform: 'none',
-      letterSpacing: 0,
-    },
-    hint: {
-      ...typography.caption,
-      color: colors.inkSecondary,
-      lineHeight: 18,
-      marginTop: spacing.md,
-    },
-    icebreakerHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: spacing.md,
-    },
-    icebreakerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1 },
-    icebreakerIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: radius.md,
-      backgroundColor: colors.accentSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    icebreakerTitleBlock: { flex: 1 },
-    icebreakerTitle: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
-    icebreakerSubtitle: {
-      ...typography.caption,
-      color: colors.inkSecondary,
-      marginTop: 2,
-    },
+    toggleCopy: { flex: 1 },
+    toggleTitle: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
+    toggleHint: { ...typography.caption, color: colors.inkSecondary, marginTop: 2 },
     browseSection: { gap: spacing.sm },
     sectionHeader: {
       flexDirection: 'row',
@@ -526,13 +475,18 @@ export default function IcebreakerScreen() {
     queryFn: () => api.getIcebreakerStatus(),
     placeholderData: keepPreviousData,
     staleTime: 10_000,
-    refetchInterval: icebreakerOn ? 5_000 : 30_000,
+    refetchInterval: (query) => {
+      const serverActive = query.state.data?.data?.session?.status === 'active';
+      const on = optimisticIcebreakerOn ?? serverActive;
+      return on ? 5_000 : 30_000;
+    },
     refetchIntervalInBackground: false,
   });
 
   const session = icebreakerData?.data?.session ?? null;
   const unanswered = icebreakerData?.data?.unanswered ?? [];
   const serverIcebreakerActive = session?.status === 'active';
+  const icebreakerOn = optimisticIcebreakerOn ?? serverIcebreakerActive;
 
   const { data: matchesData } = useQuery({
     queryKey: ['matches'],
@@ -583,12 +537,45 @@ export default function IcebreakerScreen() {
       return api.cancelIcebreaker();
     },
     onMutate: async (action) => {
-      setIcebreakerOn(action === 'start');
+      setOptimisticIcebreakerOn(action === 'start');
     },
-    onSuccess: (_data, action) => {
-      queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
-      queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
-      queryClient.invalidateQueries({ queryKey: ['matches'] });
+    onSuccess: (result, action) => {
+      queryClient.setQueryData(
+        ['icebreaker-status'],
+        (current: Awaited<ReturnType<typeof api.getIcebreakerStatus>> | undefined) => {
+          const unansweredNotices = current?.data?.unanswered ?? [];
+          if (action === 'start') {
+            const startResult = result as Awaited<ReturnType<typeof api.startIcebreaker>>;
+            if (!startResult.data) {
+              return current;
+            }
+            return {
+              success: true,
+              data: {
+                session: {
+                  id: startResult.data.id,
+                  status: startResult.data.status,
+                  expiresAt: startResult.data.expiresAt,
+                  showPhoto: startResult.data.showPhoto,
+                  introMessage: startResult.data.introMessage,
+                },
+                unanswered: unansweredNotices,
+              },
+            };
+          }
+          return {
+            success: true,
+            data: {
+              session: null,
+              unanswered: unansweredNotices,
+            },
+          };
+        },
+      );
+      setOptimisticIcebreakerOn(null);
+      void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
+      void queryClient.invalidateQueries({ queryKey: ['matches'] });
       setIcebreakerSetupOpen(false);
       if (action === 'start') {
         showToast("You're open to meeting people nearby", 'success');
@@ -597,17 +584,22 @@ export default function IcebreakerScreen() {
       }
     },
     onError: (error: ApiError) => {
-      setIcebreakerOn(serverIcebreakerActive);
+      setOptimisticIcebreakerOn(null);
       if (!handleLivenessError(error)) {
         showToast(error.message, 'error');
       }
     },
   });
 
-  useEffect(() => {
-    if (icebreakerMutation.isPending) return;
-    setIcebreakerOn(serverIcebreakerActive);
-  }, [serverIcebreakerActive, icebreakerMutation.isPending]);
+  const handleToggle = (on: boolean) => {
+    if (on) {
+      if (!ensureVerified()) return;
+      setIcebreakerSetupOpen(true);
+      return;
+    }
+    useToastStore.getState().hide();
+    icebreakerMutation.mutate('cancel');
+  };
 
   const interestMutation = useMutation({
     mutationFn: (payload: { targetUserId: string; interested: boolean }) =>
@@ -681,17 +673,6 @@ export default function IcebreakerScreen() {
     },
   });
 
-  const handleToggle = (on: boolean) => {
-    if (on) {
-      if (!ensureVerified()) return;
-      setIcebreakerSetupOpen(true);
-      return;
-    }
-    useToastStore.getState().hide();
-    setIcebreakerOn(false);
-    icebreakerMutation.mutate('cancel');
-  };
-
   if (permissionGranted === null) {
     return (
       <Screen padded={false}>
@@ -757,37 +738,21 @@ export default function IcebreakerScreen() {
           </Card>
         ))}
 
-        <View style={[styles.toggleCard, icebreakerOn && styles.toggleCardActive]}>
-          <View style={styles.icebreakerHeader}>
-            <View style={styles.icebreakerTitleRow}>
-              <View style={[styles.icebreakerIcon, icebreakerOn && { backgroundColor: colors.surface }]}>
-                <AppIcon name="flash" size={18} color={icebreakerOn ? colors.online : colors.accent} />
-              </View>
-              <View style={styles.icebreakerTitleBlock}>
-                <Text style={styles.icebreakerTitle}>Break the ice</Text>
-                <Text style={styles.icebreakerSubtitle}>
-                  {icebreakerOn ? 'Visible to people nearby' : 'Hidden — turn on to browse'}
-                </Text>
-              </View>
-            </View>
-            <AppSwitch
-              variant="online"
-              value={icebreakerOn}
-              onValueChange={handleToggle}
-              disabled={icebreakerMutation.isPending}
-            />
+        <View style={styles.toggleBar}>
+          <View style={styles.toggleCopy}>
+            <Text style={styles.toggleTitle}>Break the ice</Text>
+            <Text style={styles.toggleHint}>
+              {icebreakerOn
+                ? `Others within ${distanceConfig.icebreaker.radiusMeters}m can see you're open to connecting`
+                : `Turn on to browse people ${icebreakerRadiusTextLower} who are open to connecting.`}
+            </Text>
           </View>
-          {icebreakerOn ? (
-            <View style={styles.activePill}>
-              <View style={styles.activePillDot} />
-              <Text style={styles.activePillText}>Open to connections</Text>
-            </View>
-          ) : null}
-          <Text style={styles.hint}>
-            {icebreakerOn
-              ? `People with Break the ice ON ${icebreakerRadiusTextLower} show up below. Tap Yes to connect.`
-              : 'Turn on to appear in the list. Interested people are shown first.'}
-          </Text>
+          <AppSwitch
+            variant="online"
+            value={icebreakerOn}
+            onValueChange={handleToggle}
+            disabled={icebreakerMutation.isPending}
+          />
         </View>
 
         {pendingConnections.length > 0 ? (
