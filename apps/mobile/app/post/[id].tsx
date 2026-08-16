@@ -6,8 +6,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   Text,
   TextInput,
@@ -16,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../src/lib/api';
+import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { REPORT_SHEET_FOOTER, REPORT_SUBMITTED_MESSAGE } from '../../src/lib/report-copy';
 import { showToast } from '../../src/stores/toast-store';
@@ -306,11 +305,7 @@ export default function PostDetailScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-    >
+    <View style={styles.container}>
       <AppHeader
         title="Post"
         showBrand={false}
@@ -347,6 +342,9 @@ export default function PostDetailScreen() {
       <FlatList
         data={post.replies}
         keyExtractor={(item) => item.id}
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         contentContainerStyle={styles.list}
         ListHeaderComponent={
           <>
@@ -430,7 +428,7 @@ export default function PostDetailScreen() {
         }}
       />
 
-      <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.sm }]}>
+      <KeyboardComposerFooter style={styles.composer}>
         <TextInput
           style={styles.input}
           placeholder="Write a reply..."
@@ -450,7 +448,7 @@ export default function PostDetailScreen() {
             <AppIcon name="send" size={18} color={colors.onAccent} />
           )}
         </Pressable>
-      </View>
+      </KeyboardComposerFooter>
 
       <ActionSheet
         visible={menuOpen}
@@ -497,6 +495,6 @@ export default function PostDetailScreen() {
           },
         ]}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }

@@ -4,16 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { AppIcon } from '../../src/components/ui/app-icon';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, ChatMessage } from '../../src/lib/api';
+import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
 import { useChatSocket } from '../../src/hooks/use-chat-socket';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
@@ -101,7 +99,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 export default function ChatThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const listRef = useRef<FlatList<ChatMessage>>(null);
@@ -322,11 +319,7 @@ export default function ChatThreadScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-    >
+    <View style={styles.container}>
       <AppHeader
         title={chat.otherUser.displayName}
         showBrand={false}
@@ -356,6 +349,9 @@ export default function ChatThreadScreen() {
         ref={listRef}
         data={messages}
         keyExtractor={(item) => item.id}
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
         contentContainerStyle={styles.messages}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item }) => <MessageBubble message={item} />}
@@ -368,7 +364,7 @@ export default function ChatThreadScreen() {
         }
       />
 
-      <View style={[styles.composer, { paddingBottom: insets.bottom + spacing.sm }]}>
+      <KeyboardComposerFooter style={styles.composer}>
         <TextInput
           style={styles.input}
           value={draft}
@@ -389,7 +385,7 @@ export default function ChatThreadScreen() {
             <AppIcon name="send" size={18} color={colors.onAccent} />
           )}
         </Pressable>
-      </View>
+      </KeyboardComposerFooter>
 
       <ActionSheet
         visible={menuOpen}
@@ -436,6 +432,6 @@ export default function ChatThreadScreen() {
           },
         ]}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }
