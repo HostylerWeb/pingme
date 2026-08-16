@@ -1,33 +1,36 @@
 #!/usr/bin/env bash
-# Deploy PingMe staging from your laptop (after git push origin main).
-# Reads Host / User / Password from repo-root sshpass.txt — never use sshpass -f on that file.
+# Deploy PingMe on the staging VPS from your machine.
+# Reads Host/User/Password from sshpass.txt (KEY=value format — not sshpass -f).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CFG="${SSHPASS_CFG:-$ROOT/sshpass.txt}"
+CONFIG="${SSHPASS_CONFIG:-$ROOT/sshpass.txt}"
 
-if [[ ! -f "$CFG" ]]; then
-  echo "Missing $CFG — copy from a teammate or create with Host=, User=, Password= lines." >&2
+if [[ ! -f "$CONFIG" ]]; then
+  echo "Missing config: $CONFIG"
+  echo "Create sshpass.txt with Host=, User=, Password=, SiteDir= (see sshpass.txt comments)."
   exit 1
 fi
 
-read_cfg() {
+read_config() {
   local key="$1"
-  grep "^${key}=" "$CFG" | head -n1 | cut -d= -f2-
+  grep -E "^${key}=" "$CONFIG" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '\r'
 }
 
-SSH_HOST="$(read_cfg Host)"
-SSH_USER="$(read_cfg User)"
-SITE_DIR="$(read_cfg SiteDir)"
-SSHPASS="$(read_cfg Password)"
+HOST="$(read_config Host)"
+USER="$(read_config User)"
+PASSWORD="$(read_config Password)"
+SITE_DIR="$(read_config SiteDir)"
 
-if [[ -z "$SSH_HOST" || -z "$SSH_USER" || -z "$SSHPASS" ]]; then
-  echo "sshpass.txt must define Host=, User=, and Password=" >&2
+if [[ -z "$HOST" || -z "$USER" || -z "$PASSWORD" ]]; then
+  echo "Host, User, and Password are required in $CONFIG"
   exit 1
 fi
 
 SITE_DIR="${SITE_DIR:-/var/www/sites/pingme}"
 
-echo "Deploying to ${SSH_USER}@${SSH_HOST} (${SITE_DIR})…"
-SSHPASS="$SSHPASS" sshpass -e ssh -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" \
-  "bash ${SITE_DIR}/scripts/deploy-staging.sh"
+echo "→ Deploying on ${USER}@${HOST} (${SITE_DIR})"
+echo "  (push to origin/main first if the server should pull new commits)"
+
+export SSHPASS="$PASSWORD"
+sshpass -e ssh -o StrictHostKeyChecking=no "${USER}@${HOST}" "bash ${SITE_DIR}/scripts/deploy-staging.sh"

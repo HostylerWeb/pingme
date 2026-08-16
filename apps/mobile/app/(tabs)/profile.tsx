@@ -11,6 +11,9 @@ import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { useAvatarPicker } from '../../src/hooks/use-avatar-picker';
 import { AvatarWithTheme } from '../../src/components/avatar-with-theme';
 import { PremiumCta } from '../../src/components/premium-cta';
+import { ProfileCompletenessCard } from '../../src/components/profile-completeness-card';
+import type { ProfileCompletenessField } from '@pingme/shared';
+import { shareAppInvite } from '../../src/lib/invite';
 import { ActionSheet, AppHeader, BottomSheet, Button, GenderPicker, GenderReadOnly, Input, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
@@ -56,6 +59,40 @@ export default function ProfileScreen() {
   const [bioDraft, setBioDraft] = useState(bio ?? '');
   const [genderDraft, setGenderDraft] = useState<GenderValue | null>(profileGender);
   const [saving, setSaving] = useState(false);
+  const [sharingInvite, setSharingInvite] = useState(false);
+
+  const handleCompletenessAction = (field: ProfileCompletenessField) => {
+    switch (field) {
+      case 'photo':
+        setSourceSheetOpen(true);
+        break;
+      case 'bio':
+      case 'gender':
+        openEdit();
+        break;
+      case 'liveness':
+        router.push('/(setup)/liveness');
+        break;
+      case 'contact':
+        router.push('/(setup)/verify');
+        break;
+      default:
+        break;
+    }
+  };
+
+  const onShareInvite = async () => {
+    setSharingInvite(true);
+    try {
+      await shareAppInvite(user?.id);
+    } catch (error) {
+      if (error instanceof Error && !error.message.includes('User did not share')) {
+        showToast(error.message, 'error');
+      }
+    } finally {
+      setSharingInvite(false);
+    }
+  };
 
   const { uploading, sourceSheetOpen, setSourceSheetOpen, pickFromSource } = useAvatarPicker(refreshMe);
 
@@ -324,6 +361,16 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <ProfileCompletenessCard
+          avatarUrl={avatarUrl}
+          bio={bio}
+          gender={profileGender}
+          livenessVerified={user?.livenessVerified}
+          emailVerified={user?.emailVerified}
+          phoneVerified={user?.phoneVerified}
+          onAction={handleCompletenessAction}
+        />
+
         <PremiumCta isPremium={isPremium} onPress={() => router.push('/premium')} />
 
         {!user?.livenessVerified ? (
@@ -348,8 +395,26 @@ export default function ProfileScreen() {
         <Text style={styles.sectionLabel}>More</Text>
         <View style={styles.group}>
           <Pressable
-            onPress={() => router.push('/settings')}
+            onPress={() => void onShareInvite()}
+            disabled={sharingInvite}
             style={({ pressed }) => [styles.menuRow, styles.menuRowBorder, pressed && styles.menuRowPressed]}
+          >
+            <View style={styles.menuIcon}>
+              <AppIcon name="megaphone" size={18} color={colors.ink} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.menuLabel}>Invite friends</Text>
+              <Text style={styles.menuHint}>Share a link so people nearby can join PingMe</Text>
+            </View>
+            {sharingInvite ? (
+              <ActivityIndicator size="small" color={colors.inkTertiary} />
+            ) : (
+              <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
+            )}
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/settings')}
+            style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
           >
             <View style={styles.menuIcon}>
               <AppIcon name="settings" size={18} color={colors.ink} />

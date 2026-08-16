@@ -68,6 +68,9 @@ async function bootstrap() {
     expressApp.get('/', (_req: Request, res: Response) => {
       res.type('html').sendFile(join(siteDir, 'index.html'));
     });
+    expressApp.get('/invite', (_req: Request, res: Response) => {
+      res.type('html').sendFile(join(siteDir, 'invite.html'));
+    });
   }
 
   app.enableCors({

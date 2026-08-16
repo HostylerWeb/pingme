@@ -2,7 +2,7 @@
 
 > **Working title:** PingMe (name TBD)  
 > **Last updated:** August 2026  
-> **Status:** Phases 0–7 largely shipped on staging; Phase 8 partial; Phase 9 + backlog items **UNDONE** — see [Progress at a glance](#progress-at-a-glance)
+> **Status:** Phases 0–8 shipped on staging; Phase 9 deferred; **Events (#33)** is the next major build — see [Progress at a glance](#progress-at-a-glance)
 
 ---
 
@@ -40,7 +40,7 @@ Use this section to see what is left without reading the full plan. Details live
 | **Partial** | Started or backend-only; UX, ops, or polish still missing |
 | **UNDONE** | No meaningful implementation yet (or explicitly deferred) |
 
-*Last reviewed: 2026-08-16 (icebreaker push spec, Premium badge, Events mobile plan, VPS checklist).*
+*Last reviewed: 2026-08-16 (profile completeness #29, share/invite #30, Premium + icebreaker push shipped).*
 
 ### Implementation phases (0–9)
 
@@ -61,9 +61,9 @@ Use this section to see what is left without reading the full plan. Details live
 
 | Status | Count | Examples |
 |--------|------:|----------|
-| **Done** | 20 | Wall reply push, connection inbox, premium rings, empty states, tab copy |
-| **Partial** | 12 | Stripe page (no checkout), splash (needs rebuild), dark mode audit, admin map |
-| **UNDONE** | 14+ | Payments, IAP, Events, web app, self-hosted OTA |
+| **Done** | 25 | Stripe checkout, premium rings, icebreaker push, profile completeness, invite, admin env banner |
+| **Partial** | 8 | Splash (needs rebuild), dark mode audit, admin map, KYC for events |
+| **UNDONE** | 8+ | IAP, Events (#33), web app, self-hosted OTA, venues (Phase 9) |
 
 Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-plan (E0–E5): mostly **UNDONE** except Phase 0 decisions (**Done**).
 
@@ -71,21 +71,22 @@ Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-pla
 
 | Item | What |
 |------|------|
-| **Events in mobile app** | 5th tab + full flow per [Events feature plan](#events-feature-plan-couchsurfing-style) (E1–E5) — **UNDONE** |
-| **Premium badge copy** | Star + rings on Wall / replies / icebreaker — align [Premium benefits](#premium-badge--visibility-product-spec) on Premium screen |
+| **Events (#33)** | E1 (host KYC) → E2 DB → E3 API → E4 mobile 5th tab — see [Events feature plan](#events-feature-plan-couchsurfing-style) |
+| **Stripe go-live** | Code shipped (`StripeGateway`); set `PAYMENT_PROVIDER=stripe` + keys on VPS when ready to charge |
 | **Self-hosted OTA** | xprem + `expo-updates` on VPS — documented, not wired |
-| **Stripe checkout** | `#6` — wire Stripe keys on VPS to go live |
-| **Onboarding / tour visuals** | Replace icon circles with illustrated scenes (advised, not built) |
+| **Store prep** | Legal pages finalized, icons/screenshots, native rebuild for splash (#26) |
+| **Device test pass** | Two-phone checklist on staging before Events or public beta |
 
 ### **Partial** — finish when polishing
 
 | Area | Gap |
 |------|-----|
-| Splash + app icon | Native rebuild required for splash on device |
-| Phase 3 push | Confirm staging `PUSH_ENABLED`, cold-start deep links on all types |
-| Phase 4 icebreaker | ~~Proximity push missing~~ **Done** (#36–37) |
-| Premium | Grant/revoke works; Stripe checkout ready when `PAYMENT_PROVIDER=stripe` |
-| UI polish sprint | Warm Ink tokens, empty scenes, auth flattening — mostly in working tree; verify on device |
+| Splash + app icon (#26) | Native rebuild required for splash on device |
+| Phase 3 push | Confirm cold-start deep links on all notification types |
+| Trust badges (#19) | Email/liveness on own profile only — not on others in feed/cards |
+| Admin (#21, #22) | Real map tiles; bulk report actions |
+| UI polish (#27–28) | Dark mode contrast audit; haptics on match celebration |
+| Deploy (#25) | `deploy-remote.sh` from local machine; push to `main` before deploy |
 
 ---
 
@@ -1047,7 +1048,7 @@ Both audiences must see the same benefit spelled out:
 2. **Active Premium** (`Premium membership` / “Your benefits”) — repeat the same bullets so members know what others see:
    - *Your Premium star and ring appear on every Wall post, reply, and Break the ice card*
 
-**Backlog:** #7 Premium pricing page — **Partial** until benefits copy matches the table above on `premium.tsx` and any profile/settings Premium CTA.
+**Backlog:** #7 Premium pricing page — **Done** (`premium.tsx` + `PREMIUM_PROSPECT_BENEFITS` / `PREMIUM_MEMBER_BENEFITS` in shared constants).
 
 ### Events in the mobile app
 
@@ -2187,7 +2188,7 @@ Mobile app                    NestJS API                    didit.me
 | Launch model | **Radius-first (250m)** | Not venue-first at launch |
 | Core features | **Always free** | Wall, replies, chat, icebreaker — never paywalled |
 | Verification | **didit.me liveness** | Required to post/chat/match when `DIDIT_API_KEY` is set |
-| Payments | **Gateway TBD** | Phase 8 scaffold uses `PAYMENT_PROVIDER=none` until Stripe/Paddle/RevenueCat is chosen |
+| Payments | **Stripe (code shipped)** | `StripeGateway` + mobile checkout; staging uses `PAYMENT_PROVIDER=none` until keys are set |
 | Phase 9 venues | **Deferred** | B2B venue rooms wait until user density proves value to partners |
 | Push | **Expo Push API** | Not native FCM/APNs in NestJS yet — acceptable for MVP |
 | Admin URL (staging) | `https://admin.hostyler.cloud` | API: `https://pingme.hostyler.cloud/v1` |
@@ -2226,23 +2227,23 @@ Uses the same labels as [Progress at a glance](#progress-at-a-glance): **Done** 
 7. **CORS in production** — Set `CORS_ORIGINS` (comma-separated). Mobile/native clients omit `Origin` and are still allowed. Admin dashboard needs its URL in the list.
 8. **`POST /notifications/test`** — Disabled in production unless `NOTIFICATIONS_TEST_ENABLED=true`.
 9. **Admin roles** — `support` can view users/chats but **not** reports (moderator+ only). Sidebar and dashboard respect this.
-10. **Premium without payments** — Use admin **Grant premium** to test avatar themes and read receipts until checkout exists.
+10. **Premium without live payments** — Use admin **Grant premium** for QA, or set `PAYMENT_PROVIDER=stripe` + Stripe keys on VPS for real checkout.
 11. **Phase 8 commit on staging** — After deploy, run migration `20260814120000_add_subscriptions_phase8` and smoke test with `./scripts/staging-smoke.sh`.
 12. **Two-phone testing** — See [`docs/testing/device-test-checklist.md`](../testing/device-test-checklist.md) before calling beta “ready”.
 
-### Do now / near future (before frontend polish & beta)
+### Do now / near future (before Events or public beta)
 
 Priority order for the next sprint:
 
 | # | Task | Why |
 |---|------|-----|
-| 1 | **Deploy to staging** | Pull `main`, migrate, rebuild API + admin, restart services |
-| 2 | **Staging env** | `PUSH_ENABLED=true`, `DIDIT_*` (liveness + KYC workflow when ready), `CORS_ORIGINS`, strong JWT secrets, `PAYMENT_PROVIDER=none` |
-| 3 | **Smoke + device tests** | `./scripts/staging-smoke.sh` + `docs/testing/device-test-checklist.md` on two physical phones |
-| 4 | **Events Phase 0** | ✅ Locked — see Events feature plan (E0.1–E0.8) |
-| 5 | **Events Phase 1 (KYC)** | Didit KYC workflow + user-facing ID verification for event hosts |
-| 6 | **Legal pages** | Privacy policy + terms of service (required for store submission) |
-| 7 | **Store assets** | Icons, screenshots, descriptions for App Store + Play Store |
+| 1 | **Commit + deploy #29/#30** | Profile completeness + invite links on staging |
+| 2 | **Device test checklist** | Two phones — Wall, icebreaker push, chat, premium, invite deep link |
+| 3 | **Events E1 (KYC)** | Didit full KYC workflow + user-facing “Verify ID to host events” |
+| 4 | **Events E2–E3** | DB tables + `GET /events/nearby` API |
+| 5 | **Events E4** | 5th tab — list, detail, create (gated on KYC) |
+| 6 | **Store prep** | Legal pages, screenshots, native rebuild for splash (#26) |
+| 7 | **Stripe go-live** (optional) | When ready: `PAYMENT_PROVIDER=stripe` + webhook secret on VPS |
 
 **Staging deploy checklist (VPS):**
 ```bash
@@ -2260,7 +2261,7 @@ pnpm build
 
 | Area | Item | Trigger |
 |------|------|---------|
-| **Payments** | Wire Stripe/Paddle/RevenueCat + checkout + webhooks | When payment provider is chosen |
+| **Payments** | Enable Stripe on VPS (`PAYMENT_PROVIDER=stripe`, keys, webhook) | When ready to charge; code already shipped |
 | **Phase 9 venues** | Geofence rooms, venue wall, QR codes, B2B sales | When density in a launch area justifies partner pitch |
 | **Auth** | Google / Apple sign-in | User demand or store review feedback |
 | **Push** | Native FCM/APNs in API (optional) | If Expo Push limits become a problem |
@@ -2315,7 +2316,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | **Partial** | Started or backend-only; UX or polish still missing |
 | **UNDONE** | No meaningful implementation yet (or deferred) |
 
-*Last reviewed: 2026-08-16 (UI polish sprint + icebreaker proximity push spec).*
+*Last reviewed: 2026-08-16 (profile completeness #29, share/invite #30, backlog counts refreshed).*
 
 ### Do first (high impact, relatively small)
 
@@ -2338,6 +2339,8 @@ NOTIFICATIONS_TEST_ENABLED=false
 | Custom Solar icons + tab bar polish | **Done** | `AppIcon`, `react-native-svg`, darker light-theme tab tints |
 | EAS dev build + `google-services.json` secret | **Done** | `app.config.ts` + `GOOGLE_SERVICES_JSON` on EAS |
 | Icebreaker match reset (staging ops) | **Done** | Manual DB/Redis cleanup as needed |
+| Profile completeness (#29) | **Done** | `ProfileCompletenessCard` on You tab |
+| Share / invite (#30) | **Done** | Share sheet, `pingme://invite`, `/invite` web page |
 
 ### Premium & monetization
 
@@ -2368,7 +2371,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 |---|---------|--------|-------|
 | 17 | **Report flow in-app copy** — What happens after you report | **Done** | Moderator review footer on report sheet + confirmation toast |
 | 18 | **Auto-flag repeat offenders** | **Partial** | `requiresAdminReview` + admin dashboard; no mobile surfacing |
-| 19 | **Verification badge** — Email/phone/liveness on profile | **Partial** | “Email verified” on own profile; not on others in feed/cards |
+| 19 | **Verification badge** — Email/phone/liveness on profile | **Done** | Liveness verified badge via `DisplayNameWithFlair` on Wall, replies, icebreaker, chats; own profile shows email + liveness badges |
 | 19b | **ID verification (KYC) for event hosts** — Didit ID + liveness | **Partial** | `startKycForUser()` + `VerificationType.document` exist; admin-only today; `DIDIT_WORKFLOW_ID_KYC` unset; no user-facing flow |
 | 20 | **Underage / DOB enforcement** | **Partial** | `MIN_AGE_YEARS` on register/DOB field; not audited everywhere |
 
@@ -2379,8 +2382,8 @@ NOTIFICATIONS_TEST_ENABLED=false
 | 21 | **Real map tiles** — Leaflet + OpenStreetMap on admin map | **UNDONE** | Grid + dots/heatmap only |
 | 22 | **Bulk actions on reports** | **Partial** | Per-report assign/resolve; no bulk select |
 | 23 | **User search** — Email, phone, display name | **Done** | Query on admin Users page |
-| 24 | **Staging vs prod env indicator** | **UNDONE** | |
-| 25 | **Deploy script reliability** | **Partial** | `deploy-staging.sh` works on VPS; local `sshpass -f sshpass.txt` fails (file format) |
+| 24 | **Staging vs prod env indicator** | **Done** | Amber banner on admin when `NEXT_PUBLIC_APP_ENV=staging` or API URL is hostyler |
+| 25 | **Deploy script reliability** | **Done** | `scripts/deploy-remote.sh` reads `sshpass.txt` (KEY=value); runs `deploy-staging.sh` on VPS |
 
 ### Polish & “show off”
 
@@ -2388,9 +2391,9 @@ NOTIFICATIONS_TEST_ENABLED=false
 |---|---------|--------|-------|
 | 26 | **App icon + splash refresh** | **Partial** | Splash asset + `app.json` config done; requires native rebuild to appear on device |
 | 27 | **Dark mode pass** — Contrast audit on Wall/icebreaker cards | **Partial** | Dark/light toggle + Warm Ink tokens; no full audit |
-| 28 | **Haptics + micro-animations** | **Partial** | Icebreaker yes/no, buttons, chat send; no match celebration |
-| 29 | **Profile completeness** — Progress bar on You tab | **UNDONE** | |
-| 30 | **Share / invite** — Deep link or QR | **UNDONE** | |
+| 28 | **Haptics + micro-animations** | **Done** | Icebreaker yes/no, buttons, chat send, connection celebration modal |
+| 29 | **Profile completeness** — Progress bar on You tab | **Done** | `ProfileCompletenessCard` on You tab; shared `getProfileCompleteness` (photo, bio, gender, liveness, contact) |
+| 30 | **Share / invite** — Deep link or QR | **Done** | Share sheet + `pingme://invite` + `/invite` web page; QR deferred |
 
 ### Later / bigger bets
 
@@ -2547,19 +2550,19 @@ GET /config       → public app limits (distance radii); mobile prefetches at l
 
 | Phase | Items | Rationale |
 |-------|-------|-----------|
-| **Done (icons sprint)** | Custom icons, tab bar, settings notifications, EAS build | Mobile polish shipped `da5b1c3` / `f554957` |
-| **Immediate** | Staging deploy + device test checklist | Validate core flows on two phones before new features |
-| **Next** | **Events E1** (Didit KYC) → E2–E4 mobile tab | 5th tab + host KYC gate |
-| **Parallel track** | 6, 7 (Stripe) OR 26, legal pages (store prep) | Monetization vs beta launch — pick one |
-| **Before public launch** | 19, 19b, 21, 27, legal pages | Trust badges, ID verification, admin map, contrast |
-| **Growth** | 30, 35, E5.3 | Invite loop + funnel metrics + event push |
+| **Done (polish sprint)** | #29 profile completeness, #30 invite, #36–37 icebreaker push, #6–7 Stripe | Shipped on `main`; deploy to staging for device QA |
+| **Immediate** | Deploy latest + device test checklist | Validate invite deep link + completeness card on two phones |
+| **Next** | **Events E1** (Didit KYC) → E2–E4 mobile tab | 5th tab + host KYC gate — largest new feature |
+| **Parallel track** | Store prep (#26 splash rebuild, legal) OR Stripe go-live | Launch assets vs monetization — pick based on timeline |
+| **Before public launch** | 19, 19b, 21, 27, legal pages | Trust badges on others’ cards, ID verification, admin map, contrast |
+| **Growth** | 35, E5.3 | Funnel metrics + optional “new event near you” push (#30 invite done) |
 
 ### Goal-based top 5 (pick one track)
 
 | Goal | Top 5 |
 |------|-------|
-| **Monetize soon** | 6 → 7 → 8 → 10 → (Stripe webhooks) |
-| **Grow / test icebreaker** | Device test checklist → 16 → 11 → E0 decisions |
-| **Ship Events** | E0 → E1 (KYC) → E2–E4 → E5 |
-| **Polish for launch** | 17 → 19 → 19b → 21 → 27 → legal pages |
+| **Monetize soon** | Stripe go-live → 8 (free trial) → 10 (subscription history) → 31 (IAP) |
+| **Grow / test icebreaker** | Device test checklist → 35 (analytics) → E5.3 event push |
+| **Ship Events** | E1 (KYC) → E2 → E3 → E4 → E5 |
+| **Polish for launch** | 26 → 27 → 28 → 19 → 21 → legal pages |
 

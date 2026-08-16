@@ -1,4 +1,4 @@
-import { Link, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { AppIcon } from '../../src/components/ui/app-icon';
@@ -11,6 +11,7 @@ import { radius, spacing, typography, useTheme, useThemedStyles } from '../../sr
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { ref: inviteRef } = useLocalSearchParams<{ ref?: string | string[] }>();
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
   const { colors } = useTheme();
@@ -78,6 +79,8 @@ export default function RegisterScreen() {
     link: { ...typography.bodyMd, color: colors.accent, textAlign: 'center', marginTop: spacing.xl },
   }));
 
+  const inviteCode = typeof inviteRef === 'string' ? inviteRef : Array.isArray(inviteRef) ? inviteRef[0] : undefined;
+
   const onSubmit = async () => {
     if (!gender) return;
     try {
@@ -108,6 +111,15 @@ export default function RegisterScreen() {
 
           <Text style={styles.title}>Create account</Text>
           <Text style={styles.subtitle}>People nearby are already posting. Join them.</Text>
+
+          {inviteCode ? (
+            <View style={styles.notice}>
+              <AppIcon name="sparkles" size={18} color={colors.accent} />
+              <Text style={styles.noticeText}>
+                You opened an invite link — finish signup to join PingMe nearby.
+              </Text>
+            </View>
+          ) : null}
 
           <SegmentedControl
               options={[

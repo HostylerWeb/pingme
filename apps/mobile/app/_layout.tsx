@@ -261,6 +261,7 @@ function RootLayoutContent() {
                 <Stack.Screen name="post/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="invite" options={{ headerShown: false }} />
                 <Stack.Screen name="premium" options={{ headerShown: false }} />
                 <Stack.Screen name="settings" options={{ headerShown: false }} />
                 <Stack.Screen name="legal" options={{ headerShown: false }} />
