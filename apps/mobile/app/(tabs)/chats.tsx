@@ -157,6 +157,7 @@ export default function ChatsScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="chat-bubbles"
+              scene="chats"
               title="No chats yet"
               message="Connect with someone on the Wall or in Break the ice — when you both accept, your chat appears here."
               action={

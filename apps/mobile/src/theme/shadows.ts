@@ -27,11 +27,11 @@ export function createShadows(colors: AppColors): AppShadows {
       elevation: 4,
     },
     fab: {
-      shadowColor: colors.accent,
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.28,
+      shadowOpacity: 1,
       shadowRadius: 16,
-      elevation: 8,
+      elevation: 6,
     },
     header: {
       shadowColor: 'transparent',

@@ -32,12 +32,16 @@ export type AppColors = {
   icebreaker: string;
   icebreakerStart: string;
   icebreakerEnd: string;
+  icebreakerSoft: string;
+  chatBubbleYou: string;
   tertiary: string;
   tertiaryContainer: string;
   onTertiaryContainer: string;
   error: string;
   errorContainer: string;
   onErrorContainer: string;
+  destructive: string;
+  destructiveBorder: string;
   premiumStart: string;
   premiumEnd: string;
   premiumSurface: string;
@@ -96,15 +100,19 @@ export const lightColors: AppColors = {
   secondaryContainer: '#E6F2EC',
   onSecondaryContainer: '#1F4D3A',
   secondaryFixed: '#B8DEC9',
-  icebreaker: '#C94E35',
-  icebreakerStart: '#C94E35',
-  icebreakerEnd: '#E07A5F',
+  icebreaker: '#E07A3A',
+  icebreakerStart: '#E07A3A',
+  icebreakerEnd: '#F2A56A',
+  icebreakerSoft: '#FBF1E8',
+  chatBubbleYou: '#C94E35',
   tertiary: '#7A6520',
   tertiaryContainer: '#F5EDD9',
   onTertiaryContainer: '#3D3210',
   error: '#B3261E',
   errorContainer: '#FCEEEE',
   onErrorContainer: '#8C1D18',
+  destructive: '#B3261E',
+  destructiveBorder: '#B3261E',
   premiumStart: '#B8860B',
   premiumEnd: '#D4A017',
   premiumSurface: '#FDF8EC',
@@ -163,15 +171,19 @@ export const darkColors: AppColors = {
   secondaryContainer: '#1A2E24',
   onSecondaryContainer: '#B8DEC9',
   secondaryFixed: '#2A4A38',
-  icebreaker: '#E05A42',
-  icebreakerStart: '#E05A42',
-  icebreakerEnd: '#E88A72',
+  icebreaker: '#E08A52',
+  icebreakerStart: '#E08A52',
+  icebreakerEnd: '#E8B07A',
+  icebreakerSoft: '#3A2C20',
+  chatBubbleYou: '#B85A4A',
   tertiary: '#C9A84A',
   tertiaryContainer: '#2E2818',
   onTertiaryContainer: '#E8D9A8',
   error: '#F2B8B5',
   errorContainer: '#3D1A18',
   onErrorContainer: '#F2B8B5',
+  destructive: '#EF5350',
+  destructiveBorder: '#C62828',
   premiumStart: '#D4A017',
   premiumEnd: '#E8C04A',
   premiumSurface: '#2A2618',
@@ -191,9 +203,9 @@ export const darkColors: AppColors = {
   surfaceContainerHigh: '#3A3935',
   surfaceVariant: '#3A3935',
   tabBar: '#1C1B18',
-  tabBarBorder: 'rgba(255, 255, 255, 0.08)',
-  tabBarIconActive: '#E05A42',
-  tabBarIconInactive: '#7A7872',
+  tabBarBorder: 'rgba(255, 255, 255, 0.06)',
+  tabBarIconActive: '#D16A58',
+  tabBarIconInactive: '#8A8882',
   switchTrackOff: '#5C5A54',
   switchThumbOff: '#E8E6E0',
 };

@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, Text, View } from 'react-native';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../theme';
 import { AppIcon } from './ui/app-icon';
@@ -11,15 +10,15 @@ export function PremiumCta({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
-  const styles = useThemedStyles(({ colors, shadows }) => ({
+  const styles = useThemedStyles(({ colors }) => ({
     pressed: { opacity: 0.92 },
     card: {
       borderRadius: radius.xl,
       overflow: 'hidden',
       borderWidth: 1,
       borderColor: colors.premiumSurfaceBorder,
+      backgroundColor: colors.premiumSurface,
       marginBottom: spacing.md,
-      ...shadows.card,
     },
     row: {
       flexDirection: 'row',
@@ -28,9 +27,9 @@ export function PremiumCta({
       gap: spacing.md,
     },
     icon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: colors.premiumSurfaceMuted,
       alignItems: 'center',
       justifyContent: 'center',
@@ -70,12 +69,7 @@ export function PremiumCta({
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.pressed]}>
-      <LinearGradient
-        colors={[colors.premiumSurface, colors.premiumSurfaceMuted]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.card}
-      >
+      <View style={styles.card}>
         <View style={styles.row}>
           <View style={styles.icon}>
             <AppIcon name="premium-star" size={20} color={colors.premiumStart} />
@@ -93,13 +87,13 @@ export function PremiumCta({
             </View>
             <Text style={styles.hint}>
               {isPremium
-                ? 'Profile ring, read receipts, and perks'
-                : 'Avatar themes, read receipts, and more'}
+                ? 'Star + ring on Wall, replies, and Break the ice'
+                : 'Badge, avatar themes, and read receipts'}
             </Text>
           </View>
           <AppIcon name="chevron-forward" size={18} color={colors.premiumOnSurfaceMuted} />
         </View>
-      </LinearGradient>
+      </View>
     </Pressable>
   );
 }

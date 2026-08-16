@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { api, ApiError } from '../../src/lib/api';
 import { showToast } from '../../src/stores/toast-store';
-import { Button, Input, Screen, SegmentedControl } from '../../src/components/ui';
-import { radius, spacing, typography, useThemedStyles } from '../../src/theme';
+import { BrandMark, Button, Input, Screen, SegmentedControl } from '../../src/components/ui';
+import { spacing, typography, useThemedStyles } from '../../src/theme';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -23,32 +23,10 @@ export default function ForgotPasswordScreen() {
     flex: { flex: 1 },
     scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.container },
     brandRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
       marginBottom: spacing.xl,
     },
-    logoDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
-    },
-    brandText: {
-      ...typography.overline,
-      color: colors.inkTertiary,
-      fontSize: 10,
-    },
     title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
-    hint: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.card,
-      padding: spacing.xl,
-      borderWidth: 1,
-      borderColor: colors.cardBorder,
-      marginBottom: spacing.lg,
-    },
+    hint: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl, lineHeight: 22 },
     link: { ...typography.bodyMd, textAlign: 'center', color: colors.accent },
   }));
 
@@ -76,8 +54,7 @@ export default function ForgotPasswordScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.brandRow}>
-            <View style={styles.logoDot} />
-            <Text style={styles.brandText}>PingMe</Text>
+            <BrandMark size="lg" />
           </View>
 
           <Text style={styles.title}>Reset password</Text>
@@ -85,8 +62,7 @@ export default function ForgotPasswordScreen() {
             Enter your account email or phone and we&apos;ll send you a reset code.
           </Text>
 
-          <View style={styles.card}>
-            <SegmentedControl
+          <SegmentedControl
               options={[
                 { label: 'Email', value: 'email' },
                 { label: 'Phone', value: 'phone' },
@@ -115,7 +91,6 @@ export default function ForgotPasswordScreen() {
             )}
 
             <Button label="Send reset link" onPress={onSubmit} loading={loading} />
-          </View>
 
           <Link href="/(auth)/login" style={styles.link}>
             Back to login

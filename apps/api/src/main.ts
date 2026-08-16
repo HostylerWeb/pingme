@@ -5,6 +5,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { join } from 'path';
+import express from 'express';
 import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
@@ -39,6 +40,8 @@ async function bootstrap() {
   const redisAdapter = new RedisIoAdapter(app, config);
   await redisAdapter.connectToRedis();
   app.useWebSocketAdapter(redisAdapter);
+
+  app.use('/v1/webhooks/payments/stripe', express.raw({ type: 'application/json' }));
 
   app.useBodyParser('json', { limit: '10mb' });
   app.useBodyParser('urlencoded', { limit: '10mb', extended: true });

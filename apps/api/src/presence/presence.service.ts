@@ -11,7 +11,6 @@ import {
   distanceBucket,
   fuzzyCoordinate,
   LOCATION_PINGS_PER_HOUR,
-  PRESENCE_TTL_SECONDS,
 } from '@pingme/shared';
 import { BlocksService } from '../common/services/blocks.service';
 import { AppConfigService } from '../config/app-config.service';
@@ -70,6 +69,7 @@ export class PresenceService {
     });
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const presenceTtlSeconds = this.appConfig.getPresenceTtlSeconds();
     if (user?.isAvailable) {
       await this.prisma.presenceSession.update({
         where: { userId },
@@ -80,7 +80,7 @@ export class PresenceService {
         `presence:${userId}`,
         JSON.stringify({ lat: fuzzyLat, lng: fuzzyLng, at: Date.now() }),
         'EX',
-        PRESENCE_TTL_SECONDS,
+        presenceTtlSeconds,
       );
     }
 
@@ -133,6 +133,7 @@ export class PresenceService {
       });
 
       if (session?.latitude != null && session.longitude != null) {
+        const presenceTtlSeconds = this.appConfig.getPresenceTtlSeconds();
         await this.redis.client.geoadd(
           GEO_AVAILABLE_KEY,
           session.longitude,
@@ -147,7 +148,7 @@ export class PresenceService {
             at: Date.now(),
           }),
           'EX',
-          PRESENCE_TTL_SECONDS,
+          presenceTtlSeconds,
         );
       }
     } else {

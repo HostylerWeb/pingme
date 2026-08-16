@@ -2,7 +2,7 @@ import { FOREGROUND_PING_INTERVAL_MS } from '@pingme/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Location from 'expo-location';
-import { api } from '../lib/api';
+import { throttledLocationPing } from '../lib/throttled-location-ping';
 
 export interface Coordinates {
   latitude: number;
@@ -102,7 +102,7 @@ export function useLocationPing(enabled = true) {
       coordsRef.current = next;
       lastPingAtRef.current = Date.now();
       setCoords(next);
-      await api.pingLocation(next);
+      await throttledLocationPing(next);
       setError(null);
       return next;
     } catch (err) {

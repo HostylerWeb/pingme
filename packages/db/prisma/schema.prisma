@@ -103,6 +103,7 @@ model UserSettings {
   allowPushReplies    Boolean @default(true) @map("allow_push_replies")
   allowPushChat       Boolean @default(true) @map("allow_push_chat")
   allowPushIcebreaker Boolean @default(true) @map("allow_push_icebreaker")
+  allowPushIcebreakerNearby Boolean @default(true) @map("allow_push_icebreaker_nearby")
   showReadReceipts    Boolean @default(false) @map("show_read_receipts")
   language            String  @default("en") @db.VarChar(10)
 

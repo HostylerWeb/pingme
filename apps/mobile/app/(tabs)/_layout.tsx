@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { useChatsUnreadCount } from '../../src/hooks/use-chats-unread';
 import { TAB_BAR_CONTENT_HEIGHT, TAB_BAR_VERTICAL_PADDING, useBottomInset } from '../../src/hooks/use-tab-bar-insets';
 import { AppIcon, type AppIconName } from '../../src/components/ui/app-icon';
-import { typography, useTheme, useThemedStyles } from '../../src/theme';
+import { typography, useTheme } from '../../src/theme';
 
 function TabIcon({
   name,
@@ -14,17 +14,9 @@ function TabIcon({
   color: string;
   focused: boolean;
 }) {
-  const styles = useThemedStyles(() => ({
-    iconWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: 32,
-    },
-  }));
-
   return (
-    <View style={styles.iconWrap}>
-      <AppIcon name={name} size={focused ? 28 : 26} color={color} />
+    <View style={{ alignItems: 'center', justifyContent: 'center', height: 28 }}>
+      <AppIcon name={name} size={focused ? 24 : 22} color={color} />
     </View>
   );
 }
@@ -57,14 +49,15 @@ export default function TabLayout() {
               shadowOpacity: 0.06,
               shadowRadius: 8,
             },
-            android: { elevation: 8 },
+            android: { elevation: 4 },
           }),
         },
         tabBarLabelStyle: {
           ...typography.labelSm,
-          fontSize: 10,
-          marginTop: 2,
+          fontSize: 11,
+          marginTop: 4,
           letterSpacing: 0,
+          fontFamily: typography.bodySemiBold.fontFamily,
         },
       }}
     >
@@ -80,7 +73,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="icebreaker"
         options={{
-          title: 'Break the ice',
+          title: 'IceBreaker',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="icebreaker-filled" color={String(color)} focused={focused} />
           ),

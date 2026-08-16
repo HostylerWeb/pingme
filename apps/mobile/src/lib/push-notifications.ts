@@ -16,15 +16,17 @@ Notifications.setNotificationHandler({
     const inForeground = AppState.currentState === 'active';
     const data = notification.request.content.data as { type?: string };
     const isWallReply = data?.type === 'wall.reply';
+    const isIcebreakerNearby = data?.type === 'icebreaker.nearby';
 
     return {
       shouldPlaySound: !inForeground,
       shouldSetBadge: false,
       shouldShowBanner: !inForeground,
       shouldShowList: true,
-      priority: isWallReply
-        ? Notifications.AndroidNotificationPriority.HIGH
-        : Notifications.AndroidNotificationPriority.DEFAULT,
+      priority:
+        isWallReply || isIcebreakerNearby
+          ? Notifications.AndroidNotificationPriority.HIGH
+          : Notifications.AndroidNotificationPriority.DEFAULT,
     };
   },
 });
@@ -39,6 +41,12 @@ async function ensureAndroidChannels() {
   await Notifications.setNotificationChannelAsync('wall-replies', {
     name: 'Wall replies',
     description: 'When someone replies to your Wall post',
+    importance: Notifications.AndroidImportance.HIGH,
+    vibrationPattern: [0, 200, 100, 200],
+  });
+  await Notifications.setNotificationChannelAsync('icebreaker', {
+    name: 'Break the ice',
+    description: 'When someone nearby turns Break the ice on or matches with you',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 200, 100, 200],
   });
@@ -112,6 +120,64 @@ export async function registerForPushNotifications(options?: { skipPermissionReq
     }
     return null;
   }
+}
+
+const ICEBREAKER_SESSION_REMINDER_ID = 'icebreaker-session-reminder';
+
+export async function showIcebreakerActiveLocalNotification(windowMinutes: number) {
+  if (!Device.isDevice) return;
+
+  await ensureAndroidChannels();
+  const durationLabel =
+    windowMinutes >= 60 && windowMinutes % 60 === 0
+      ? `${windowMinutes / 60} hour${windowMinutes === 60 ? '' : 's'}`
+      : `${windowMinutes} minutes`;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Break the ice is on',
+      body: `You're visible to people nearby for the next ${durationLabel}.`,
+      data: { type: 'icebreaker.active' },
+      ...(Platform.OS === 'android' ? { channelId: 'icebreaker' } : {}),
+    },
+    trigger: null,
+  });
+}
+
+/** Remind the user before their Break the ice session auto-expires. */
+export async function scheduleIcebreakerSessionReminder(expiresAtIso: string) {
+  if (!Device.isDevice) return;
+
+  await cancelIcebreakerSessionReminder();
+  await ensureAndroidChannels();
+
+  const expiresAt = new Date(expiresAtIso).getTime();
+  const reminderAt = expiresAt - 10 * 60_000;
+  const delayMs = reminderAt - Date.now();
+  if (delayMs <= 0) {
+    return;
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: ICEBREAKER_SESSION_REMINDER_ID,
+    content: {
+      title: 'Break the ice turns off soon',
+      body: '10 minutes left — open the app to stay visible or turn off.',
+      data: { type: 'icebreaker.active' },
+      ...(Platform.OS === 'android' ? { channelId: 'icebreaker' } : {}),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(1, Math.ceil(delayMs / 1000)),
+    },
+  });
+}
+
+export async function cancelIcebreakerSessionReminder() {
+  if (!Device.isDevice) return;
+  await Notifications.cancelScheduledNotificationAsync(ICEBREAKER_SESSION_REMINDER_ID).catch(
+    () => undefined,
+  );
 }
 
 export async function unregisterPushNotifications() {

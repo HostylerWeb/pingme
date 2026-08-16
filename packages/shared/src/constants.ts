@@ -6,11 +6,12 @@ export const LOCATION_PINGS_PER_HOUR = 120;
 export const FOREGROUND_PING_INTERVAL_MS = 60_000;
 export const MAX_ICEBREAKER_INTRO_LENGTH = 100;
 export const ACTIVE_NOW_THRESHOLD_MINUTES = 3;
-export const PRESENCE_TTL_SECONDS = 300;
+export const PRESENCE_TTL_SECONDS = 1800;
 export const BACKGROUND_PING_INTERVAL_MS = 180_000;
 
 export const NOTIFICATION_TYPES = {
   WALL_REPLY: 'wall.reply',
+  ICEBREAKER_NEARBY: 'icebreaker.nearby',
   ICEBREAKER_INTEREST: 'icebreaker.interest',
   ICEBREAKER_MATCH: 'icebreaker.match',
   MATCH_REQUEST: 'match.request',
@@ -43,6 +44,20 @@ export function genderLabel(value: string | null | undefined): string {
   return GENDER_OPTIONS.find((option) => option.value === value)?.label ?? '—';
 }
 
+export const PREMIUM_PROSPECT_BENEFITS = [
+  'Premium badge on your posts, replies, and Break the ice',
+  'Gradient avatar ring others see on Wall and in chats',
+  'Custom avatar themes',
+  'Optional read receipts in chat',
+] as const;
+
+export const PREMIUM_MEMBER_BENEFITS = [
+  'Your Premium star and ring appear on every Wall post, reply, and Break the ice card',
+  'Gradient avatar ring on your profile and in chats',
+  'Custom avatar themes',
+  'Optional read receipts in chat',
+] as const;
+
 export const SUBSCRIPTION_PLANS = {
   free: {
     id: 'free' as const,
@@ -54,7 +69,7 @@ export const SUBSCRIPTION_PLANS = {
     id: 'premium' as const,
     name: 'Premium',
     priceLabel: 'Coming soon',
-    features: ['Custom avatar themes', 'Read receipts', 'Profile flair'],
+    features: [...PREMIUM_PROSPECT_BENEFITS],
   },
 } as const;
 

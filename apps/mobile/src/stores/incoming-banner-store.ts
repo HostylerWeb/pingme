@@ -30,6 +30,7 @@ export function iconForNotificationType(type: string): AppIconName {
   if (type === 'chat.message') return 'chats';
   if (
     type === 'icebreaker.interest' ||
+    type === 'icebreaker.nearby' ||
     type === 'icebreaker.match' ||
     type === 'match.request'
   ) {

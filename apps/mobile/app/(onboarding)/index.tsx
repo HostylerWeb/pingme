@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 import { AppIcon, type AppIconName } from '../../src/components/ui/app-icon';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { onboardingStorage } from '../../src/lib/onboarding-storage';
-import { Button, Screen } from '../../src/components/ui';
+import { BrandMark, Button, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 function buildSlides(wallDefaultMeters: number) {
@@ -47,18 +47,6 @@ export default function OnboardingScreen() {
     brandRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
-    },
-    logoDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
-    },
-    brandText: {
-      ...typography.overline,
-      color: colors.inkTertiary,
-      fontSize: 10,
     },
     skipTop: { ...typography.bodySemiBold, color: colors.accent },
     hero: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.sm },
@@ -97,8 +85,7 @@ export default function OnboardingScreen() {
       <View style={styles.container}>
         <View style={styles.topRow}>
           <View style={styles.brandRow}>
-            <View style={styles.logoDot} />
-            <Text style={styles.brandText}>PingMe</Text>
+            <BrandMark size="sm" />
           </View>
           {!isLast ? (
             <Pressable onPress={finish}>

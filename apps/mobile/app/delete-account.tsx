@@ -52,11 +52,11 @@ export default function DeleteAccountScreen() {
       backgroundColor: colors.surfaceMuted,
       borderRadius: radius.lg,
       borderWidth: 1,
-      borderColor: colors.error,
+      borderColor: colors.destructiveBorder,
       padding: spacing.md,
       marginBottom: spacing.lg,
     },
-    warningText: { ...typography.bodyMd, color: colors.error, lineHeight: 22 },
+    warningText: { ...typography.bodyMd, color: colors.destructive, lineHeight: 22 },
     scheduled: {
       backgroundColor: colors.accentSoft,
       borderRadius: radius.lg,

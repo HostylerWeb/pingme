@@ -88,6 +88,7 @@ export const UpdateSettingsSchema = z
     allowPushReplies: z.boolean().optional(),
     allowPushChat: z.boolean().optional(),
     allowPushIcebreaker: z.boolean().optional(),
+    allowPushIcebreakerNearby: z.boolean().optional(),
     showReadReceipts: z.boolean().optional(),
     language: z.string().min(2).max(10).optional(),
   })

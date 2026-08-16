@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { MatchStatus } from '@pingme/db';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -43,8 +44,32 @@ export class BlocksService {
       throw new ConflictException('User already blocked');
     }
 
-    const block = await this.prisma.block.create({
-      data: { blockerId, blockedId },
+    const block = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.block.create({
+        data: { blockerId, blockedId },
+      });
+
+      await tx.icebreakerInterest.deleteMany({
+        where: {
+          OR: [
+            { fromUserId: blockerId, toUserId: blockedId },
+            { fromUserId: blockedId, toUserId: blockerId },
+          ],
+        },
+      });
+
+      const [userAId, userBId] =
+        blockerId < blockedId ? [blockerId, blockedId] : [blockedId, blockerId];
+      await tx.match.updateMany({
+        where: {
+          userAId,
+          userBId,
+          status: MatchStatus.pending,
+        },
+        data: { status: MatchStatus.declined },
+      });
+
+      return created;
     });
 
     return { success: true, data: block };

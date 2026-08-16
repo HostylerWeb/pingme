@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, Pressable, PressableProps, Text, ViewStyle } from 'react-native';
 import { radius, spacing, typography } from '../../theme';
 import { useTheme } from '../../theme/theme-context';
@@ -31,6 +32,8 @@ export function Button({
       alignItems: 'center',
       justifyContent: 'center',
       flexDirection: 'row',
+      overflow: 'hidden',
+      position: 'relative',
     },
     pressed: {
       opacity: 0.92,
@@ -42,6 +45,7 @@ export function Button({
     label: {
       ...typography.bodySemiBold,
       fontSize: 16,
+      zIndex: 1,
     },
     labelSm: {
       fontSize: 14,
@@ -50,17 +54,20 @@ export function Button({
     secondary: { backgroundColor: colors.online },
     ghost: { backgroundColor: colors.accentSoft },
     danger: { backgroundColor: colors.errorContainer },
-    icebreaker: { backgroundColor: colors.icebreaker },
+    icebreaker: { backgroundColor: 'transparent' },
     premium: { backgroundColor: colors.premiumStart },
     outline: {
       backgroundColor: 'transparent',
       borderWidth: 1.5,
       borderColor: colors.border,
     },
+    gradientFill: {
+      ...({ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 } as const),
+    },
     textPrimary: { color: colors.onAccent },
     textSecondary: { color: colors.onOnline },
     textGhost: { color: colors.accent },
-    textDanger: { color: colors.onErrorContainer },
+    textDanger: { color: colors.destructive },
     textIcebreaker: { color: colors.onAccent },
     textPremium: { color: colors.onPrimary },
     textOutline: { color: colors.ink },
@@ -93,7 +100,7 @@ export function Button({
     primary: colors.onAccent,
     secondary: colors.onOnline,
     ghost: colors.accent,
-    danger: colors.onErrorContainer,
+    danger: colors.destructive,
     icebreaker: colors.onAccent,
     premium: colors.onPrimary,
     outline: colors.ink,
@@ -125,6 +132,14 @@ export function Button({
       ]}
       {...props}
     >
+      {variant === 'icebreaker' ? (
+        <LinearGradient
+          colors={[colors.icebreakerStart, colors.icebreakerEnd] as const}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientFill}
+        />
+      ) : null}
       {loading ? (
         <ActivityIndicator color={loaderColor} />
       ) : (

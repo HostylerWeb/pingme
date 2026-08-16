@@ -16,7 +16,7 @@ import { api, ApiError } from '../../src/lib/api';
 import { uploadAvatarFromUri } from '../../src/lib/avatar-upload';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { showToast } from '../../src/stores/toast-store';
-import { Button, Card, GenderPicker, GenderReadOnly, Input, Screen } from '../../src/components/ui';
+import { BrandMark, Button, Card, GenderPicker, GenderReadOnly, Input, Screen } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 export default function ProfileSetupScreen() {
@@ -34,9 +34,7 @@ export default function ProfileSetupScreen() {
   const styles = useThemedStyles(({ colors }) => ({
     flex: { flex: 1 },
     scroll: { padding: spacing.container, paddingTop: spacing.section },
-    brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.xl },
-    logoDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
-    brand: { ...typography.overline, color: colors.inkTertiary, fontSize: 10 },
+    brandRow: { marginBottom: spacing.xl },
     title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
     subtitle: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl, lineHeight: 22 },
     avatarButton: {
@@ -105,8 +103,7 @@ export default function ProfileSetupScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.brandRow}>
-            <View style={styles.logoDot} />
-            <Text style={styles.brand}>PingMe</Text>
+            <BrandMark size="md" />
           </View>
           <Text style={styles.title}>Your profile</Text>
           <Text style={styles.subtitle}>Help people nearby recognize you. Photo is optional.</Text>

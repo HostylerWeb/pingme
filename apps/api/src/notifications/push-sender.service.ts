@@ -34,7 +34,15 @@ export class PushSenderService {
       title: payload.title,
       body: payload.body,
       data: payload.data,
-      channelId: payload.type === NOTIFICATION_TYPES.WALL_REPLY ? 'wall-replies' : 'default',
+      channelId:
+        payload.type === NOTIFICATION_TYPES.WALL_REPLY
+          ? 'wall-replies'
+          : payload.type === NOTIFICATION_TYPES.ICEBREAKER_NEARBY ||
+              payload.type === NOTIFICATION_TYPES.ICEBREAKER_INTEREST ||
+              payload.type === NOTIFICATION_TYPES.ICEBREAKER_MATCH ||
+              payload.type === NOTIFICATION_TYPES.MATCH_REQUEST
+            ? 'icebreaker'
+            : 'default',
     }));
 
     const response = await fetch('https://exp.host/--/api/v2/push/send', {

@@ -9,8 +9,8 @@ import {
 } from 'react-native';
 import { api, ApiError } from '../../src/lib/api';
 import { showToast } from '../../src/stores/toast-store';
-import { Button, Input, PasswordInput, Screen } from '../../src/components/ui';
-import { radius, spacing, typography, useThemedStyles } from '../../src/theme';
+import { BrandMark, Button, Input, PasswordInput, Screen } from '../../src/components/ui';
+import { spacing, typography, useThemedStyles } from '../../src/theme';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -23,32 +23,10 @@ export default function ResetPasswordScreen() {
     flex: { flex: 1 },
     scroll: { flexGrow: 1, justifyContent: 'center', padding: spacing.container },
     brandRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
       marginBottom: spacing.xl,
     },
-    logoDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
-    },
-    brandText: {
-      ...typography.overline,
-      color: colors.inkTertiary,
-      fontSize: 10,
-    },
     title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
-    hint: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.card,
-      padding: spacing.xl,
-      borderWidth: 1,
-      borderColor: colors.cardBorder,
-      marginBottom: spacing.lg,
-    },
+    hint: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl, lineHeight: 22 },
     link: { ...typography.bodyMd, textAlign: 'center', color: colors.accent },
   }));
 
@@ -77,15 +55,13 @@ export default function ResetPasswordScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.brandRow}>
-            <View style={styles.logoDot} />
-            <Text style={styles.brandText}>PingMe</Text>
+            <BrandMark size="lg" />
           </View>
 
           <Text style={styles.title}>Choose a new password</Text>
           <Text style={styles.hint}>{hint}</Text>
 
-          <View style={styles.card}>
-            <Input
+          <Input
               label="Reset code"
               placeholder="Enter code"
               autoCapitalize="none"
@@ -99,7 +75,6 @@ export default function ResetPasswordScreen() {
               onChangeText={setPassword}
             />
             <Button label="Update password" onPress={onSubmit} loading={loading} />
-          </View>
 
           <Link href="/(auth)/login" style={styles.link}>
             Back to login

@@ -82,8 +82,8 @@ export default function NotificationsSetupScreen() {
 
         <Text style={styles.title}>Stay in the loop</Text>
         <Text style={styles.body}>
-          PingMe sends notifications when someone replies to your Wall post, messages you in chat, or
-          wants to break the ice nearby. You can change which alerts you receive anytime in Settings.
+          PingMe sends notifications when someone replies on the Wall, messages you in chat, turns
+          on Break the ice nearby, or matches with you. You can change each alert in Settings.
         </Text>
 
         <Card variant="muted" style={styles.noteCard}>

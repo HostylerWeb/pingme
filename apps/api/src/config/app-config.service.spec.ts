@@ -21,6 +21,7 @@ describe('AppConfigService', () => {
                 ICEBREAKER_HIDE_MINUTES: '8',
                 ICEBREAKER_INTEREST_EXPIRY_MINUTES: '15',
                 EVENTS_DISCOVERY_RADIUS_METERS: '12000',
+                PRESENCE_TTL_SECONDS: '1800',
               };
               return values[key];
             },
@@ -38,6 +39,7 @@ describe('AppConfigService', () => {
       expect(service.getIcebreakerConfig().hideMinutes).toBe(8);
       expect(service.getIcebreakerConfig().interestExpiryMinutes).toBe(15);
       expect(service.getDistanceConfig().events.discoveryRadiusMeters).toBe(12_000);
+      expect(service.getPresenceTtlSeconds()).toBe(1800);
       expect(service.resolveWallRadius(999)).toBe(600);
       expect(service.resolveWallRadius(null)).toBe(300);
     });

@@ -6,7 +6,7 @@ import type { GenderValue } from '@pingme/shared';
 import { ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { showToast } from '../../src/stores/toast-store';
-import { Button, DateOfBirthField, GenderPicker, Input, PasswordInput, Screen, SegmentedControl } from '../../src/components/ui';
+import { BrandMark, Button, DateOfBirthField, GenderPicker, Input, PasswordInput, Screen, SegmentedControl } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 export default function RegisterScreen() {
@@ -25,32 +25,26 @@ export default function RegisterScreen() {
   const styles = useThemedStyles(({ colors }) => ({
     flex: { flex: 1 },
     scroll: { flexGrow: 1, padding: spacing.container, paddingTop: spacing.section },
-    brandRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
+    brandWrapper: {
+      position: 'relative',
+      alignSelf: 'flex-start',
       marginBottom: spacing.xl,
     },
-    logoDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
+    glowAura: {
+      position: 'absolute',
+      top: -24,
+      left: -24,
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: colors.accentSoft,
+      opacity: 0.65,
     },
-    brandText: {
-      ...typography.overline,
-      color: colors.inkTertiary,
-      fontSize: 10,
+    brandRow: {
+      zIndex: 1,
     },
     title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
-    subtitle: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xl },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.card,
-      padding: spacing.xl,
-      borderWidth: 1,
-      borderColor: colors.cardBorder,
-    },
+    subtitle: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xl, lineHeight: 22 },
     notice: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -105,16 +99,17 @@ export default function RegisterScreen() {
     <Screen padded={false} edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.brandRow}>
-            <View style={styles.logoDot} />
-            <Text style={styles.brandText}>PingMe</Text>
+          <View style={styles.brandWrapper}>
+            <View style={styles.glowAura} />
+            <View style={styles.brandRow}>
+              <BrandMark size="lg" />
+            </View>
           </View>
 
           <Text style={styles.title}>Create account</Text>
-          <Text style={styles.subtitle}>Join your digital neighborhood.</Text>
+          <Text style={styles.subtitle}>People nearby are already posting. Join them.</Text>
 
-          <View style={styles.card}>
-            <SegmentedControl
+          <SegmentedControl
               options={[
                 { label: 'Email', value: 'email' },
                 { label: 'Phone', value: 'phone' },
@@ -177,7 +172,6 @@ export default function RegisterScreen() {
                 (mode === 'email' ? !email.trim() : !phone.trim())
               }
             />
-          </View>
 
           <Link href="/(auth)/login" style={styles.link}>
             Already have an account? Log in

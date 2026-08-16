@@ -4,8 +4,8 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { showToast } from '../../src/stores/toast-store';
-import { Button, Input, PasswordInput, Screen, SegmentedControl } from '../../src/components/ui';
-import { radius, spacing, typography, useThemedStyles } from '../../src/theme';
+import { BrandMark, Button, Input, PasswordInput, Screen, SegmentedControl } from '../../src/components/ui';
+import { spacing, typography, useThemedStyles } from '../../src/theme';
 
 export default function LoginScreen() {
   const login = useAuthStore((s) => s.login);
@@ -22,32 +22,26 @@ export default function LoginScreen() {
       justifyContent: 'center',
       padding: spacing.container,
     },
-    brandRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
+    brandWrapper: {
+      position: 'relative',
+      alignSelf: 'flex-start',
       marginBottom: spacing.xl,
     },
-    logoDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
+    glowAura: {
+      position: 'absolute',
+      top: -24,
+      left: -24,
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      backgroundColor: colors.accentSoft,
+      opacity: 0.65,
     },
-    brandText: {
-      ...typography.overline,
-      color: colors.inkTertiary,
-      fontSize: 10,
+    brandRow: {
+      zIndex: 1,
     },
     title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
-    subtitle: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl },
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.card,
-      padding: spacing.xl,
-      borderWidth: 1,
-      borderColor: colors.cardBorder,
-    },
+    subtitle: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl, lineHeight: 22 },
     link: {
       ...typography.bodyMd,
       color: colors.accent,
@@ -73,16 +67,17 @@ export default function LoginScreen() {
     <Screen padded={false} edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.brandRow}>
-            <View style={styles.logoDot} />
-            <Text style={styles.brandText}>PingMe</Text>
+          <View style={styles.brandWrapper}>
+            <View style={styles.glowAura} />
+            <View style={styles.brandRow}>
+              <BrandMark size="lg" />
+            </View>
           </View>
 
           <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to your nearby community.</Text>
+          <Text style={styles.subtitle}>People nearby are already posting.</Text>
 
-          <View style={styles.card}>
-            <SegmentedControl
+          <SegmentedControl
               options={[
                 { label: 'Email', value: 'email' },
                 { label: 'Phone', value: 'phone' },
@@ -123,7 +118,6 @@ export default function LoginScreen() {
               loading={isLoading}
               disabled={!password.trim() || (mode === 'email' ? !email.trim() : !phone.trim())}
             />
-          </View>
 
           <Link href="/(auth)/forgot-password" style={styles.link}>
             Forgot password?

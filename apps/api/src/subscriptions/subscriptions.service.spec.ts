@@ -4,7 +4,18 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DemoGateway } from './gateways/demo.gateway';
 import { UnconfiguredGateway } from './gateways/unconfigured.gateway';
+import { StripeGateway } from './gateways/stripe.gateway';
 import { SubscriptionsService } from './subscriptions.service';
+
+function createStripeGatewayStub(): StripeGateway {
+  return {
+    providerId: 'stripe',
+    isConfigured: () => false,
+    createCheckoutSession: jest.fn(),
+    cancelSubscription: jest.fn(),
+    handleWebhook: jest.fn(),
+  } as unknown as StripeGateway;
+}
 
 describe('SubscriptionsService', () => {
   const prisma = {
@@ -28,7 +39,14 @@ describe('SubscriptionsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new SubscriptionsService(prisma, audit, config, new UnconfiguredGateway(), new DemoGateway());
+    service = new SubscriptionsService(
+      prisma,
+      audit,
+      config,
+      new UnconfiguredGateway(),
+      new DemoGateway(),
+      createStripeGatewayStub(),
+    );
   });
 
   it('returns free plan when no subscription exists', async () => {
@@ -81,6 +99,7 @@ describe('SubscriptionsService', () => {
       prodConfig,
       new UnconfiguredGateway(),
       new DemoGateway(),
+      createStripeGatewayStub(),
     );
 
     await expect(prodService.createCheckout('user-1', 'premium')).rejects.toThrow(

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import {
   distanceBucket,
   isUserActiveNow,
 } from '@pingme/shared';
+import { IcebreakerNearbyPushService } from './icebreaker-nearby-push.service';
 import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
 import { ChatGateway } from '../chat/chat.gateway';
@@ -32,6 +34,8 @@ interface NearbySessionRow {
 
 @Injectable()
 export class IcebreakerService {
+  private readonly logger = new Logger(IcebreakerService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly appConfig: AppConfigService,
@@ -39,6 +43,7 @@ export class IcebreakerService {
     private readonly blocks: BlocksService,
     private readonly rateLimit: RateLimitService,
     private readonly notifications: NotificationService,
+    private readonly nearbyPush: IcebreakerNearbyPushService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly gateway: ChatGateway,
   ) {}
@@ -89,6 +94,15 @@ export class IcebreakerService {
       action: 'icebreaker.start',
       entityType: 'icebreaker_session',
       entityId: icebreaker.id,
+    });
+
+    void this.nearbyPush
+      .notifyNearbyUsersOnStart(userId, icebreaker.id, session.latitude, session.longitude)
+      .catch((error) => {
+      this.logger.error(
+        `Failed to send icebreaker proximity pushes for session ${icebreaker.id}`,
+        error instanceof Error ? error.stack : String(error),
+      );
     });
 
     return {
@@ -648,6 +662,7 @@ export class IcebreakerService {
 
     return expiredCount;
   }
+
 }
 
 function isActiveYesInterest(

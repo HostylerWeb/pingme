@@ -5,6 +5,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { VerificationModule } from '../verification/verification.module';
 import { IcebreakerController } from './icebreaker.controller';
 import { IcebreakerMatchingService } from './icebreaker-matching.service';
+import { IcebreakerNearbyPushService } from './icebreaker-nearby-push.service';
 import { IcebreakerService } from './icebreaker.service';
 
 @Module({
@@ -13,6 +14,7 @@ import { IcebreakerService } from './icebreaker.service';
   providers: [
     IcebreakerService,
     IcebreakerMatchingService,
+    IcebreakerNearbyPushService,
     BlocksService,
   ],
   exports: [IcebreakerService],

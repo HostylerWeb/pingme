@@ -1,4 +1,5 @@
 import type { Href } from 'expo-router';
+import { setIcebreakerNearbyPrompt } from '../stores/icebreaker-nearby-prompt-store';
 
 export type NotificationNavigationPayload = {
   type: string;
@@ -8,7 +9,15 @@ export type NotificationNavigationPayload = {
   replyId?: string;
   matchId?: string;
   chatId?: string;
+  nearbyCount?: number;
 };
+
+function parseNearbyCount(value: unknown): number | undefined {
+  if (value == null) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) return undefined;
+  return Math.floor(parsed);
+}
 
 export function parseNotificationData(
   data: Record<string, unknown> | undefined,
@@ -23,6 +32,7 @@ export function parseNotificationData(
     replyId: data.replyId != null ? String(data.replyId) : undefined,
     matchId: data.matchId != null ? String(data.matchId) : undefined,
     chatId: data.chatId != null ? String(data.chatId) : undefined,
+    nearbyCount: parseNearbyCount(data.count),
   };
 }
 
@@ -33,6 +43,7 @@ export function shouldSuppressIncomingBanner(
   if (payload.chatId && pathname.includes(`/chat/${payload.chatId}`)) return true;
   if (payload.postId && pathname.includes(`/post/${payload.postId}`)) return true;
   if (payload.type === 'icebreaker.interest' && pathname.includes('icebreaker')) return true;
+  if (payload.type === 'icebreaker.nearby' && pathname.includes('icebreaker')) return true;
   if (
     (payload.type === 'icebreaker.match' || payload.type === 'match.request') &&
     payload.matchId &&
@@ -56,7 +67,7 @@ export function getNotificationHref(payload: NotificationNavigationPayload): Hre
   ) {
     return `/match/${payload.matchId}`;
   }
-  if (payload.type === 'icebreaker.interest') {
+  if (payload.type === 'icebreaker.interest' || payload.type === 'icebreaker.nearby') {
     return '/(tabs)/icebreaker';
   }
   return null;
@@ -66,6 +77,10 @@ export function navigateFromNotification(
   router: { push: (href: Href) => void },
   payload: NotificationNavigationPayload,
 ) {
+  if (payload.type === 'icebreaker.nearby') {
+    setIcebreakerNearbyPrompt(payload.nearbyCount ?? 1);
+  }
+
   const href = getNotificationHref(payload);
   if (href) {
     router.push(href);

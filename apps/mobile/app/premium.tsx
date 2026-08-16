@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '../src/components/ui/app-icon';
-import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
+import { PREMIUM_AVATAR_THEMES, PREMIUM_MEMBER_BENEFITS } from '@pingme/shared';
 import { api, SubscriptionInfo } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
 import { showToast } from '../src/stores/toast-store';
@@ -23,6 +23,25 @@ export default function PremiumScreen() {
     (user?.profile as { avatarConfig?: { theme?: string } } | null | undefined)?.avatarConfig?.theme ?? null;
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(null);
+  const { checkout: checkoutParam } = useLocalSearchParams<{ checkout?: string }>();
+
+  useFocusEffect(
+    useCallback(() => {
+      void queryClient.invalidateQueries({ queryKey: ['subscription'] });
+    }, [queryClient]),
+  );
+
+  useEffect(() => {
+    if (checkoutParam === 'success') {
+      void refreshMe();
+      void queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      showToast('Welcome to Premium!', 'success');
+      router.setParams({ checkout: undefined });
+    } else if (checkoutParam === 'cancelled') {
+      showToast('Checkout cancelled', 'info');
+      router.setParams({ checkout: undefined });
+    }
+  }, [checkoutParam, queryClient, refreshMe, router]);
 
   const styles = useThemedStyles(({ colors }) => ({
     content: { padding: spacing.container, paddingBottom: insets.bottom + 40 },
@@ -201,6 +220,16 @@ export default function PremiumScreen() {
       color: colors.inkTertiary,
       marginTop: 2,
     },
+    cancelBtn: {
+      marginTop: spacing.lg,
+    },
+    cancelHint: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+      textAlign: 'center',
+      marginTop: spacing.sm,
+      lineHeight: 18,
+    },
   }));
 
   const { data: subscriptionData, isLoading: subLoading } = useQuery({
@@ -236,15 +265,30 @@ export default function PremiumScreen() {
 
   const checkoutMutation = useMutation({
     mutationFn: () => api.startSubscriptionCheckout(),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (result.data.inAppCheckout && result.data.sessionId) {
         setCheckoutSessionId(result.data.sessionId);
         setCheckoutOpen(true);
         return;
       }
       if (result.data.checkoutUrl) {
-        showToast('Opening checkout…', 'info');
+        const canOpen = await Linking.canOpenURL(result.data.checkoutUrl);
+        if (canOpen) {
+          await Linking.openURL(result.data.checkoutUrl);
+        } else {
+          showToast('Unable to open checkout', 'error');
+        }
       }
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => api.cancelSubscription(),
+    onSuccess: async () => {
+      await refreshMe();
+      await queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      showToast('Premium cancellation scheduled', 'info');
     },
     onError: (error: Error) => showToast(error.message, 'error'),
   });
@@ -273,8 +317,14 @@ export default function PremiumScreen() {
   const plans = plansData?.data;
   const isPremium = subscription?.isPremium ?? false;
   const isDemoPayments = plans?.paymentProvider === 'demo';
+  const isStripePayments = plans?.paymentProvider === 'stripe';
   const premiumPlan = plans?.plans.find((plan) => plan.id === 'premium');
+  const memberBenefits = [...PREMIUM_MEMBER_BENEFITS];
   const settings = settingsData?.data;
+  const canCancelPaidSubscription =
+    isPremium &&
+    !subscription?.cancelAtPeriodEnd &&
+    (subscription?.paymentProvider === 'stripe' || subscription?.paymentProvider === 'manual');
 
   return (
     <Screen padded={false} edges={[]}>
@@ -299,7 +349,8 @@ export default function PremiumScreen() {
           </Text>
           {subscription?.currentPeriodEnd ? (
             <Text style={styles.statusMeta}>
-              Active until {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+              {subscription.cancelAtPeriodEnd ? 'Ends' : 'Renews'}{' '}
+              {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
             </Text>
           ) : null}
         </View>
@@ -338,7 +389,10 @@ export default function PremiumScreen() {
 
             <View style={styles.premiumSection}>
               <SectionLabel>Avatar themes</SectionLabel>
-              <Text style={styles.sectionHint}>Premium unlocks gradient rings on your profile and wall posts.</Text>
+              <Text style={styles.sectionHint}>
+                Premium unlocks gradient rings and a star badge others see on Wall, replies, and
+                Break the ice.
+              </Text>
               <View style={styles.themeGrid}>
                 {PREMIUM_AVATAR_THEMES.map((theme) => (
                   <Pressable
@@ -368,11 +422,7 @@ export default function PremiumScreen() {
             <View style={styles.premiumSection}>
               <SectionLabel>Your benefits</SectionLabel>
               <Card style={styles.planCard} variant="flat">
-                {[
-                  'Animated gradient avatar rings',
-                  'Premium star next to your name',
-                  'Optional read receipts in chat',
-                ].map((feature) => (
+                {memberBenefits.map((feature) => (
                   <View key={feature} style={styles.featureRow}>
                     <AppIcon name="check-circle" size={18} color={colors.premiumStart} />
                     <Text style={styles.planFeature}>{feature}</Text>
@@ -424,6 +474,23 @@ export default function PremiumScreen() {
                 disabled={settingsMutation.isPending}
               />
             </View>
+
+            {canCancelPaidSubscription ? (
+              <>
+                <Button
+                  label="Cancel Premium"
+                  variant="ghost"
+                  loading={cancelMutation.isPending}
+                  onPress={() => cancelMutation.mutate()}
+                  style={styles.cancelBtn}
+                />
+                <Text style={styles.cancelHint}>
+                  {isStripePayments
+                    ? 'You keep Premium until the end of your billing period.'
+                    : 'Premium access will end immediately.'}
+                </Text>
+              </>
+            ) : null}
           </>
         )}
       </ScrollView>

@@ -61,15 +61,10 @@ export default function ProfileScreen() {
 
   const styles = useThemedStyles(({ colors }) => ({
     content: { paddingHorizontal: spacing.container },
-    profileCard: {
+    profileHero: {
       alignItems: 'center',
-      backgroundColor: colors.surface,
-      borderRadius: radius.xl,
-      borderWidth: 1,
-      borderColor: colors.border,
-      paddingVertical: spacing.xl,
-      paddingHorizontal: spacing.lg,
-      marginBottom: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xl,
     },
     avatarTap: { position: 'relative' },
     avatarTapPressed: { opacity: 0.85 },
@@ -84,22 +79,22 @@ export default function ProfileScreen() {
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 3,
-      borderColor: colors.surface,
+      borderColor: colors.background,
     },
     name: {
-      ...typography.headlineLg,
+      ...typography.display,
       color: colors.ink,
       marginTop: spacing.lg,
       textAlign: 'center',
     },
     bio: {
-      ...typography.bodyMd,
+      ...typography.bodyLg,
       color: colors.inkSecondary,
       textAlign: 'center',
       marginTop: spacing.sm,
       paddingHorizontal: spacing.md,
-      lineHeight: 22,
-      maxWidth: 300,
+      lineHeight: 26,
+      maxWidth: 320,
     },
     bioPlaceholder: {
       color: colors.inkMuted,
@@ -162,7 +157,7 @@ export default function ProfileScreen() {
       marginTop: spacing.xxl,
       padding: spacing.lg,
     },
-    logoutText: { ...typography.bodySemiBold, color: colors.error, fontSize: 16 },
+    logoutText: { ...typography.bodySemiBold, color: colors.destructive, fontSize: 16 },
     headerIconBtn: {
       width: 40,
       height: 40,
@@ -276,7 +271,7 @@ export default function ProfileScreen() {
       />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: contentBottom }]}>
-        <View style={styles.profileCard}>
+        <View style={styles.profileHero}>
           <Pressable
             onPress={() => setSourceSheetOpen(true)}
             disabled={uploading}
@@ -368,7 +363,7 @@ export default function ProfileScreen() {
         </View>
 
         <Pressable style={styles.logout} onPress={onLogout}>
-          <AppIcon name="logout" size={20} color={colors.error} />
+          <AppIcon name="logout" size={20} color={colors.destructive} />
           <Text style={styles.logoutText}>Logout</Text>
         </Pressable>
       </ScrollView>

@@ -1,8 +1,8 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { PRESENCE_TTL_SECONDS } from '@pingme/shared';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { shouldRunWorkers } from '../common/utils/run-mode';
+import { AppConfigService } from '../config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BullmqRedisService, RedisService } from '../redis/redis.module';
 
@@ -19,6 +19,7 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
     private readonly bullmqRedis: BullmqRedisService,
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
+    private readonly appConfig: AppConfigService,
   ) {}
 
   onModuleInit() {
@@ -58,7 +59,8 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
   }
 
   async expireStaleSessions() {
-    const cutoff = new Date(Date.now() - PRESENCE_TTL_SECONDS * 1000);
+    const presenceTtlSeconds = this.appConfig.getPresenceTtlSeconds();
+    const cutoff = new Date(Date.now() - presenceTtlSeconds * 1000);
 
     const staleSessions = await this.prisma.presenceSession.findMany({
       where: {

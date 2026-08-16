@@ -37,7 +37,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
   const styles = useThemedStyles(({ colors }) => ({
     bubbleRow: {
       flexDirection: 'row',
-      marginBottom: spacing.xs,
+      marginBottom: spacing.sm,
     },
     bubbleRowYou: {
       justifyContent: 'flex-end',
@@ -45,16 +45,16 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     bubble: {
       maxWidth: '82%',
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderRadius: radius.xl,
+      paddingVertical: spacing.md + 2,
+      borderRadius: 22,
     },
     bubbleYou: {
-      backgroundColor: colors.accent,
-      borderBottomRightRadius: radius.sm,
+      backgroundColor: colors.chatBubbleYou,
+      borderBottomRightRadius: 6,
     },
     bubbleThem: {
-      backgroundColor: colors.surface,
-      borderBottomLeftRadius: radius.sm,
+      backgroundColor: colors.surfaceElevated,
+      borderBottomLeftRadius: 6,
       borderWidth: 1,
       borderColor: colors.cardBorder,
     },
@@ -359,6 +359,7 @@ export default function ChatThreadScreen() {
         ListEmptyComponent={
           <EmptyState
             icon="chat-bubble"
+            scene="chats"
             title="No messages yet"
             message="Say hello — your conversation starts here."
           />

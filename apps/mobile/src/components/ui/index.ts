@@ -5,6 +5,8 @@ export { DateOfBirthField } from './date-of-birth-field';
 export { PasswordInput } from './password-input';
 export { Screen } from './screen';
 export { AppHeader, AvailableChip, SectionLabel } from './app-header';
+export { BrandMark, PingGlyph } from './brand-mark';
+export { PresencePulse } from './presence-pulse';
 export { Button } from './button';
 export { Card } from './card';
 export { Input } from './input';

@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../src/lib/api';
+import { useRequiredDistanceConfig } from '../src/hooks/use-app-config';
 import { showToast } from '../src/stores/toast-store';
 import { useThemeStore } from '../src/stores/theme-store';
 import { DeletionScheduledBanner } from '../src/components/deletion-scheduled-banner';
@@ -13,12 +14,17 @@ import { PremiumCta } from '../src/components/premium-cta';
 import { AppIcon } from '../src/components/ui/app-icon';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
-type NotificationKey = 'allowPushReplies' | 'allowPushChat' | 'allowPushIcebreaker';
+type NotificationKey =
+  | 'allowPushReplies'
+  | 'allowPushChat'
+  | 'allowPushIcebreakerNearby'
+  | 'allowPushIcebreaker';
 
 const NOTIFICATION_OPTIONS: Array<{
   key: NotificationKey;
   label: string;
   hint: string;
+  variant?: 'accent' | 'online' | 'premium' | 'icebreaker';
 }> = [
   {
     key: 'allowPushReplies',
@@ -31,9 +37,16 @@ const NOTIFICATION_OPTIONS: Array<{
     hint: 'When a connection sends you a message',
   },
   {
+    key: 'allowPushIcebreakerNearby',
+    label: 'Nearby Break the ice',
+    hint: 'When someone nearby turns Break the ice on — even if you have not',
+    variant: 'icebreaker',
+  },
+  {
     key: 'allowPushIcebreaker',
-    label: 'Break the ice',
-    hint: 'When someone wants to connect nearby',
+    label: 'Break the ice matches',
+    hint: 'When someone says yes to you or you match nearby',
+    variant: 'icebreaker',
   },
 ];
 
@@ -42,6 +55,8 @@ export default function SettingsScreen() {
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const distanceConfig = useRequiredDistanceConfig();
+  const icebreakerRadiusMeters = distanceConfig.icebreaker.radiusMeters;
   const darkMode = useThemeStore((s) => s.darkMode);
   const setDarkMode = useThemeStore((s) => s.setDarkMode);
   const [osNotificationsGranted, setOsNotificationsGranted] = useState<boolean | null>(null);
@@ -117,7 +132,7 @@ export default function SettingsScreen() {
       backgroundColor: colors.surface,
       borderRadius: radius.xl,
       borderWidth: 1,
-      borderColor: colors.error,
+      borderColor: colors.destructiveBorder,
       paddingVertical: spacing.md,
       paddingHorizontal: spacing.lg,
       alignItems: 'center',
@@ -126,7 +141,7 @@ export default function SettingsScreen() {
     deleteButtonPressed: { opacity: 0.85 },
     deleteButtonLabel: {
       ...typography.bodySemiBold,
-      color: colors.error,
+      color: colors.destructive,
       fontSize: 16,
     },
     linkRow: {
@@ -156,6 +171,7 @@ export default function SettingsScreen() {
       allowPushReplies?: boolean;
       allowPushChat?: boolean;
       allowPushIcebreaker?: boolean;
+      allowPushIcebreakerNearby?: boolean;
     }) => api.updateSettings(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-settings'] });
@@ -241,10 +257,15 @@ export default function SettingsScreen() {
               <SettingRow
                 key={option.key}
                 label={option.label}
-                hint={option.hint}
-                value={settings[option.key]}
+                hint={
+                  option.key === 'allowPushIcebreakerNearby'
+                    ? `When someone within ${icebreakerRadiusMeters}m turns Break the ice on — even if you have not`
+                    : option.hint
+                }
+                value={settings[option.key] ?? true}
                 disabled={mutation.isPending}
                 onChange={(value) => mutation.mutate({ [option.key]: value })}
+                variant={option.variant ?? 'online'}
                 isLast={index === NOTIFICATION_OPTIONS.length - 1}
               />
             ))}
@@ -300,7 +321,7 @@ function SettingRow({
   onChange: (value: boolean) => void;
   disabled?: boolean;
   isLast?: boolean;
-  variant?: 'accent' | 'online' | 'premium';
+  variant?: 'accent' | 'online' | 'premium' | 'icebreaker';
 }) {
   const styles = useThemedStyles(({ colors }) => ({
     row: {

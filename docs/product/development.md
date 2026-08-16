@@ -2,12 +2,13 @@
 
 > **Working title:** PingMe (name TBD)  
 > **Last updated:** August 2026  
-> **Status:** Design & planning — follow phases in order
+> **Status:** Phases 0–7 largely shipped on staging; Phase 8 partial; Phase 9 + backlog items **UNDONE** — see [Progress at a glance](#progress-at-a-glance)
 
 ---
 
 ## Table of Contents
 
+0. [Progress at a glance](#progress-at-a-glance) — **start here** (Done / Partial / UNDONE)
 1. [Overview](#overview)
 2. [Tech Stack](#tech-stack)
 3. [Monorepo Structure](#monorepo-structure)
@@ -21,7 +22,70 @@
 11. [Mobile App Features](#mobile-app-features)
 12. [Admin Dashboard](#admin-dashboard)
 13. [Environment Variables](#environment-variables)
-14. [Phased Implementation](#phased-implementation)
+14. [Production & VPS setup checklist](#production--vps-setup-checklist)
+15. [Phased Implementation](#phased-implementation)
+16. [Feature roadmap (product backlog)](#feature-roadmap-product-backlog)
+
+---
+
+## Progress at a glance
+
+Use this section to see what is left without reading the full plan. Details live in [Phased implementation](#phased-implementation) and [Feature roadmap](#feature-roadmap-product-backlog).
+
+**Status labels**
+
+| Label | Meaning |
+|-------|---------|
+| **Done** | Shipped and usable end-to-end |
+| **Partial** | Started or backend-only; UX, ops, or polish still missing |
+| **UNDONE** | No meaningful implementation yet (or explicitly deferred) |
+
+*Last reviewed: 2026-08-16 (icebreaker push spec, Premium badge, Events mobile plan, VPS checklist).*
+
+### Implementation phases (0–9)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 0 — Foundation | **Done** | Monorepo, DB, CI, EAS dev builds |
+| 1 — Auth & profile | **Done** | Email/phone OTP, profile; OAuth not built |
+| 2 — Location & wall | **Done** | PostGIS wall, presence, distance buckets |
+| 3 — Available & push | **Partial** | Background location + device registration; `PUSH_ENABLED=true` on staging/prod |
+| 4 — Icebreaker & matches | **Done** | Session flow, mutual match push, **proximity push (#36–37)**, rate limits, expiry workers |
+| 5 — Chat & safety | **Done** | REST + WebSocket, blocks, reports |
+| 6 — Verification | **Done** | Didit liveness + admin KYC tools |
+| 7 — Admin | **Done** | Dashboard, users, reports, audit, map |
+| 8 — Premium | **Done** | Stripe gateway + checkout + webhooks; demo mode for local; badges + mobile UI |
+| 9 — Venues & launch | **UNDONE** | Deferred B2B |
+
+### Product backlog (#1–37)
+
+| Status | Count | Examples |
+|--------|------:|----------|
+| **Done** | 20 | Wall reply push, connection inbox, premium rings, empty states, tab copy |
+| **Partial** | 12 | Stripe page (no checkout), splash (needs rebuild), dark mode audit, admin map |
+| **UNDONE** | 14+ | Payments, IAP, Events, web app, self-hosted OTA |
+
+Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-plan (E0–E5): mostly **UNDONE** except Phase 0 decisions (**Done**).
+
+### High-priority **UNDONE** (next builds)
+
+| Item | What |
+|------|------|
+| **Events in mobile app** | 5th tab + full flow per [Events feature plan](#events-feature-plan-couchsurfing-style) (E1–E5) — **UNDONE** |
+| **Premium badge copy** | Star + rings on Wall / replies / icebreaker — align [Premium benefits](#premium-badge--visibility-product-spec) on Premium screen |
+| **Self-hosted OTA** | xprem + `expo-updates` on VPS — documented, not wired |
+| **Stripe checkout** | `#6` — wire Stripe keys on VPS to go live |
+| **Onboarding / tour visuals** | Replace icon circles with illustrated scenes (advised, not built) |
+
+### **Partial** — finish when polishing
+
+| Area | Gap |
+|------|-----|
+| Splash + app icon | Native rebuild required for splash on device |
+| Phase 3 push | Confirm staging `PUSH_ENABLED`, cold-start deep links on all types |
+| Phase 4 icebreaker | ~~Proximity push missing~~ **Done** (#36–37) |
+| Premium | Grant/revoke works; Stripe checkout ready when `PAYMENT_PROVIDER=stripe` |
+| UI polish sprint | Warm Ink tokens, empty scenes, auth flattening — mostly in working tree; verify on device |
 
 ---
 
@@ -32,7 +96,7 @@
 Radius-based (~250m default) proximity social app. Users turn **Available** ON to appear nearby (including background). Core flows:
 
 1. **Nearby wall** — browse/post/reply within radius
-2. **Break the ice** — anonymous mutual nearby match (30–50m, ~10 min window)
+2. **Break the ice** — anonymous mutual nearby match (`ICEBREAKER_RADIUS_METERS`, default 50m; 1-hour window via `ICEBREAKER_WINDOW_MINUTES=60`)
 3. **Mutual accept chat** — private messaging after both agree
 4. **Liveness verification** — required to post/reply/chat
 5. **Audit log** — permanent server-side record of actions
@@ -43,9 +107,9 @@ Radius-based (~250m default) proximity social app. Users turn **Available** ON t
 |---------|-------|
 | Default radius | 250 meters |
 | Radius range (later) | 150m – 500m |
-| Break the ice radius | 50 meters |
-| Break the ice window | 10 minutes |
-| Presence TTL | 5 minutes without heartbeat |
+| Break the ice radius | `ICEBREAKER_RADIUS_METERS` (default 50m) |
+| Break the ice window | 1 hour (`ICEBREAKER_WINDOW_MINUTES=60`) |
+| Presence TTL | 30 minutes (`PRESENCE_TTL_SECONDS=1800`) |
 | Background location interval | Best-effort 3–5 min (iOS may throttle more) |
 | Foreground location interval | Every 60s while app open |
 | Min age | 18 |
@@ -60,7 +124,7 @@ Radius-based (~250m default) proximity social app. Users turn **Available** ON t
 |-------|--------|
 | Framework | Expo SDK 52+ (React Native, New Architecture) |
 | Dev builds | **expo-dev-client** (required — not Expo Go) |
-| Builds / OTA | EAS Build + EAS Update |
+| Builds / OTA | **Local native builds** (Gradle / Xcode). **Self-hosted OTA** via xprem on VPS (planned — see [Mobile builds, splash & OTA](#mobile-builds-splash--ota-self-hosted)) |
 | Language | TypeScript |
 | Navigation | Expo Router |
 | Server state | TanStack Query |
@@ -120,6 +184,200 @@ Radius-based (~250m default) proximity social app. Users turn **Available** ON t
 2. **Background location is best-effort** — design around push notifications + foreground refresh; do not assume GPS fires every 60s with app killed.
 3. **Fallback:** if `expo-location` background is unreliable after testing, evaluate `react-native-background-geolocation` (Transistor) via Expo config plugin.
 4. **Spike early (Phase 0):** background location on real iOS + Android device, and didit.me hosted session inside WebView in dev build, before building full UI.
+
+---
+
+## Mobile builds, splash & OTA (self-hosted)
+
+PingMe does **not** use EAS Build or EAS Update. Mobile ships as locally built binaries; JS updates will be delivered over-the-air from our own VPS when OTA is wired up.
+
+### Two ways the app gets new JavaScript
+
+| Method | When | Requires |
+|--------|------|----------|
+| **Metro reload** | Daily development | Dev client APK/IPA + `pnpm start` on same network |
+| **OTA publish** | Staging / production testers (planned) | Release build + xprem server on VPS |
+
+Metro reload is **not** OTA. Editing files on the VPS does nothing until a bundle is published to the OTA server.
+
+### Local native builds (current)
+
+**Android (Linux / CI)**
+
+```bash
+cd apps/mobile
+pnpm install
+npx expo install --fix
+npx expo prebuild   # regenerates android/ after app.json native changes
+ANDROID_HOME=$HOME/Android/Sdk pnpm android:build:device   # dev client
+# Release (for testers / OTA):
+cd android && ./gradlew assembleRelease
+```
+
+**iOS (MacBook + Xcode)**
+
+```bash
+cd apps/mobile
+npx expo prebuild
+open ios/*.xcworkspace
+# Xcode → Release scheme → Archive → Ad Hoc / TestFlight / internal
+```
+
+**Dev client vs release**
+
+| Build | Use for | Updates via |
+|-------|---------|-------------|
+| Dev client (`expo-dev-client`) | Your daily dev | Metro on LAN |
+| Release APK/IPA | Testers, store, OTA | xprem publish (once configured) |
+
+### Splash screen
+
+Configured in `apps/mobile/app.json` (`splash` + `expo-splash-screen` plugin). Asset: `assets/splash-icon.png`.
+
+**Important — splash is native, not JavaScript:**
+
+- **Metro reload / shake → Reload will NOT show the splash.** Only a **cold start** (force-quit app, reopen) can show it.
+- **Changing splash in `app.json` requires a native rebuild** (`expo prebuild` + `expo run:android` or Xcode archive). JS-only reload is not enough.
+- After installing a new build, force-quit the app completely before testing splash.
+
+Light background: `#FAF9F6`. Dark: `#121110`.
+
+### Self-hosted OTA (planned — xprem)
+
+**Status:** Not implemented yet. Track here before building.
+
+**Goal:** Push JS/UI fixes to installed release builds without Play Store / App Store review. Native changes (splash, permissions, new native npm packages) still require a new APK/IPA.
+
+**Recommended server:** [xprem](https://github.com/mercuretechnologies/xprem) — open-source, implements the official Expo Updates protocol (`expo-updates`), self-hosted on our VPS.
+
+#### Architecture
+
+```
+[Laptop]  npx eoas publish  →  [VPS: ota.pingme.hostyler.cloud]
+                                      xprem + Postgres + storage
+                                           ↑
+[Phone]  release APK/IPA  ────────────────┘  checks manifest on launch
+```
+
+#### Phase 1 — VPS (when we implement)
+
+1. Subdomain, e.g. `ota.pingme.hostyler.cloud` (nginx TLS → xprem Docker)
+2. Postgres + storage (local disk for staging; S3/MinIO for production)
+3. xprem dashboard: create **PingMe** app → App ID, API token, signing certificate
+4. Channels: `staging` → branch `staging`, `production` → branch `production`
+
+#### Phase 2 — Mobile app (when we implement)
+
+1. `npx expo install expo-updates`
+2. `app.json` / `app.config.ts`:
+   - `runtimeVersion` — use `{ "policy": "appVersion" }` (ties OTA to `version` in app.json)
+   - `updates.url` → `https://ota.pingme.hostyler.cloud/manifest`
+   - `updates.requestHeaders.expo-channel-name` → `staging` or `production` per build
+   - `codeSigningCertificate` → `./certs/certificate.pem` (from xprem dashboard)
+3. `npx eoas init` in `apps/mobile`
+4. `npx expo prebuild --clean` — embeds update URL in native binary (**one-time per channel/version**)
+
+#### Phase 3 — Release binaries
+
+Build **release** APK (Android) and IPA (iOS) **after** OTA config is in the binary. Dev client builds are not the OTA target.
+
+#### Phase 4 — Day-to-day publish
+
+```bash
+cd apps/mobile
+export EOO_TOKEN=eoo_<api_key>
+export RELEASE_CHANNEL=staging
+npx eoas publish --branch staging
+```
+
+Verify manifest:
+
+```bash
+curl -sD - "https://ota.pingme.hostyler.cloud/manifest" \
+  -H "expo-app-id: <APP_ID>" \
+  -H "expo-channel-name: staging" \
+  -H "expo-runtime-version: 0.0.1" \
+  -H "expo-platform: android" \
+  -H "expo-protocol-version: 1"
+```
+
+#### Applying updates on the device
+
+While a user has the app **open and active**, they are running the **old JS bundle**. Publishing OTA does **not** change what is on screen until the app reloads.
+
+| Moment | What happens |
+|--------|----------------|
+| OTA published to xprem | Nothing on the phone yet |
+| App opens / returns to foreground | `expo-updates` can check VPS, download new bundle in background |
+| Bundle downloaded | Still on old UI until reload |
+| `Updates.reloadAsync()` or cold start | New JS runs — user sees changes |
+
+**Full force-close from recents is not required.** `Updates.reloadAsync()` reloads the JS runtime with the downloaded bundle (feels like a restart). Cold start also applies a staged update.
+
+**You cannot programmatically force-quit the app** (iOS forbids it; same idea on Android). Use an in-app prompt instead.
+
+#### Push notification + OTA (optional nudge)
+
+A push does **not** download or apply an update by itself. It only tells the user to open the app (or reminds them while it is backgrounded).
+
+**When a push is sent after an OTA publish:**
+
+1. **Push arrives** — banner / lock screen only. App code is unchanged.
+2. **User taps it or opens the app** — app launches or comes to foreground.
+3. **Update gate runs** (planned in root layout) — `checkForUpdateAsync()` → if newer bundle exists, `fetchUpdateAsync()` downloads it.
+4. **In-app prompt** — e.g. “PingMe has been updated. Restart to continue.”
+5. **User taps Restart** — `Updates.reloadAsync()` → new UI loads.
+
+If the user ignores the push and keeps using the app, **nothing changes** until the update gate runs (next open, foreground check, or cold start).
+
+Backend can send a generic push after publish (e.g. “Update available — open PingMe”) via existing FCM/APNs; no special OTA payload is required unless we add custom data later.
+
+#### Update gate (planned — mobile root layout)
+
+Implement when `expo-updates` is wired up:
+
+1. On **app launch** and when app returns to **foreground** (`AppState` → `active`): check for update, fetch if available.
+2. Show a **PingMe-styled modal or bottom sheet** — not a system alert.
+3. **Normal updates:** “Restart now” / “Later” → `reloadAsync()` only if user confirms.
+4. **Critical updates** (breaking API, security): blocking modal — must restart to continue.
+5. Optional: **Settings → Check for updates** for manual check.
+
+Set `updates.checkAutomatically` to `ON_LOAD` or `ON_ERROR_RECOVERY` and run explicit checks on foreground so behavior is predictable and we control the restart UX.
+
+```ts
+// Planned pattern (release builds only — skip in __DEV__)
+const result = await Updates.checkForUpdateAsync();
+if (result.isAvailable) {
+  await Updates.fetchUpdateAsync();
+  // show UpdatePrompt → on confirm:
+  await Updates.reloadAsync();
+}
+```
+
+#### `runtimeVersion` rules
+
+| Change | Action |
+|--------|--------|
+| JS / UI only | `eoas publish` only |
+| New native package, splash, permissions, `app.json` native config | Bump `version` in `app.json`, rebuild APK/IPA, then publish for new runtime |
+
+#### Security
+
+- HTTPS only on OTA host
+- Code signing: xprem signs bundles; app verifies with embedded `certificate.pem`
+- Separate staging / production channels; rotate API tokens; do not expose dashboard publicly without auth
+
+#### Checklist (tick when done)
+
+- [ ] xprem deployed on VPS
+- [ ] `expo-updates` installed and configured
+- [ ] Signing cert in `apps/mobile/certs/`
+- [ ] Staging release APK built and installed
+- [ ] First `eoas publish` verified on device (cold start or `reloadAsync` after prompt)
+- [ ] Update gate in root layout (foreground check + restart prompt)
+- [ ] Optional: push notification after publish (nudge only)
+- [ ] iOS release build on MacBook
+- [ ] Production channel + publish script in CI (optional)
 
 ---
 
@@ -239,7 +497,8 @@ subscriptions (Phase 8)
 | show_distance_bucket | BOOLEAN | default true |
 | allow_push_replies | BOOLEAN | |
 | allow_push_chat | BOOLEAN | |
-| allow_push_icebreaker | BOOLEAN | |
+| allow_push_icebreaker | BOOLEAN | Match / yes / connection-request pushes |
+| allow_push_icebreaker_nearby | BOOLEAN | When someone within icebreaker radius turns Break the ice on (recipient need not have it on) |
 | language | VARCHAR(10) | |
 
 #### `devices`
@@ -318,7 +577,7 @@ subscriptions (Phase 8)
 | user_id | UUID FK | |
 | location | GEOGRAPHY(POINT) | |
 | status | ENUM | active, matched, expired, cancelled |
-| expires_at | TIMESTAMPTZ | +10 min |
+| expires_at | TIMESTAMPTZ | +`ICEBREAKER_WINDOW_MINUTES` (default 60 min) |
 | matched_session_id | UUID FK | other session |
 | created_at | TIMESTAMPTZ | |
 
@@ -459,9 +718,9 @@ subscriptions (Phase 8)
 
 | Key pattern | Purpose | TTL |
 |-------------|---------|-----|
-| `presence:{userId}` | Active presence JSON | 5 min |
+| `presence:{userId}` | Active presence JSON | `PRESENCE_TTL_SECONDS` (default 30 min) |
 | `geo:available` | GEOADD available users | — |
-| `icebreaker:active:{userId}` | Active icebreaker session | 10 min |
+| `icebreaker:active:{userId}` | Active icebreaker session | `ICEBREAKER_WINDOW_MINUTES` (default 60 min) |
 | `rate:post:{userId}` | Post rate limit | 1 hour |
 | `rate:icebreaker:{userId}` | Icebreaker rate limit | 1 hour |
 | `ws:session:{userId}` | WebSocket connection map | — |
@@ -624,7 +883,7 @@ services:
 1. Push to `main` → lint, typecheck, unit tests
 2. Push to `staging` → SSH deploy to VPS (`docker compose pull && up -d`)
 3. Tag release → deploy production VPS
-4. EAS Build for mobile (Expo Application Services)
+4. EAS Build for mobile (optional — **PingMe uses local Gradle / Xcode builds**; see [Mobile builds, splash & OTA](#mobile-builds-splash--ota-self-hosted))
 
 ### Backups
 
@@ -672,7 +931,7 @@ services:
 | Plan | Price | Includes |
 |------|-------|----------|
 | Free | $0 | Wall, reply, chat, icebreaker |
-| Premium (optional) | TBD | Custom avatars, profile themes, read receipts |
+| Premium (optional) | TBD | **Premium badge** (star + gradient ring) on Wall posts, replies, and Break the ice; custom avatar themes; read receipts (optional) |
 | Venue B2B | Custom | Branded room, analytics, moderation tools |
 
 ### Stripe objects
@@ -754,6 +1013,67 @@ services:
 | Report flow | 5 |
 | Notifications center | 3 |
 | Quiet mode | 6 |
+| Premium | 8 |
+| Events — nearby list | E4 (see [Events in mobile app](#events-in-the-mobile-app)) |
+| Events — detail / RSVP / comments | E4 |
+| Events — create / edit (KYC gate) | E4 |
+| Events — my events (You tab) | E4 |
+
+### Premium badge & visibility (product spec)
+
+Premium members are **visibly distinguished** wherever they show up in the app. This is a core perk — not optional polish.
+
+**Where the Premium badge must appear**
+
+| Surface | What others see |
+|---------|-----------------|
+| **Wall — posts** | Premium star next to display name + gradient avatar ring on the author |
+| **Wall — replies** | Same star + ring on every reply by a Premium user |
+| **Break the ice** | Star + ring on nearby cards and connection requests |
+| **Chats** | Star + ring in chat list and chat header |
+| **Own profile** | Star + ring when viewing yourself |
+
+**Implementation today:** `DisplayNameWithFlair` + gradient avatar rings — **Done** on Wall, replies, icebreaker, chats. Verify on device after UI sprint.
+
+**Copy requirements (Premium screen + marketing)**
+
+Both audiences must see the same benefit spelled out:
+
+1. **Non-Premium** (`Go Premium` / plan comparison) — list explicitly:
+   - *Premium badge on your posts, replies, and Break the ice*
+   - *Gradient avatar ring so others spot you on the Wall*
+   - *(Optional perks: avatar themes, read receipts — when enabled)*
+
+2. **Active Premium** (`Premium membership` / “Your benefits”) — repeat the same bullets so members know what others see:
+   - *Your Premium star and ring appear on every Wall post, reply, and Break the ice card*
+
+**Backlog:** #7 Premium pricing page — **Partial** until benefits copy matches the table above on `premium.tsx` and any profile/settings Premium CTA.
+
+### Events in the mobile app
+
+**Status:** **UNDONE** — full spec in [Events feature plan](#events-feature-plan-couchsurfing-style) below. This is the implementation target for backlog **#33**.
+
+**Navigation (locked E0.1):** Add a **5th bottom tab — Events** (`app/(tabs)/events.tsx` or equivalent).
+
+**Screens to build (maps to E4)**
+
+| Route / screen | Purpose |
+|----------------|---------|
+| `(tabs)/events` | Nearby events list — cover, title, date, distance, host, RSVP counts |
+| `events/[id]` | Detail — image carousel, map pin, description, host card, RSVP, comments |
+| `events/create` | Create flow — **KYC gate** if not ID-verified → form → map pin → up to 5 images → `allow_messages` toggle |
+| `events/[id]/edit` | Host-only edit / cancel |
+| Profile → **My events** | Host’s created events (E4.7) |
+
+**Prerequisites before mobile Events UI**
+
+1. **E1** — User-facing ID KYC (`DIDIT_WORKFLOW_ID_KYC`) for hosts
+2. **E2** — DB tables (`events`, `event_images`, `event_rsvps`, `event_comments`)
+3. **E3** — API (`GET /events/nearby`, CRUD, RSVP, comments, message-host)
+
+**Build order:** E1 → E2 → E3 (list + detail + create) → E4 mobile tab → RSVP → comments → message host → E5 admin.
+
+**Config:** Discovery uses `EVENTS_DISCOVERY_RADIUS_METERS` (default **15 km**) from API `GET /config` — not hardcoded in the app.
 
 ### Background behavior (Available ON)
 
@@ -767,14 +1087,63 @@ services:
 
 ### Push notification types
 
-| Type | Trigger |
-|------|---------|
-| `wall.reply` | Someone replied to your post |
-| `icebreaker.match` | Mutual icebreaker match |
-| `match.request` | Someone accepted, waiting for you |
-| `chat.message` | New message |
-| `verification.passed` | Liveness complete |
-| `moderation.action` | Account warning/suspension |
+| Type | Trigger | Status |
+|------|---------|--------|
+| `wall.reply` | Someone replied to your post | **Done** |
+| `icebreaker.match` | Mutual icebreaker match | **Done** |
+| `icebreaker.nearby` | Someone within icebreaker radius turned Break the ice on | **Done** |
+| `match.request` | Someone accepted, waiting for you | **Done** |
+| `chat.message` | New message | **Done** |
+| `verification.passed` | Liveness complete | **Done** |
+| `moderation.action` | Account warning/suspension | **Done** |
+
+#### Icebreaker proximity push (Done — backlog #36–37)
+
+**Product rule:** When someone nearby opens Break the ice (`POST /icebreaker/start`), send a **mobile push notification** to every eligible user within the icebreaker radius (default **50m** via `ICEBREAKER_RADIUS_METERS` on the API).
+
+**Recipients (all required):**
+
+- Within `ICEBREAKER_RADIUS_METERS` of the starter (same geo source as `GET /icebreaker/nearby` — Redis GEO + recent presence)
+- Registered push device + `PUSH_ENABLED` on server
+- User setting `allow_push_icebreaker_nearby` enabled (separate from match/yes alerts)
+- Recent location ping within `PRESENCE_TTL_SECONDS` — does **not** require Break the ice or Wall visibility to be on
+- Not blocked by / blocking the starter
+- Not the starter themselves
+
+**Notification content:**
+
+- Title: *1 person nearby has Break the ice on* or *N people nearby have Break the ice on*
+- Body: *Turn on to browse who's open.*
+- Tap → Break the ice tab with prompt banner + **Turn on & browse** (one-tap, default settings)
+
+**Anti-spam:**
+
+- **Aggregate** nearby starters per recipient (~45s debounce via Redis set + BullMQ) — one push per burst, not one per user
+- Respect icebreaker start rate limit (`rate:icebreaker:{userId}`)
+- Max 100 recipients per starter session
+
+**Mobile UX (#37):**
+
+- **Nearby users (required):** When someone within `ICEBREAKER_RADIUS_METERS` turns Break the ice on, eligible users receive a **system push** (FCM/APNs via Expo Push), Android channel `icebreaker`.
+- **User who turned it on:** Live countdown under toggle (*1 hour left*, etc.); local reminder **10 min before** auto-expiry; in-app toast when foregrounded; system notification when backgrounded on start.
+- **Tap action:** Open Break the ice tab; refresh nearby list on open.
+- **Location:** Foreground ping every 60s app-wide (not only Wall / Break the ice tabs) while logged in.
+
+**Acceptance criteria:**
+
+- [x] User A enables Break the ice → eligible nearby users get one aggregated push (not N pushes for N starters in the same burst)
+- [x] User A sees confirmation + time remaining while session is active
+- [x] Respects `allow_push_icebreaker_nearby` and global `PUSH_ENABLED`
+- [x] Settings copy uses `ICEBREAKER_RADIUS_METERS` from API config (not hardcoded 50m)
+
+**Backend touchpoints:**
+
+1. `IcebreakerNearbyPushService` — batch fan-out on `IcebreakerService.start()`
+2. `PushSenderService` — template `icebreaker.nearby`
+3. `notifications` module — payload type + deep link route
+4. Mobile — notification router + `useAppLocationPing` in root layout
+
+**Implemented:** `IcebreakerNearbyPushService` aggregates starters and sends `icebreaker.nearby` on session create.
 
 ---
 
@@ -824,58 +1193,251 @@ services:
 
 ## Environment Variables
 
-### API (`apps/api/.env`)
+> **Ops:** When moving to a real domain / new VPS, use the [Production & VPS setup checklist](#production--vps-setup-checklist) — tick every external service and env var before going live.
+
+### API (`apps/api/.env` or monorepo root `.env`)
+
+The API loads from the **monorepo root** `.env` first. Copy `.env.example` → `.env` and fill in.
 
 ```bash
-NODE_ENV=development
+# Core
+NODE_ENV=production
 PORT=3000
+HOST=0.0.0.0
+RUN_MODE=all
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
+
+# Auth (generate strong random strings per environment)
 JWT_ACCESS_SECRET=
 JWT_REFRESH_SECRET=
+JWT_ACCESS_EXPIRES=1h
+JWT_REFRESH_DAYS=30
+JWT_ADMIN_SECRET=
+JWT_ADMIN_EXPIRES=8h
+
+# Distance & product tuning (restart API after changes; exposed via GET /v1/config)
+DEFAULT_RADIUS_METERS=250
+WALL_MIN_RADIUS_METERS=150
+WALL_MAX_RADIUS_METERS=500
+ICEBREAKER_RADIUS_METERS=50              # proximity push + match radius (50m for launch)
+ICEBREAKER_STARTS_PER_HOUR=5
+ICEBREAKER_WINDOW_MINUTES=60
+ICEBREAKER_HIDE_MINUTES=10
+ICEBREAKER_INTEREST_EXPIRY_MINUTES=10
+EVENTS_DISCOVERY_RADIUS_METERS=15000
+PRESENCE_TTL_SECONDS=1800
+
+# Push
+PUSH_ENABLED=true                        # must be true on staging/prod for any mobile push
+
+# CORS (admin dashboard origin required in production)
+CORS_ORIGINS=https://admin.yourdomain.com,https://yourdomain.com
+
+# Public URLs (avatars, legal pages, webhooks)
+API_PUBLIC_URL=https://api.yourdomain.com/v1
+UPLOADS_DIR=uploads
+# PRIVACY_POLICY_URL=https://api.yourdomain.com/v1/legal/privacy.html
+# TERMS_OF_SERVICE_URL=https://api.yourdomain.com/v1/legal/terms.html
+
+# Cloudflare R2 (avatars + event images later)
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
 R2_BUCKET_AVATARS=
 R2_PUBLIC_URL=
+
+# Didit.me — TWO workflows (see checklist below)
 DIDIT_API_KEY=
 DIDIT_WEBHOOK_SECRET=
-DIDIT_WORKFLOW_ID_LIVENESS=    # liveness-only workflow in didit console
-DIDIT_WORKFLOW_ID_KYC=         # optional full KYC workflow later
+DIDIT_WORKFLOW_ID_LIVENESS=              # liveness-only — required for Wall / chat / icebreaker
+DIDIT_WORKFLOW_ID_KYC=                   # full ID + liveness — required for Events hosts
+DIDIT_API_BASE_URL=https://verification.didit.me/v3
+DIDIT_CALLBACK_URL=pingme://verification-complete
+DIDIT_WEBHOOK_EVENTS=
+
+# Email — SMTP (Hostinger) or Resend fallback
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=PingMe <support@yourdomain.com>
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=PingMe <support@yourdomain.com>
+
+# SMS (Twilio) — phone OTP
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
+TWILIO_PHONE_NUMBER=
 TWILIO_VERIFY_SERVICE_SID=
-RESEND_API_KEY=
-FIREBASE_SERVICE_ACCOUNT_JSON=   # or path to JSON file
-APNS_KEY_ID=
-APNS_TEAM_ID=
-APNS_BUNDLE_ID=
-STRIPE_SECRET_KEY=          # Phase 6
-STRIPE_WEBHOOK_SECRET=      # Phase 6
+
+# Payments (Phase 8)
+PAYMENT_PROVIDER=none                    # none | demo | stripe | paddle | revenuecat
+# STRIPE_SECRET_KEY=
+# STRIPE_WEBHOOK_SECRET=
+
+# Ops / debug
+NOTIFICATIONS_TEST_ENABLED=false         # true only on staging if you need POST /notifications/test
 SENTRY_DSN=
-DEFAULT_RADIUS_METERS=250
-WALL_MIN_RADIUS_METERS=150
-WALL_MAX_RADIUS_METERS=500
-ICEBREAKER_RADIUS_METERS=150
-EVENTS_DISCOVERY_RADIUS_METERS=15000
-ICEBREAKER_WINDOW_MINUTES=10
-PRESENCE_TTL_SECONDS=300
+
+# Optional — native FCM/APNs in NestJS (MVP uses Expo Push API instead)
+# FIREBASE_SERVICE_ACCOUNT_JSON=
+# APNS_KEY_ID=
+# APNS_TEAM_ID=
+# APNS_BUNDLE_ID=com.pingme.app
 ```
 
 ### Mobile (`apps/mobile/.env`)
 
 ```bash
-EXPO_PUBLIC_API_URL=https://api.staging.yourapp.com/v1
-EXPO_PUBLIC_WS_URL=wss://api.staging.yourapp.com/ws
-EXPO_PUBLIC_ENV=staging
+EXPO_PUBLIC_API_URL=https://api.yourdomain.com/v1
+EXPO_PUBLIC_WS_URL=wss://api.yourdomain.com/ws
+EXPO_PUBLIC_ENV=production
 EXPO_PUBLIC_SENTRY_DSN=
 ```
+
+**Build-time (not in `.env` file — CI / local shell when building APK/IPA):**
+
+| Variable / file | Purpose |
+|-----------------|--------|
+| `GOOGLE_SERVICES_JSON` | Path or secret content for `app.config.ts` → Android FCM (required for push on Android) |
+| `google-services.json` | Local file at `apps/mobile/google-services.json` (from Firebase console; **never commit**) |
+| `expo-updates` URL + channel | When OTA is wired (see [Self-hosted OTA](#self-hosted-ota-planned--xprem)) |
+
+**iOS push:** Configure push capability + APNs key in Apple Developer; Expo handles token via `expo-notifications` in dev/release builds.
 
 ### Admin (`apps/admin/.env`)
 
 ```bash
-NEXT_PUBLIC_API_URL=https://api.staging.yourapp.com/admin/v1
+NEXT_PUBLIC_API_URL=https://api.yourdomain.com/admin/v1
 ```
+
+---
+
+## Production & VPS setup checklist
+
+Use this when switching from staging (`hostyler.cloud`) to a **real domain** or **new VPS**. Work top to bottom; do not skip Didit webhooks or Android `google-services.json`.
+
+### 1. Domain & DNS
+
+- [ ] `api.yourdomain.com` → VPS (A/AAAA)
+- [ ] `admin.yourdomain.com` → VPS
+- [ ] `yourdomain.com` or `www` → marketing site (optional)
+- [ ] `ota.yourdomain.com` → VPS (when self-hosted OTA ships)
+- [ ] TLS certificates (Let's Encrypt via Certbot / Nginx)
+
+### 2. VPS services (Docker)
+
+- [ ] PostgreSQL 16 + PostGIS extension
+- [ ] Redis 7
+- [ ] NestJS API container (port internal)
+- [ ] Next.js admin container
+- [ ] Nginx reverse proxy → API + admin
+- [ ] Daily `pg_dump` backup to off-VPS storage (R2 or backup server)
+- [ ] Firewall: 80/443 public; DB/Redis **not** public
+
+### 3. Didit.me (two workflows)
+
+| Workflow | Env var | Used for |
+|----------|---------|----------|
+| **Liveness only** | `DIDIT_WORKFLOW_ID_LIVENESS` | Register, Wall, chat, Break the ice |
+| **Full ID KYC** | `DIDIT_WORKFLOW_ID_KYC` | **Events hosts** (ID + liveness + age) |
+
+**Didit console checklist:**
+
+- [ ] Create **liveness-only** workflow → copy ID → `DIDIT_WORKFLOW_ID_LIVENESS`
+- [ ] Create **full KYC** workflow → copy ID → `DIDIT_WORKFLOW_ID_KYC`
+- [ ] API key → `DIDIT_API_KEY`
+- [ ] Webhook secret → `DIDIT_WEBHOOK_SECRET`
+- [ ] Webhook URL: `https://api.yourdomain.com/v1/verification/webhook` (must be HTTPS, reachable)
+- [ ] Callback / return URL: `pingme://verification-complete` (deep link in app)
+- [ ] Test liveness end-to-end on staging before production cutover
+
+### 4. Firebase & push (Android)
+
+PingMe sends push via **Expo Push API**; Android still needs FCM configured in the native binary.
+
+- [ ] Firebase project created
+- [ ] Android app registered — package `com.pingme.app`
+- [ ] Download `google-services.json` → `apps/mobile/google-services.json` (local + EAS secret `GOOGLE_SERVICES_JSON`)
+- [ ] Rebuild APK/IPA after adding `google-services.json`
+- [ ] API: `PUSH_ENABLED=true`
+- [ ] Test: `POST /notifications/test` on staging (`NOTIFICATIONS_TEST_ENABLED=true`)
+
+**iOS push:**
+
+- [ ] Apple Developer — App ID `com.pingme.app` with Push Notifications capability
+- [ ] APNs key (.p8) uploaded to Expo / EAS (if using EAS) or configured for local release build per Expo docs
+- [ ] Physical device test (simulator does not receive push)
+
+### 5. Cloudflare R2 (media)
+
+- [ ] Bucket for avatars (and event images later)
+- [ ] API token → `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
+- [ ] `R2_ACCOUNT_ID`, `R2_BUCKET_AVATARS`, `R2_PUBLIC_URL` (public CDN URL or custom domain)
+- [ ] CORS on bucket if needed for direct uploads
+
+### 6. Email & SMS
+
+- [ ] **SMTP** (Hostinger or other) — `SMTP_*` + `SMTP_FROM`
+- [ ] Or **Resend** — `RESEND_API_KEY`, `RESEND_FROM_EMAIL`
+- [ ] **Twilio Verify** — `TWILIO_*` for phone OTP (optional in dev; required for phone signup in prod)
+
+### 7. API `.env` on VPS (final pass)
+
+Copy from [API env block](#api-appsapenv-or-monorepo-root-env) and verify:
+
+- [ ] `DATABASE_URL`, `REDIS_URL` point at Docker services
+- [ ] New `JWT_*` secrets (never reuse staging)
+- [ ] `CORS_ORIGINS` includes production admin URL
+- [ ] `API_PUBLIC_URL` matches public API base
+- [ ] `ICEBREAKER_RADIUS_METERS=50` (or chosen launch value)
+- [ ] `PUSH_ENABLED=true`
+- [ ] Both Didit workflow IDs set
+- [ ] `PAYMENT_PROVIDER=none` until Stripe is wired
+
+### 8. Deploy & migrate
+
+```bash
+cd /var/www/pingme   # or your deploy path
+git pull
+pnpm install
+pnpm db:generate
+pnpm db:migrate deploy
+pnpm build
+# restart API + admin containers
+./scripts/staging-smoke.sh   # adapt for prod URL
+```
+
+### 9. Mobile & admin clients
+
+- [ ] `EXPO_PUBLIC_API_URL` / `EXPO_PUBLIC_WS_URL` → production API
+- [ ] `NEXT_PUBLIC_API_URL` → production admin API
+- [ ] Build **release** APK/IPA with production URLs baked in
+- [ ] Legal: `PRIVACY_POLICY_URL`, `TERMS_OF_SERVICE_URL` live and linked in app
+
+### 10. Payments (when ready — Phase 8)
+
+- [ ] Stripe products: Free + Premium
+- [ ] `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- [ ] Webhook: `https://api.yourdomain.com/v1/webhooks/stripe`
+- [ ] `PAYMENT_PROVIDER=stripe`
+- [ ] Mobile Premium screen → checkout URL
+
+### 11. OTA (when ready)
+
+- [ ] xprem on `ota.yourdomain.com`
+- [ ] `expo-updates` URL + signing cert in release binary
+- [ ] Publish channel `production` after JS-only fixes
+
+### 12. Post-launch smoke (two phones)
+
+- [ ] Register → liveness → Wall post → reply push
+- [ ] Break the ice on → **proximity push to nearby phone** (#36–37)
+- [ ] Mutual match → chat message push
+- [ ] Premium badge visible on Wall post, reply, icebreaker card
+- [ ] Admin login → reports queue
 
 ---
 
@@ -1159,7 +1721,7 @@ NEXT_PUBLIC_API_URL=https://api.staging.yourapp.com/admin/v1
 
 1. Add `icebreaker_sessions`, `matches` tables migration
 2. Implement `IcebreakerModule`
-3. `POST /icebreaker/start` — create session at current location, 10 min expiry
+3. `POST /icebreaker/start` — create session at current location, `ICEBREAKER_WINDOW_MINUTES` expiry (default 60)
 4. `POST /icebreaker/cancel` — cancel active session
 5. `GET /icebreaker/status` — my active session state
 6. Background worker: every 30s, find pairs within 50m both active → create `match`
@@ -1200,7 +1762,7 @@ NEXT_PUBLIC_API_URL=https://api.staging.yourapp.com/admin/v1
 ## Step 3 — Mobile icebreaker UI
 
 1. "Break the ice" button on home screen (prominent but separate from wall)
-2. Explainer modal: anonymous, mutual only, 50m, 10 min
+2. Explainer modal: anonymous, mutual only, `ICEBREAKER_RADIUS_METERS`, 1-hour window
 3. Active state UI: pulsing indicator "Waiting for someone nearby..."
 4. Cancel button
 5. Match found screen: "Someone nearby wants to connect too"
@@ -1429,13 +1991,14 @@ Mobile app                    NestJS API                    didit.me
 3. `POST /subscriptions/checkout` — Stripe Checkout session
 4. `POST /webhooks/stripe` — handle subscription events
 5. `GET /subscriptions/me` — current plan
-6. Premium features: custom avatar themes only (no pay-to-chat)
+6. Premium features: **visible Premium badge** (star + avatar ring on Wall, replies, Break the ice), custom avatar themes, read receipts — **no pay-to-chat**
 
 ## Step 2 — Mobile paywall UI
 
 1. Premium screen in settings (optional upgrade)
-2. Stripe Checkout via web browser or Stripe SDK
-3. Restore purchases
+2. **Benefits copy** — same bullets for prospects and active members (see [Premium badge & visibility](#premium-badge--visibility-product-spec))
+3. Stripe Checkout via web browser or Stripe SDK
+4. Restore purchases
 
 **Phase 8 done when:** User can subscribe to premium; core wall/chat still free.
 
@@ -1629,20 +2192,22 @@ Mobile app                    NestJS API                    didit.me
 | Push | **Expo Push API** | Not native FCM/APNs in NestJS yet — acceptable for MVP |
 | Admin URL (staging) | `https://admin.hostyler.cloud` | API: `https://pingme.hostyler.cloud/v1` |
 
-### Phase completion snapshot (0–8)
+### Phase completion snapshot (0–9)
+
+Uses the same labels as [Progress at a glance](#progress-at-a-glance): **Done** | **Partial** | **UNDONE**.
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| 0 — Foundation | ✅ Done | Monorepo, DB, CI, EAS dev builds. Deploy scripts/Docker prod stack still thin. |
-| 1 — Auth & profile | ✅ Done | Email/phone OTP, forgot/reset password, avatar upload. **OAuth (Google/Apple) not built.** |
-| 2 — Location & wall | ✅ Done | PostGIS wall, presence ping, distance buckets. |
-| 3 — Available & push | ⚠️ Mostly done | Background location + device registration work. **`PUSH_ENABLED` must be `true` on staging/prod.** |
-| 4 — Icebreaker & matches | ✅ Done | 50m pairing, rate limits, expiry workers. Typing indicators optional — not built. |
-| 5 — Chat & safety | ✅ Done | REST + WebSocket, blocks, reports, auto-suspend. WS uses in-memory map (single-server OK for beta). |
-| 6 — Verification | ✅ Done | Didit start/webhook, `VerifiedGuard`, admin KYC tools. Requires Didit env on staging. |
-| 7 — Admin | ✅ Done | Dashboard, users, reports, content, audit logs, map, admin CRUD, premium grant/revoke. |
-| 8 — Premium | ⚠️ Scaffold | Schema + API + admin grant + mobile UI. **No live checkout** until payment provider is wired. |
-| 9 — Venues & launch | 🔜 Deferred | See “Later” section below. |
+| 0 — Foundation | **Done** | Monorepo, DB, CI, EAS dev builds. Deploy scripts/Docker prod stack still thin. |
+| 1 — Auth & profile | **Done** | Email/phone OTP, forgot/reset password, avatar upload. **OAuth (Google/Apple) not built.** |
+| 2 — Location & wall | **Done** | PostGIS wall, presence ping, distance buckets. |
+| 3 — Available & push | **Partial** | Background location + device registration work. **`PUSH_ENABLED` must be `true` on staging/prod.** |
+| 4 — Icebreaker & matches | **Done** | Session flow, mutual match push, proximity push, rate limits, expiry workers. Typing indicators optional — not built. |
+| 5 — Chat & safety | **Done** | REST + WebSocket, blocks, reports, auto-suspend. WS uses in-memory map (single-server OK for beta). |
+| 6 — Verification | **Done** | Didit start/webhook, `VerifiedGuard`, admin KYC tools. Requires Didit env on staging. |
+| 7 — Admin | **Done** | Dashboard, users, reports, content, audit logs, map, admin CRUD, premium grant/revoke. |
+| 8 — Premium | **Done** | Stripe + demo checkout, webhooks, mobile UI, badge spec, admin grant/revoke |
+| 9 — Venues & launch | **UNDONE** | See “Later” section below. |
 
 ### Tips & gotchas
 
@@ -1748,17 +2313,17 @@ NOTIFICATIONS_TEST_ENABLED=false
 |--------|---------|
 | **Done** | Shipped and usable end-to-end |
 | **Partial** | Started or backend-only; UX or polish still missing |
-| **Not started** | No meaningful implementation yet |
+| **UNDONE** | No meaningful implementation yet (or deferred) |
 
-*Last reviewed: 2026-08-16 (after custom icons sprint + Events feature planning).*
+*Last reviewed: 2026-08-16 (UI polish sprint + icebreaker proximity push spec).*
 
 ### Do first (high impact, relatively small)
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 1 | **Clearer tab copy** — Wall vs Break the ice subtitles; rename Wall “online” toggle to “Visible on Wall” | **Done** | `WALL_SUBTITLE`, `ICEBREAKER_SUBTITLE`, presence bar copy. Tab bar label still says `iceBreaker` (minor). |
+| 1 | **Clearer tab copy** — Wall vs Break the ice subtitles; rename Wall “online” toggle to “Visible on Wall” | **Done** | `WALL_SUBTITLE`, `ICEBREAKER_SUBTITLE`, presence bar copy; tab label **IceBreaker**. |
 | 2 | **Premium visible to others** — Avatar gradient rings on Wall, icebreaker, chats | **Done** | Rings + `DisplayNameWithFlair` across feed, icebreaker, chats, post detail. |
-| 3 | **Define “profile flair”** — One concrete Premium perk | **Done** | Premium star next to name + animated gradient avatar rings (picker on Premium page). |
+| 3 | **Define “profile flair”** — Premium badge visible to others | **Done** | Star + gradient ring via `DisplayNameWithFlair` on Wall, replies, icebreaker, chats |
 | 4 | **Empty states that teach** — One-line explanation + CTA per main tab | **Done** | Wall, Break the ice, Chats (and settings error state). |
 | 5 | **Onboarding recap** — 3 swipe cards after signup (Wall / Break the ice / Chats) | **Done** | Post-login: Location → Notifications → product tour (`tour.tsx`). Pre-login slides are separate (privacy/location). |
 
@@ -1778,10 +2343,10 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 6 | **Stripe checkout** — Mobile opens checkout URL; webhook updates subscription | **Not started** | Checkout endpoint exists; `PAYMENT_PROVIDER=none`; unconfigured gateway stub |
-| 7 | **Premium pricing page** — Monthly price, free vs paid, cancel anytime | **Partial** | Page + plan cards from API; subscribe disabled until payments wired |
-| 8 | **Free trial** — e.g. 7 days | **Not started** | |
-| 9 | **Restore purchases** — App Store / Play IAP | **Not started** | |
+| 6 | **Stripe checkout** — Mobile opens checkout URL; webhook updates subscription | **Done** | `StripeGateway`; set `PAYMENT_PROVIDER=stripe` + keys on server |
+| 7 | **Premium pricing page** — Monthly price, free vs paid, benefits copy (badge on posts/replies/icebreaker) | **Done** | `premium.tsx` + shared benefit copy; cancel flow for paid subs |
+| 8 | **Free trial** — e.g. 7 days | **UNDONE** | |
+| 9 | **Restore purchases** — App Store / Play IAP | **UNDONE** | |
 | 10 | **Admin: subscription history** — Who paid, refunds, grant/revoke audit | **Partial** | Grant/revoke on user page + audit logs; no payment/refund timeline |
 
 ### Core product (stickiness)
@@ -1794,6 +2359,8 @@ NOTIFICATIONS_TEST_ENABLED=false
 | 14 | **Block/report from chat** | **Done** | Action sheet in `chat/[id].tsx` |
 | 15 | **Last active / “active now” on icebreaker** | **Done** | Green “Active now” badge when last seen within 3 min |
 | 16 | **Radius control in UI** — How far I see / am seen | **Done** | 150–500m picker in Settings; refreshes Wall feed |
+| 36 | **Icebreaker proximity push** — Notify users within icebreaker radius when someone nearby turns Break the ice on | **Done** | `icebreaker.nearby`; aggregated batch push; `ICEBREAKER_RADIUS_METERS`; `allow_push_icebreaker_nearby` |
+| 37 | **Icebreaker ON mobile notification** — System notification when Break the ice is enabled | **Done** | Push to nearby users; local notification when starter is backgrounded; toast when foreground |
 
 ### Trust & safety
 
@@ -1809,33 +2376,35 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 21 | **Real map tiles** — Leaflet + OpenStreetMap on admin map | **Not started** | Grid + dots/heatmap only |
+| 21 | **Real map tiles** — Leaflet + OpenStreetMap on admin map | **UNDONE** | Grid + dots/heatmap only |
 | 22 | **Bulk actions on reports** | **Partial** | Per-report assign/resolve; no bulk select |
 | 23 | **User search** — Email, phone, display name | **Done** | Query on admin Users page |
-| 24 | **Staging vs prod env indicator** | **Not started** | |
+| 24 | **Staging vs prod env indicator** | **UNDONE** | |
 | 25 | **Deploy script reliability** | **Partial** | `deploy-staging.sh` works on VPS; local `sshpass -f sshpass.txt` fails (file format) |
 
 ### Polish & “show off”
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 26 | **App icon + splash refresh** | **Not started** | |
+| 26 | **App icon + splash refresh** | **Partial** | Splash asset + `app.json` config done; requires native rebuild to appear on device |
 | 27 | **Dark mode pass** — Contrast audit on Wall/icebreaker cards | **Partial** | Dark/light toggle + Warm Ink tokens; no full audit |
 | 28 | **Haptics + micro-animations** | **Partial** | Icebreaker yes/no, buttons, chat send; no match celebration |
-| 29 | **Profile completeness** — Progress bar on You tab | **Not started** | |
-| 30 | **Share / invite** — Deep link or QR | **Not started** | |
+| 29 | **Profile completeness** — Progress bar on You tab | **UNDONE** | |
+| 30 | **Share / invite** — Deep link or QR | **UNDONE** | |
 
 ### Later / bigger bets
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 31 | **Native in-app purchases** | **Not started** | |
-| 32 | **Premium add-ons à la carte** — e.g. visibility boost | **Not started** | |
-| 33 | **Events (user-created meetups)** — Couchsurfing-style | **Not started** | See **Events feature plan** below; browse nearby, host needs liveness + ID KYC |
-| 34 | **Web app** — Read-only wall for desktop | **Not started** | |
+| 31 | **Native in-app purchases** | **UNDONE** | |
+| 32 | **Premium add-ons à la carte** — e.g. visibility boost | **UNDONE** | |
+| 33 | **Events (user-created meetups)** — Couchsurfing-style | **UNDONE** | Full plan: [Events in mobile app](#events-in-the-mobile-app) + [Events feature plan](#events-feature-plan-couchsurfing-style) (E1–E5) |
+| 34 | **Web app** — Read-only wall for desktop | **UNDONE** | |
 | 35 | **Analytics** — DAU, match rate, icebreaker → chat conversion | **Partial** | Admin dashboard DAU (24h) only |
 
 ### Events feature plan (Couchsurfing-style)
+
+> **Mobile implementation summary:** [Events in the mobile app](#events-in-the-mobile-app) (5th tab, routes, build order). This section is the full backend + admin breakdown.
 
 **Product goal:** Users can create real-world meetups (title, description, images, date/time, location). Anyone nearby can browse and read details + see the host. **Creating** an event requires a higher trust bar than Wall posts.
 
@@ -1875,58 +2444,58 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 | # | Task | Status |
 |---|------|--------|
-| E1.1 | Create **full KYC workflow** in Didit console (ID + liveness + age) | **Not started** |
-| E1.2 | Set `DIDIT_WORKFLOW_ID_KYC` in local + staging `.env` | **Not started** |
-| E1.3 | Add `hasPassedIdVerification(userId)` on API | **Not started** |
-| E1.4 | Fix webhook pass logic for KYC — check `id_verifications` + liveness, not liveness alone | **Not started** |
-| E1.5 | `POST /verification/start-kyc` — **user-initiated** (not admin-only) | **Not started** |
-| E1.6 | Extend `GET /verification/status` with `idVerified` | **Not started** |
-| E1.7 | Mobile: “Verify ID to host events” screen (WebView, same as liveness) | **Not started** |
-| E1.8 | Profile badge: “ID verified” (distinct from liveness) | **Not started** |
+| E1.1 | Create **full KYC workflow** in Didit console (ID + liveness + age) | **UNDONE** |
+| E1.2 | Set `DIDIT_WORKFLOW_ID_KYC` in local + staging `.env` | **UNDONE** |
+| E1.3 | Add `hasPassedIdVerification(userId)` on API | **UNDONE** |
+| E1.4 | Fix webhook pass logic for KYC — check `id_verifications` + liveness, not liveness alone | **UNDONE** |
+| E1.5 | `POST /verification/start-kyc` — **user-initiated** (not admin-only) | **UNDONE** |
+| E1.6 | Extend `GET /verification/status` with `idVerified` | **UNDONE** |
+| E1.7 | Mobile: “Verify ID to host events” screen (WebView, same as liveness) | **UNDONE** |
+| E1.8 | Profile badge: “ID verified” (distinct from liveness) | **UNDONE** |
 
 **Phase 2 — Database**
 
 | # | Task | Status |
 |---|------|--------|
-| E2.1 | Migration: `events` table — `user_id`, title, description, lat/lng, `place_name`, `address`, `starts_at`, `ends_at`, `allow_messages`, status | **Not started** |
-| E2.2 | Migration: `event_images` table — up to 5 (`is_cover`, `sort_order`) | **Not started** |
-| E2.3 | Migration: `event_rsvps` — `user_id`, `event_id`, status (`going` / `maybe` / `cancelled`) | **Not started** |
-| E2.4 | Migration: `event_comments` — threaded replies (like `wall_replies`) | **Not started** |
-| E2.5 | Indexes: geo (15km queries), `starts_at`, `status`, `user_id` | **Not started** |
+| E2.1 | Migration: `events` table — `user_id`, title, description, lat/lng, `place_name`, `address`, `starts_at`, `ends_at`, `allow_messages`, status | **UNDONE** |
+| E2.2 | Migration: `event_images` table — up to 5 (`is_cover`, `sort_order`) | **UNDONE** |
+| E2.3 | Migration: `event_rsvps` — `user_id`, `event_id`, status (`going` / `maybe` / `cancelled`) | **UNDONE** |
+| E2.4 | Migration: `event_comments` — threaded replies (like `wall_replies`) | **UNDONE** |
+| E2.5 | Indexes: geo (15km queries), `starts_at`, `status`, `user_id` | **UNDONE** |
 
 **Phase 3 — API**
 
 | # | Task | Status |
 |---|------|--------|
-| E3.1 | `GET /events/nearby` — **15 km** radius, blocks, distance | **Not started** |
-| E3.2 | `GET /events/:id` — detail + images + host + RSVP counts | **Not started** |
-| E3.3 | `POST /events` — guard: liveness + ID verified; `allow_messages` flag | **Not started** |
-| E3.4 | `PATCH /events/:id` · `DELETE /events/:id` — host only | **Not started** |
-| E3.5 | `POST /events/:id/images` — up to 5 (1 cover + gallery) | **Not started** |
-| E3.6 | `POST /events/:id/rsvp` · `DELETE /events/:id/rsvp` — going / maybe | **Not started** |
-| E3.7 | `GET /events/:id/comments` · `POST` · `DELETE` — public thread | **Not started** |
-| E3.8 | `POST /events/:id/message-host` — only if `allow_messages` + liveness | **Not started** |
-| E3.9 | Report event — reuse reports module | **Not started** |
+| E3.1 | `GET /events/nearby` — **15 km** radius, blocks, distance | **UNDONE** |
+| E3.2 | `GET /events/:id` — detail + images + host + RSVP counts | **UNDONE** |
+| E3.3 | `POST /events` — guard: liveness + ID verified; `allow_messages` flag | **UNDONE** |
+| E3.4 | `PATCH /events/:id` · `DELETE /events/:id` — host only | **UNDONE** |
+| E3.5 | `POST /events/:id/images` — up to 5 (1 cover + gallery) | **UNDONE** |
+| E3.6 | `POST /events/:id/rsvp` · `DELETE /events/:id/rsvp` — going / maybe | **UNDONE** |
+| E3.7 | `GET /events/:id/comments` · `POST` · `DELETE` — public thread | **UNDONE** |
+| E3.8 | `POST /events/:id/message-host` — only if `allow_messages` + liveness | **UNDONE** |
+| E3.9 | Report event — reuse reports module | **UNDONE** |
 
 **Phase 4 — Mobile**
 
 | # | Task | Status |
 |---|------|--------|
-| E4.1 | **Events tab** — list (cover, title, date, distance, host, RSVP count) | **Not started** |
-| E4.2 | Event detail — carousel, map pin, description, host card | **Not started** |
-| E4.3 | Create/edit — KYC gate → form → map search/pin → up to 5 images → `allow_messages` toggle | **Not started** |
-| E4.4 | RSVP buttons (Going / Maybe) + counts | **Not started** |
-| E4.5 | Comment thread on event detail | **Not started** |
-| E4.6 | “Message host” CTA when allowed | **Not started** |
-| E4.7 | “My events” on You tab — edit / cancel | **Not started** |
+| E4.1 | **Events tab** — list (cover, title, date, distance, host, RSVP count) | **UNDONE** |
+| E4.2 | Event detail — carousel, map pin, description, host card | **UNDONE** |
+| E4.3 | Create/edit — KYC gate → form → map search/pin → up to 5 images → `allow_messages` toggle | **UNDONE** |
+| E4.4 | RSVP buttons (Going / Maybe) + counts | **UNDONE** |
+| E4.5 | Comment thread on event detail | **UNDONE** |
+| E4.6 | “Message host” CTA when allowed | **UNDONE** |
+| E4.7 | “My events” on You tab — edit / cancel | **UNDONE** |
 
 **Phase 5 — Admin & safety**
 
 | # | Task | Status |
 |---|------|--------|
-| E5.1 | Admin: list / remove events | **Not started** |
-| E5.2 | Admin: see host verification status on event | **Not started** |
-| E5.3 | Push: “New event near you” (optional, post-MVP) | **Not started** |
+| E5.1 | Admin: list / remove events | **UNDONE** |
+| E5.2 | Admin: see host verification status on event | **UNDONE** |
+| E5.3 | Push: “New event near you” (optional, post-MVP) | **UNDONE** |
 
 **Suggested build order:** E1 (KYC) → E2 → E3 core (CRUD + nearby) → E4 list/detail/create → E3/E4 RSVP → comments → message host. Phase 0 locked.
 
@@ -1970,7 +2539,7 @@ GET /config       → public app limits (distance radii); mobile prefetches at l
 | D3 | API: `GET /config` — return all radii for mobile UI | **Done** |
 | D4 | Mobile: build radius picker options from API config (not hardcoded `RADIUS_OPTIONS`) | **Done** |
 | D5 | Mobile: icebreaker subtitle from API config | **Done** |
-| D6 | Events module: use `EVENTS_DISCOVERY_RADIUS_METERS` | **Not started** (with Events E3) |
+| D6 | Events module: use `EVENTS_DISCOVERY_RADIUS_METERS` | **UNDONE** (with Events E3) |
 
 **Architecture:** API `.env` → `AppConfigService` (single parser) → enforces on wall/presence/icebreaker + exposes `GET /v1/config`. Mobile prefetches config at launch. Per-user Wall radius stays in `user_settings` but is clamped to server min/max.
 
@@ -1980,7 +2549,7 @@ GET /config       → public app limits (distance radii); mobile prefetches at l
 |-------|-------|-----------|
 | **Done (icons sprint)** | Custom icons, tab bar, settings notifications, EAS build | Mobile polish shipped `da5b1c3` / `f554957` |
 | **Immediate** | Staging deploy + device test checklist | Validate core flows on two phones before new features |
-| **Next (Events)** | E0 decisions → E1 KYC → E2–E4 Events MVP | Host trust gate + Couchsurfing-style meetups |
+| **Next** | **Events E1** (Didit KYC) → E2–E4 mobile tab | 5th tab + host KYC gate |
 | **Parallel track** | 6, 7 (Stripe) OR 26, legal pages (store prep) | Monetization vs beta launch — pick one |
 | **Before public launch** | 19, 19b, 21, 27, legal pages | Trust badges, ID verification, admin map, contrast |
 | **Growth** | 30, 35, E5.3 | Invite loop + funnel metrics + event push |

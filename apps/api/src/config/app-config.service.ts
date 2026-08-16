@@ -70,4 +70,11 @@ export class AppConfigService {
       this.distance.wall.maxMeters,
     );
   }
+
+  /** How long a location ping stays valid (icebreaker nearby alerts, Wall availability expiry). */
+  getPresenceTtlSeconds(): number {
+    const raw = this.config.get<string>('PRESENCE_TTL_SECONDS');
+    const parsed = raw != null ? Number.parseInt(raw, 10) : Number.NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1800;
+  }
 }

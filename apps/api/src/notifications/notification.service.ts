@@ -31,6 +31,10 @@ export class NotificationService {
       return;
     }
 
+    if (payload.type === NOTIFICATION_TYPES.ICEBREAKER_NEARBY) {
+      if (settings?.allowPushIcebreakerNearby === false) return;
+    }
+
     if (
       payload.type === NOTIFICATION_TYPES.ICEBREAKER_INTEREST ||
       payload.type === NOTIFICATION_TYPES.ICEBREAKER_MATCH ||

@@ -26,10 +26,12 @@ import { queryClient } from '../src/lib/query-client';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
 import { iconForNotificationType, showIncomingBanner } from '../src/stores/incoming-banner-store';
+import { setIcebreakerNearbyPrompt } from '../src/stores/icebreaker-nearby-prompt-store';
 import { useAppConfig } from '../src/hooks/use-app-config';
 import { useAppFonts } from '../src/hooks/use-app-fonts';
 import { Button, IncomingBannerHost, ToastHost } from '../src/components/ui';
 import { AppErrorBoundary } from '../src/components/app-error-boundary';
+import { AppLocationPingBridge } from '../src/components/app-location-ping-bridge';
 import { OfflineBanner } from '../src/components/offline-banner';
 import { ThemeProvider, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
@@ -128,7 +130,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const subscription = addNotificationReceivedListener((payload) => {
-      if (payload.type === 'icebreaker.interest') {
+      if (
+        payload.type === 'icebreaker.interest' ||
+        payload.type === 'icebreaker.nearby'
+      ) {
+        if (payload.type === 'icebreaker.nearby') {
+          setIcebreakerNearbyPrompt(payload.nearbyCount ?? 1);
+        }
         queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
         queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
       }
@@ -241,6 +249,7 @@ function RootLayoutContent() {
         <ConfigBootstrap>
           <AppSocketProvider>
             <AuthGate>
+              <AppLocationPingBridge />
               <IncomingBannerHost />
               <ToastHost />
               <Stack screenOptions={{ headerShown: false }}>

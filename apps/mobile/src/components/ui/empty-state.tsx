@@ -2,14 +2,17 @@ import { Text, View } from 'react-native';
 import { radius, spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
 import { AppIcon, type AppIconName } from './app-icon';
+import { EmptyScene, type EmptySceneName } from './empty-scene';
 
 export function EmptyState({
   icon,
+  scene,
   title,
   message,
   action,
 }: {
   icon: AppIconName;
+  scene?: EmptySceneName;
   title: string;
   message: string;
   action?: React.ReactNode;
@@ -28,6 +31,9 @@ export function EmptyState({
       backgroundColor: colors.accentSoft,
       alignItems: 'center',
       justifyContent: 'center',
+      marginBottom: spacing.lg,
+    },
+    sceneWrap: {
       marginBottom: spacing.lg,
     },
     title: {
@@ -52,9 +58,15 @@ export function EmptyState({
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.iconWrap}>
-        <AppIcon name={icon} size={26} color={colors.accent} />
-      </View>
+      {scene ? (
+        <View style={styles.sceneWrap}>
+          <EmptyScene name={scene} />
+        </View>
+      ) : (
+        <View style={styles.iconWrap}>
+          <AppIcon name={icon} size={26} color={colors.accent} />
+        </View>
+      )}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {action ? <View style={styles.action}>{action}</View> : null}

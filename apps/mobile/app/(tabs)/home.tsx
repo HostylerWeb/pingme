@@ -39,6 +39,7 @@ import {
   Input,
   LivenessBanner,
   ListSkeleton,
+  PresencePulse,
   Screen,
   SectionLabel,
 } from '../../src/components/ui';
@@ -62,23 +63,26 @@ function PostRow({
   const { colors } = useTheme();
 
   const styles = useThemedStyles(({ colors }) => ({
-    postRow: { paddingVertical: spacing.xs },
-    postPressed: { opacity: 0.85 },
-    postTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm },
-    postMeta: { flex: 1, gap: 4 },
-    authorName: { ...typography.bodySemiBold, color: colors.ink },
+    postCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.cardBorder,
+    },
+    postPressed: { opacity: 0.92 },
+    postTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+    postMeta: { flex: 1, gap: 6 },
     postContent: {
       ...typography.bodyLg,
       color: colors.ink,
       lineHeight: 26,
       marginBottom: spacing.md,
-      paddingLeft: 52,
     },
     postFooter: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
-      paddingLeft: 52,
     },
     replyCount: { ...typography.caption, color: colors.inkTertiary },
   }));
@@ -89,7 +93,7 @@ function PostRow({
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
-      style={({ pressed }) => [styles.postRow, pressed && styles.postPressed]}
+      style={({ pressed }) => [styles.postCard, pressed && styles.postPressed]}
     >
       <View style={styles.postTop}>
         <Avatar
@@ -153,14 +157,15 @@ export default function WallScreen() {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
-      backgroundColor: colors.surfaceElevated,
-      borderRadius: radius.xl,
-      padding: spacing.lg,
+      paddingVertical: spacing.md,
       marginBottom: spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     presenceCopy: { flex: 1 },
+    presenceTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
     presenceTitle: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
     presenceHint: { ...typography.caption, color: colors.inkSecondary, marginTop: 2 },
     nearbySection: { marginBottom: spacing.lg },
@@ -172,8 +177,8 @@ export default function WallScreen() {
       textAlign: 'center',
       maxWidth: 64,
     },
-    list: { paddingHorizontal: spacing.container },
-    separator: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.lg },
+    list: { paddingHorizontal: spacing.container, gap: spacing.md },
+    separator: { height: spacing.md },
     fab: {
       position: 'absolute',
       right: spacing.container,
@@ -404,12 +409,12 @@ export default function WallScreen() {
         <AppHeader
           large
           title="Wall"
-          showBrand={false}
           subtitle={wallSubtitle(radiusMeters)}
         />
         <View style={styles.center}>
           <EmptyState
             icon={permissionDenied ? 'location' : 'navigate'}
+            scene="location"
             title={permissionDenied ? 'Location needed' : 'Location unavailable'}
             message={
               permissionDenied
@@ -432,7 +437,10 @@ export default function WallScreen() {
     <View style={styles.headerBlock}>
       <View style={styles.presenceBar}>
         <View style={styles.presenceCopy}>
-          <Text style={styles.presenceTitle}>{availableOn ? 'Visible on Wall' : 'Hidden on Wall'}</Text>
+          <View style={styles.presenceTitleRow}>
+            <PresencePulse active={availableOn} color={availableOn ? colors.online : colors.inkMuted} />
+            <Text style={styles.presenceTitle}>{availableOn ? 'Visible on Wall' : 'Hidden on Wall'}</Text>
+          </View>
           <Text style={styles.presenceHint}>
             {availableOn
               ? `Others within ${radiusMeters}m can see you're around on the Wall`
@@ -482,7 +490,6 @@ export default function WallScreen() {
     <Screen padded={false} edges={[]}>
       <AppHeader
         title="Wall"
-        showBrand={false}
         subtitle={wallSubtitle(radiusMeters)}
         right={
           <View style={styles.headerActions}>
@@ -528,6 +535,7 @@ export default function WallScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="megaphone"
+              scene="wall"
               title="No posts yet"
               message={`Be the first to say something to people within about ${radiusMeters} meters. Posts older than ${WALL_POST_MAX_AGE_HOURS} hours leave the feed.`}
               action={

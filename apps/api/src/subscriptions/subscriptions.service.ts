@@ -16,6 +16,7 @@ import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UnconfiguredGateway } from './gateways/unconfigured.gateway';
 import { DemoGateway } from './gateways/demo.gateway';
+import { StripeGateway } from './gateways/stripe.gateway';
 import { PaymentGateway } from './payment-gateway.interface';
 
 export interface SubscriptionView {
@@ -43,16 +44,29 @@ export class SubscriptionsService {
     private readonly config: ConfigService,
     private readonly unconfiguredGateway: UnconfiguredGateway,
     private readonly demoGateway: DemoGateway,
+    private readonly stripeGateway: StripeGateway,
   ) {
     this.configuredProvider = this.config.get<string>('PAYMENT_PROVIDER', 'none').toLowerCase();
   }
 
   getPlans() {
-    const paymentsEnabled = this.getGateway().isConfigured();
+    const gateway = this.getGateway();
+    const paymentsEnabled = gateway.isConfigured();
+    const premiumPriceLabel =
+      this.configuredProvider === 'stripe'
+        ? this.config.get<string>('STRIPE_PREMIUM_PRICE_LABEL', 'Premium')
+        : this.configuredProvider === 'demo'
+          ? 'Demo (no charge)'
+          : SUBSCRIPTION_PLANS.premium.priceLabel;
+
+    const plans = Object.values(SUBSCRIPTION_PLANS).map((plan) =>
+      plan.id === 'premium' ? { ...plan, priceLabel: premiumPriceLabel } : plan,
+    );
+
     return {
       paymentsEnabled,
       paymentProvider: paymentsEnabled ? this.configuredProvider : null,
-      plans: Object.values(SUBSCRIPTION_PLANS),
+      plans,
       premiumThemes: PREMIUM_AVATAR_THEMES,
     };
   }
@@ -266,11 +280,7 @@ export class SubscriptionsService {
   }
 
   async handlePaymentWebhook(provider: string, payload: unknown, signature?: string) {
-    const gateway = this.getGateway();
-    if (gateway.providerId !== provider) {
-      throw new NotFoundException('Unknown payment provider');
-    }
-
+    const gateway = this.getGatewayForProvider(provider);
     if (!gateway.isConfigured()) {
       throw new ServiceUnavailableException('Payments are not configured');
     }
@@ -296,10 +306,22 @@ export class SubscriptionsService {
     if (this.configuredProvider === 'demo') {
       return this.demoGateway;
     }
+    if (this.configuredProvider === 'stripe') {
+      return this.stripeGateway;
+    }
     if (this.configuredProvider === 'none' || !this.configuredProvider) {
       return this.unconfiguredGateway;
     }
-    // Future: return stripe/paddle/revenuecat gateway when implemented
+    return this.unconfiguredGateway;
+  }
+
+  private getGatewayForProvider(provider: string): PaymentGateway {
+    if (provider === 'demo') {
+      return this.demoGateway;
+    }
+    if (provider === 'stripe') {
+      return this.stripeGateway;
+    }
     return this.unconfiguredGateway;
   }
 

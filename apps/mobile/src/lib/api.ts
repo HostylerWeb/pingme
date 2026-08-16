@@ -739,6 +739,7 @@ export interface UserSettings {
   allowPushReplies: boolean;
   allowPushChat: boolean;
   allowPushIcebreaker: boolean;
+  allowPushIcebreakerNearby: boolean;
   showReadReceipts: boolean;
   radiusMeters: number;
   showDistanceBucket: boolean;

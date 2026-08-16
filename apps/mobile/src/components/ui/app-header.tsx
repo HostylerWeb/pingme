@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
 import { AppIcon } from './app-icon';
+import { BrandMark } from './brand-mark';
 
 export function AppHeader({
   title = 'PingMe',
@@ -49,21 +50,7 @@ export function AppHeader({
     titleBlock: { flex: 1 },
     titleBlockCentered: { alignItems: 'center' },
     brandRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: 2,
-    },
-    logoDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
-    },
-    brandText: {
-      ...typography.overline,
-      color: colors.inkTertiary,
-      fontSize: 10,
+      marginBottom: 6,
     },
     title: { ...typography.headlineMd, color: colors.ink },
     titleLarge: { ...typography.headlineLg, color: colors.ink },
@@ -120,8 +107,7 @@ export function AppHeader({
         <View style={[styles.titleBlock, centerTitle && styles.titleBlockCentered]}>
           {showBrand && !large && !centerTitle ? (
             <View style={styles.brandRow}>
-              <View style={styles.logoDot} />
-              <Text style={styles.brandText}>PingMe</Text>
+              <BrandMark size="sm" />
             </View>
           ) : null}
           <Text
