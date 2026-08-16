@@ -785,10 +785,10 @@ export const api = {
       meta: { page: number; limit: number; hasMore: boolean };
     }>(`/events/${eventId}/comments?page=${page}`),
 
-  postEventComment: (eventId: string, content: string) =>
+  postEventComment: (eventId: string, content: string, parentId?: string) =>
     apiFetch(`/events/${eventId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, ...(parentId ? { parentId } : {}) }),
     }),
 
   deleteEventComment: (eventId: string, commentId: string) =>
@@ -1133,6 +1133,7 @@ export interface EventDetail {
 
 export interface EventComment {
   id: string;
+  parentId?: string | null;
   content: string;
   createdAt: string;
   author: {

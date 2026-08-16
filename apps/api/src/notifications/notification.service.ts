@@ -27,6 +27,13 @@ export class NotificationService {
       return;
     }
 
+    if (
+      payload.type === NOTIFICATION_TYPES.EVENT_COMMENT_REPLY &&
+      settings?.allowPushReplies === false
+    ) {
+      return;
+    }
+
     if (payload.type === NOTIFICATION_TYPES.CHAT_MESSAGE && settings?.allowPushChat === false) {
       return;
     }

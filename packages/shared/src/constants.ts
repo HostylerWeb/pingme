@@ -19,6 +19,7 @@ export const NOTIFICATION_TYPES = {
   VERIFICATION_PASSED: 'verification.passed',
   MODERATION_ACTION: 'moderation.action',
   EVENT_NEARBY: 'event.nearby',
+  EVENT_COMMENT_REPLY: 'event.comment.reply',
 } as const;
 
 export const MAX_EVENT_IMAGES = 5;

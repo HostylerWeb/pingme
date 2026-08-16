@@ -158,6 +158,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           queryClient.invalidateQueries({ queryKey: ['wall-post', payload.postId] });
         }
       }
+      if (payload.type === 'event.comment.reply' && payload.eventId) {
+        queryClient.invalidateQueries({ queryKey: ['event', payload.eventId] });
+        queryClient.invalidateQueries({ queryKey: ['event-comments', payload.eventId] });
+      }
       if (!shouldSuppressIncomingBanner(pathname, payload)) {
         showIncomingBanner({
           title: payload.title?.trim() || 'PingMe',

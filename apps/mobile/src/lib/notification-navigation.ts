@@ -84,6 +84,9 @@ export function getNotificationHref(payload: NotificationNavigationPayload): Hre
   if (payload.type === 'event.nearby') {
     return payload.eventId ? `/events/${payload.eventId}` : '/(tabs)/events';
   }
+  if (payload.type === 'event.comment.reply' && payload.eventId) {
+    return `/events/${payload.eventId}`;
+  }
   return null;
 }
 

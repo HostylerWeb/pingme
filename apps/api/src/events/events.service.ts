@@ -21,6 +21,7 @@ import {
   EventRsvpInput,
   MAX_EVENT_IMAGES,
   MessageEventHostInput,
+  NOTIFICATION_TYPES,
   UpdateEventInput,
   distanceBucket,
 } from '@pingme/shared';
@@ -32,6 +33,7 @@ import { assertSafeEventObjectKey } from '../common/utils/upload-key.util';
 import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsNearbyPushService } from './events-nearby-push.service';
+import { NotificationService } from '../notifications/notification.service';
 
 interface EventNearbyRow {
   id: string;
@@ -69,6 +71,7 @@ export class EventsService {
     private readonly blocks: BlocksService,
     private readonly audit: AuditService,
     private readonly eventsPush: EventsNearbyPushService,
+    private readonly notifications: NotificationService,
     private readonly r2: R2Service,
   ) {}
 
@@ -667,6 +670,7 @@ export class EventsService {
         );
         return {
           id: comment.id,
+          parentId: comment.parentId,
           content: comment.content,
           createdAt: comment.createdAt,
           author: {
@@ -677,6 +681,7 @@ export class EventsService {
             isPremium: flair.isPremium,
             avatarTheme: flair.avatarTheme,
             livenessVerified: flair.livenessVerified,
+            gender: flair.gender,
           },
         };
       }),
@@ -687,11 +692,31 @@ export class EventsService {
   async createComment(userId: string, eventId: string, dto: CreateEventCommentInput) {
     await this.getActiveEvent(eventId);
 
+    let parentComment: { id: string; userId: string; parentId: string | null } | null = null;
+    if (dto.parentId) {
+      parentComment = await this.prisma.eventComment.findFirst({
+        where: {
+          id: dto.parentId,
+          eventId,
+          status: EventCommentStatus.active,
+        },
+        select: { id: true, userId: true, parentId: true },
+      });
+      if (!parentComment) {
+        throw new NotFoundException('Comment not found');
+      }
+    }
+
+    const parentId = parentComment
+      ? parentComment.parentId ?? parentComment.id
+      : null;
+
     const comment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.eventComment.create({
         data: {
           eventId,
           userId,
+          parentId,
           content: dto.content.trim(),
           status: EventCommentStatus.active,
         },
@@ -703,33 +728,59 @@ export class EventsService {
       return created;
     });
 
-    return { success: true, data: { id: comment.id } };
+    const notifyUserId = parentComment?.userId;
+    if (notifyUserId && notifyUserId !== userId) {
+      await this.notifications.sendToUser(notifyUserId, {
+        type: NOTIFICATION_TYPES.EVENT_COMMENT_REPLY,
+        title: 'New reply on an event',
+        body: dto.content.trim().slice(0, 80),
+        data: {
+          type: NOTIFICATION_TYPES.EVENT_COMMENT_REPLY,
+          eventId: String(eventId),
+          commentId: String(comment.id),
+          parentId: parentId ? String(parentId) : '',
+        },
+      });
+    }
+
+    return { success: true, data: { id: comment.id, parentId: comment.parentId } };
   }
 
   async deleteComment(userId: string, eventId: string, commentId: string) {
-    const event = await this.prisma.event.findUnique({ where: { id: eventId } });
-    if (!event) {
-      throw new NotFoundException('Event not found');
-    }
-
     const comment = await this.prisma.eventComment.findFirst({
       where: { id: commentId, eventId, status: EventCommentStatus.active },
     });
     if (!comment) {
       throw new NotFoundException('Comment not found');
     }
-    if (comment.userId !== userId && event.userId !== userId) {
+    if (comment.userId !== userId) {
       throw new ForbiddenException('Not allowed to delete this comment');
     }
+
+    const replyCount = comment.parentId
+      ? 0
+      : await this.prisma.eventComment.count({
+          where: {
+            parentId: commentId,
+            status: EventCommentStatus.active,
+          },
+        });
+    const totalRemoved = 1 + replyCount;
 
     await this.prisma.$transaction(async (tx) => {
       await tx.eventComment.update({
         where: { id: commentId },
         data: { status: EventCommentStatus.deleted },
       });
+      if (!comment.parentId) {
+        await tx.eventComment.updateMany({
+          where: { parentId: commentId, status: EventCommentStatus.active },
+          data: { status: EventCommentStatus.deleted },
+        });
+      }
       await tx.event.update({
         where: { id: eventId },
-        data: { commentCount: { decrement: 1 } },
+        data: { commentCount: { decrement: totalRemoved } },
       });
     });
 

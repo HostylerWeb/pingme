@@ -271,6 +271,7 @@ export const EventRsvpSchema = z.object({
 
 export const CreateEventCommentSchema = z.object({
   content: z.string().min(1).max(500),
+  parentId: z.string().uuid().optional(),
 });
 
 export const MessageEventHostSchema = z.object({

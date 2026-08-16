@@ -3,13 +3,11 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { genderLabel, type GenderValue } from '@pingme/shared';
 import { api, ApiError } from '../../src/lib/api';
@@ -32,8 +30,7 @@ export default function ProfileSetupScreen() {
   const [uploading, setUploading] = useState(false);
 
   const styles = useThemedStyles(({ colors }) => ({
-    flex: { flex: 1 },
-    scroll: { padding: spacing.container, paddingTop: spacing.section },
+    scroll: { padding: spacing.container, paddingTop: spacing.section, paddingBottom: spacing.section * 2 },
     brandRow: { marginBottom: spacing.xl },
     title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
     subtitle: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl, lineHeight: 22 },
@@ -100,54 +97,56 @@ export default function ProfileSetupScreen() {
 
   return (
     <Screen padded={false} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.brandRow}>
-            <BrandMark size="md" />
-          </View>
-          <Text style={styles.title}>Your profile</Text>
-          <Text style={styles.subtitle}>Help people nearby recognize you. Photo is optional.</Text>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={48}
+      >
+        <View style={styles.brandRow}>
+          <BrandMark size="md" />
+        </View>
+        <Text style={styles.title}>Your profile</Text>
+        <Text style={styles.subtitle}>Help people nearby recognize you. Photo is optional.</Text>
 
-          <Pressable style={styles.avatarButton} onPress={pickAvatar}>
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
-            ) : (
-              <>
-                <AppIcon name="camera" size={28} color={colors.accent} />
-                <Text style={styles.avatarPlaceholder}>Add photo</Text>
-              </>
-            )}
-          </Pressable>
+        <Pressable style={styles.avatarButton} onPress={pickAvatar}>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+          ) : (
+            <>
+              <AppIcon name="camera" size={28} color={colors.accent} />
+              <Text style={styles.avatarPlaceholder}>Add photo</Text>
+            </>
+          )}
+        </Pressable>
 
-          <Card variant="flat">
-            <Input label="Display name" placeholder="Jane Doe" value={displayName} onChangeText={setDisplayName} />
-            {profileGender ? (
-              <GenderReadOnly label="Gender" value={genderLabel(profileGender)} />
-            ) : (
-              <>
-                <GenderPicker value={gender} onChange={setGender} />
-                <Text style={{ ...typography.caption, color: colors.inkTertiary, marginTop: -spacing.md, marginBottom: spacing.lg }}>
-                  Gender cannot be changed after you continue.
-                </Text>
-              </>
-            )}
-            <Input
-              label="Bio"
-              placeholder="A short intro (optional)"
-              multiline
-              value={bio}
-              onChangeText={setBio}
-              containerStyle={styles.bioInput}
-            />
-            <Button
-              label="Continue"
-              onPress={save}
-              loading={uploading}
-              disabled={!displayName.trim() || (!profileGender && !gender)}
-            />
-          </Card>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <Card variant="flat">
+          <Input label="Display name" placeholder="Jane Doe" value={displayName} onChangeText={setDisplayName} />
+          {profileGender ? (
+            <GenderReadOnly label="Gender" value={genderLabel(profileGender)} />
+          ) : (
+            <>
+              <GenderPicker value={gender} onChange={setGender} />
+              <Text style={{ ...typography.caption, color: colors.inkTertiary, marginTop: -spacing.md, marginBottom: spacing.lg }}>
+                Gender cannot be changed after you continue.
+              </Text>
+            </>
+          )}
+          <Input
+            label="Bio"
+            placeholder="A short intro (optional)"
+            multiline
+            value={bio}
+            onChangeText={setBio}
+            containerStyle={styles.bioInput}
+          />
+          <Button
+            label="Continue"
+            onPress={save}
+            loading={uploading}
+            disabled={!displayName.trim() || (!profileGender && !gender)}
+          />
+        </Card>
+      </KeyboardAwareScrollView>
     </Screen>
   );
 }

@@ -19,6 +19,7 @@ import {
 } from '../../src/lib/background-location';
 import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { useAuthStore } from '../../src/stores/auth-store';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
@@ -153,6 +154,13 @@ export default function WallScreen() {
   const [deletePostTarget, setDeletePostTarget] = useState<WallPost | null>(null);
   const [availableOn, setAvailableOn] = useState(false);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
+  const user = useAuthStore((s) => s.user);
+
+  const openPostModal = () => {
+    if (!ensureVerified()) return;
+    setShowPhoto(Boolean(user?.profile?.avatarUrl));
+    setModalOpen(true);
+  };
 
   const styles = useThemedStyles(({ colors, shadows }) => ({
     center: { flex: 1, justifyContent: 'center' },
@@ -544,10 +552,7 @@ export default function WallScreen() {
               action={
                 <Button
                   label="Write a post"
-                  onPress={() => {
-                    if (!ensureVerified()) return;
-                    setModalOpen(true);
-                  }}
+                  onPress={openPostModal}
                 />
               }
             />
@@ -564,10 +569,7 @@ export default function WallScreen() {
 
       <Pressable
         style={[styles.fab, { bottom: contentBottom }]}
-        onPress={() => {
-          if (!ensureVerified()) return;
-          setModalOpen(true);
-        }}
+        onPress={openPostModal}
       >
         <AppIcon name="add" size={28} color={colors.onAccent} />
       </Pressable>
