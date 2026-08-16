@@ -122,5 +122,5 @@ ALTER TABLE "event_comments" ADD CONSTRAINT "event_comments_event_id_fkey" FOREI
 ALTER TABLE "event_comments" ADD CONSTRAINT "event_comments_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- PostGIS geo index for events discovery
-CREATE INDEX events_geo_gix ON events
-  USING GIST (ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography);
+CREATE INDEX IF NOT EXISTS events_geo_gix ON events
+  USING GIST ((ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography));
