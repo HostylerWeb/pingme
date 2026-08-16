@@ -108,7 +108,7 @@ export class SubscriptionsService {
     }
 
     const session = await gateway.createCheckoutSession(userId, planId);
-    if (!session.checkoutUrl) {
+    if (!session.checkoutUrl && !session.inAppCheckout) {
       throw new ServiceUnavailableException({
         code: 'CHECKOUT_UNAVAILABLE',
         message: 'Unable to start checkout. Please try again later.',
@@ -119,7 +119,7 @@ export class SubscriptionsService {
       userId,
       action: 'subscription.checkout_started',
       entityType: 'subscription',
-      metadata: { planId, provider: gateway.providerId },
+      metadata: { planId, provider: gateway.providerId, inAppCheckout: session.inAppCheckout ?? false },
     });
 
     return {
@@ -131,7 +131,7 @@ export class SubscriptionsService {
   }
 
   async confirmCheckout(userId: string, sessionId: string) {
-    if (this.configuredProvider !== 'demo') {
+    if (!this.isDemoPaymentsAllowed()) {
       throw new BadRequestException('In-app checkout confirmation is only available for the demo provider');
     }
 
@@ -297,13 +297,19 @@ export class SubscriptionsService {
     return isPremium && (settings?.showReadReceipts ?? false);
   }
 
-  private getGateway(): PaymentGateway {
-    const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
-    // Never allow demo self-grant premium in production
-    if (nodeEnv === 'production' && this.configuredProvider === 'demo') {
-      return this.unconfiguredGateway;
+  private isDemoPaymentsAllowed(): boolean {
+    if (this.configuredProvider !== 'demo') {
+      return false;
     }
-    if (this.configuredProvider === 'demo') {
+    const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
+    if (nodeEnv !== 'production') {
+      return true;
+    }
+    return this.config.get<string>('ALLOW_DEMO_PAYMENTS', 'false') === 'true';
+  }
+
+  private getGateway(): PaymentGateway {
+    if (this.isDemoPaymentsAllowed()) {
       return this.demoGateway;
     }
     if (this.configuredProvider === 'stripe') {

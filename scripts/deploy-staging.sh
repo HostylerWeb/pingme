@@ -23,7 +23,8 @@ for kv in \
   "ICEBREAKER_WINDOW_MINUTES=60" \
   "ICEBREAKER_RADIUS_METERS=50" \
   "PRESENCE_TTL_SECONDS=1800" \
-  "PAYMENT_PROVIDER=none" \
+  "PAYMENT_PROVIDER=demo" \
+  "ALLOW_DEMO_PAYMENTS=true" \
   "CORS_ORIGINS=https://admin.hostyler.cloud,https://pingme.hostyler.cloud" \
   "API_PUBLIC_URL=https://pingme.hostyler.cloud/v1" \
   "UPLOADS_DIR=uploads" \

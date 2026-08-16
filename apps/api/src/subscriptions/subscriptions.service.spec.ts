@@ -85,11 +85,12 @@ describe('SubscriptionsService', () => {
     );
   });
 
-  it('blocks demo gateway in production', async () => {
+  it('blocks demo gateway in production without ALLOW_DEMO_PAYMENTS', async () => {
     const prodConfig = {
       get: jest.fn((key: string, fallback?: string) => {
         if (key === 'PAYMENT_PROVIDER') return 'demo';
         if (key === 'NODE_ENV') return 'production';
+        if (key === 'ALLOW_DEMO_PAYMENTS') return 'false';
         return fallback;
       }),
     } as unknown as ConfigService;
@@ -105,5 +106,28 @@ describe('SubscriptionsService', () => {
     await expect(prodService.createCheckout('user-1', 'premium')).rejects.toThrow(
       'Payments are not configured yet',
     );
+  });
+
+  it('allows demo gateway in production when ALLOW_DEMO_PAYMENTS=true', async () => {
+    const prodConfig = {
+      get: jest.fn((key: string, fallback?: string) => {
+        if (key === 'PAYMENT_PROVIDER') return 'demo';
+        if (key === 'NODE_ENV') return 'production';
+        if (key === 'ALLOW_DEMO_PAYMENTS') return 'true';
+        return fallback;
+      }),
+    } as unknown as ConfigService;
+    const prodService = new SubscriptionsService(
+      prisma,
+      audit,
+      prodConfig,
+      new UnconfiguredGateway(),
+      new DemoGateway(),
+      createStripeGatewayStub(),
+    );
+
+    const checkout = await prodService.createCheckout('user-1', 'premium');
+    expect(checkout.inAppCheckout).toBe(true);
+    expect(checkout.sessionId).toBeTruthy();
   });
 });
