@@ -220,7 +220,9 @@ export class PresenceService {
 
     const blockedFilter =
       blockedIds.length > 0
-        ? Prisma.sql`AND ps.user_id NOT IN (${Prisma.join(blockedIds)})`
+        ? Prisma.sql`AND ps.user_id NOT IN (${Prisma.join(
+            blockedIds.map((id) => Prisma.sql`${id}::uuid`),
+          )})`
         : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<{ user_id: string }[]>`
