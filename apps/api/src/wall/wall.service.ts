@@ -31,6 +31,7 @@ interface WallPostRow {
   subscription_status: string | null;
   subscription_period_end: Date | null;
   liveness_verified: boolean;
+  gender: string | null;
 }
 
 @Injectable()
@@ -82,6 +83,7 @@ export class WallService {
         p.display_name,
         p.avatar_url,
         p.avatar_config,
+        p.gender,
         sub.plan AS subscription_plan,
         sub.status AS subscription_status,
         sub.current_period_end AS subscription_period_end,
@@ -113,7 +115,7 @@ export class WallService {
 
     const data = rows.map((row) => {
       const flair = getPublicProfileFields(
-        { avatarConfig: row.avatar_config },
+        { avatarConfig: row.avatar_config, gender: row.gender as import('@pingme/db').Gender | null },
         row.subscription_plan
           ? {
               plan: row.subscription_plan,
@@ -139,6 +141,7 @@ export class WallService {
         isPremium: flair.isPremium,
         avatarTheme: flair.avatarTheme,
         livenessVerified: flair.livenessVerified,
+        gender: flair.gender,
       },
     };
     });
@@ -255,6 +258,7 @@ export class WallService {
         isPremium: flair.isPremium,
         avatarTheme: flair.avatarTheme,
         livenessVerified: flair.livenessVerified,
+        gender: flair.gender,
       };
     };
 

@@ -9,7 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { api, ChatMessage } from '../../src/lib/api';
 import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
@@ -107,7 +106,8 @@ export default function ChatThreadScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
-  const { ensureVerified, handleLivenessError } = useLivenessGate();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
 
   const styles = useThemedStyles(({ colors }) => ({
     container: { flex: 1, backgroundColor: colors.background },
@@ -169,6 +169,24 @@ export default function ChatThreadScreen() {
       justifyContent: 'center',
     },
     sendButtonDisabled: { opacity: 0.45 },
+    verifyBanner: {
+      paddingHorizontal: spacing.container,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+      gap: spacing.sm,
+    },
+    verifyTitle: { ...typography.bodySemiBold, color: colors.ink },
+    verifyBody: { ...typography.bodyMd, color: colors.inkSecondary },
+    closedBanner: {
+      paddingHorizontal: spacing.container,
+      paddingVertical: spacing.md,
+      backgroundColor: colors.surfaceMuted,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
+    },
+    closedText: { ...typography.bodyMd, color: colors.inkSecondary, textAlign: 'center' },
   }));
 
   const { data: chatData, isLoading: chatLoading, isError: chatError } = useQuery({
@@ -214,6 +232,16 @@ export default function ChatThreadScreen() {
     onError: (error: Error) => showToast(error.message, 'error'),
   });
 
+  const hideMutation = useMutation({
+    mutationFn: () => api.hideChat(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chats'] });
+      showToast('Conversation deleted', 'success');
+      router.back();
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+
   const reportMutation = useMutation({
     mutationFn: (payload: {
       reportedUserId: string;
@@ -227,6 +255,7 @@ export default function ChatThreadScreen() {
 
   const chat = chatData?.data;
   const messages = messagesData?.data ?? [];
+  const canSend = chat?.status === 'active' && isVerified;
 
   const onRealtimeMessage = useCallback(
     (message: ChatMessage) => {
@@ -320,7 +349,7 @@ export default function ChatThreadScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior="padding">
+    <View style={styles.container}>
       <AppHeader
         title={chat.otherUser.displayName}
         showBrand={false}
@@ -341,7 +370,12 @@ export default function ChatThreadScreen() {
           themeId={chat.otherUser.isPremium ? chat.otherUser.avatarTheme : null}
         />
         <View style={{ flex: 1 }}>
-          <DisplayNameWithFlair name={chat.otherUser.displayName} isPremium={chat.otherUser.isPremium} isVerified={chat.otherUser.livenessVerified} />
+          <DisplayNameWithFlair
+            name={chat.otherUser.displayName}
+            gender={chat.otherUser.gender}
+            isPremium={chat.otherUser.isPremium}
+            isVerified={chat.otherUser.livenessVerified}
+          />
           <Text style={styles.threadHint}>Private conversation</Text>
         </View>
       </View>
@@ -366,28 +400,42 @@ export default function ChatThreadScreen() {
         }
       />
 
-      <KeyboardComposerFooter style={styles.composer}>
-        <TextInput
-          style={styles.input}
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Type a message..."
-          placeholderTextColor={colors.inkMuted}
-          multiline
-          maxLength={2000}
-        />
-        <Pressable
-          style={[styles.sendButton, !draft.trim() && styles.sendButtonDisabled]}
-          onPress={onSend}
-          disabled={!draft.trim() || sendMutation.isPending}
-        >
-          {sendMutation.isPending ? (
-            <ActivityIndicator color={colors.onAccent} size="small" />
-          ) : (
-            <AppIcon name="send" size={18} color={colors.onAccent} />
-          )}
-        </Pressable>
-      </KeyboardComposerFooter>
+      {canSend ? (
+        <KeyboardComposerFooter style={styles.composer} useTabBarInset={false}>
+          <TextInput
+            style={styles.input}
+            value={draft}
+            onChangeText={setDraft}
+            placeholder="Type a message..."
+            placeholderTextColor={colors.inkMuted}
+            multiline
+            maxLength={2000}
+          />
+          <Pressable
+            style={[styles.sendButton, !draft.trim() && styles.sendButtonDisabled]}
+            onPress={onSend}
+            disabled={!draft.trim() || sendMutation.isPending}
+          >
+            {sendMutation.isPending ? (
+              <ActivityIndicator color={colors.onAccent} size="small" />
+            ) : (
+              <AppIcon name="send" size={18} color={colors.onAccent} />
+            )}
+          </Pressable>
+        </KeyboardComposerFooter>
+      ) : chat.status !== 'active' ? (
+        <View style={styles.closedBanner}>
+          <Text style={styles.closedText}>This conversation is closed.</Text>
+        </View>
+      ) : (
+        <View style={styles.verifyBanner}>
+          <Text style={styles.verifyTitle}>Verify to send messages</Text>
+          <Text style={styles.verifyBody}>
+            Complete a quick face check so people know you are real before you chat.
+          </Text>
+          <Button label="Verify now" onPress={() => router.push('/(setup)/liveness')} />
+        </View>
+      )}
 
       <ActionSheet
         visible={menuOpen}
@@ -402,6 +450,11 @@ export default function ChatThreadScreen() {
             label: 'Block user',
             destructive: true,
             onPress: () => setTimeout(() => setBlockOpen(true), 280),
+          },
+          {
+            label: 'Delete conversation',
+            destructive: true,
+            onPress: () => setTimeout(() => setDeleteOpen(true), 280),
           },
         ]}
       />
@@ -422,6 +475,20 @@ export default function ChatThreadScreen() {
       />
 
       <ActionSheet
+        visible={deleteOpen}
+        title="Delete conversation?"
+        subtitle="This removes the chat from your inbox. Older messages stay hidden if they message you again."
+        onClose={() => setDeleteOpen(false)}
+        options={[
+          {
+            label: 'Delete conversation',
+            destructive: true,
+            onPress: () => hideMutation.mutate(),
+          },
+        ]}
+      />
+
+      <ActionSheet
         visible={blockOpen}
         title="Block user?"
         subtitle={`${chat.otherUser.displayName} won't be able to message you, and you won't see each other.`}
@@ -434,6 +501,7 @@ export default function ChatThreadScreen() {
           },
         ]}
       />
-    </KeyboardAvoidingView>
+
+    </View>
   );
 }

@@ -39,7 +39,7 @@ export class MatchesService {
           select: {
             id: true,
             lastSeenAt: true,
-            profile: { select: { displayName: true, avatarUrl: true, avatarConfig: true } },
+            profile: { select: { displayName: true, avatarUrl: true, avatarConfig: true, gender: true } },
             subscription: true,
           },
         },
@@ -47,7 +47,7 @@ export class MatchesService {
           select: {
             id: true,
             lastSeenAt: true,
-            profile: { select: { displayName: true, avatarUrl: true, avatarConfig: true } },
+            profile: { select: { displayName: true, avatarUrl: true, avatarConfig: true, gender: true } },
             subscription: true,
           },
         },
@@ -328,7 +328,7 @@ export class MatchesService {
       userA?: {
         id: string;
         lastSeenAt: Date | null;
-        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown } | null;
+        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown; gender?: string | null } | null;
         subscription: {
           plan: string;
           status: string;
@@ -338,7 +338,7 @@ export class MatchesService {
       userB?: {
         id: string;
         lastSeenAt: Date | null;
-        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown } | null;
+        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown; gender?: string | null } | null;
         subscription: {
           plan: string;
           status: string;
@@ -380,6 +380,7 @@ export class MatchesService {
             isPremium: otherFlair.isPremium,
             avatarTheme: otherFlair.avatarTheme,
             livenessVerified: otherFlair.livenessVerified,
+            gender: otherFlair.gender,
             activeNow: isUserActiveNow(otherRecord?.lastSeenAt),
             anonymous: false,
             label: 'Connected',
@@ -391,6 +392,7 @@ export class MatchesService {
             isPremium: otherFlair.isPremium,
             avatarTheme: otherFlair.avatarTheme,
             livenessVerified: otherFlair.livenessVerified,
+            gender: otherFlair.gender,
             activeNow: isUserActiveNow(otherRecord?.lastSeenAt),
             anonymous: false,
             label: otherDisplayName,

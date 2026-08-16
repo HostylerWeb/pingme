@@ -70,6 +70,7 @@ function ChatRow({ chat, onPress }: { chat: ChatSummary; onPress: () => void }) 
         <View style={styles.rowHeader}>
           <DisplayNameWithFlair
             name={chat.otherUser.displayName}
+            gender={chat.otherUser.gender}
             isPremium={chat.otherUser.isPremium}
             isVerified={chat.otherUser.livenessVerified}
             style={hasUnread ? styles.nameUnread : styles.name}

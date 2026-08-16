@@ -356,6 +356,7 @@ export default function PostDetailScreen() {
                 <View style={styles.postMeta}>
                   <DisplayNameWithFlair
                     name={authorName}
+                    gender={post.author.gender}
                     isPremium={post.author.isPremium}
                     isVerified={!post.author.isYou && post.author.livenessVerified}
                   />
@@ -404,6 +405,7 @@ export default function PostDetailScreen() {
                   <View style={styles.replyMeta}>
                     <DisplayNameWithFlair
                       name={replyName}
+                      gender={item.author.gender}
                       isPremium={item.author.isPremium}
                       isVerified={!item.author.isYou && item.author.livenessVerified}
                     />

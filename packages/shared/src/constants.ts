@@ -55,6 +55,21 @@ export function genderLabel(value: string | null | undefined): string {
   return GENDER_OPTIONS.find((option) => option.value === value)?.label ?? '—';
 }
 
+export function genderSymbol(value: string | null | undefined): string | null {
+  switch (value) {
+    case 'male':
+      return '♂';
+    case 'female':
+      return '♀';
+    case 'transgender':
+      return '⚧';
+    case 'other':
+      return '◆';
+    default:
+      return null;
+  }
+}
+
 export const PREMIUM_PROSPECT_BENEFITS = [
   'Premium badge on your posts, replies, and Break the ice',
   'Gradient avatar ring others see on Wall and in chats',

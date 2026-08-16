@@ -7,16 +7,23 @@ import { spacing } from '../theme';
 type KeyboardComposerFooterProps = {
   children: ReactNode;
   style?: ViewStyle;
+  /** Stack screens (chat) should not reserve tab bar space. Default true for tab composers. */
+  useTabBarInset?: boolean;
 };
 
 /**
  * Pins a bottom composer (chat input, reply field) above the software keyboard.
  */
-export function KeyboardComposerFooter({ children, style }: KeyboardComposerFooterProps) {
+export function KeyboardComposerFooter({
+  children,
+  style,
+  useTabBarInset = true,
+}: KeyboardComposerFooterProps) {
   const bottomInset = useBottomInset();
+  const closedOffset = useTabBarInset ? bottomInset + spacing.sm : bottomInset;
 
   return (
-    <KeyboardStickyView offset={{ closed: bottomInset + spacing.sm, opened: spacing.sm }}>
+    <KeyboardStickyView offset={{ closed: closedOffset, opened: spacing.sm }}>
       <View style={style}>{children}</View>
     </KeyboardStickyView>
   );

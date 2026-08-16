@@ -339,7 +339,12 @@ export class IcebreakerService {
     const lastSeenByUserId = new Map(userActivity.map((user) => [user.id, user.lastSeenAt]));
 
     const withFlair = (userId: string) =>
-      flairByUserId.get(userId) ?? { isPremium: false, avatarTheme: null, livenessVerified: false };
+      flairByUserId.get(userId) ?? {
+        isPremium: false,
+        avatarTheme: null,
+        livenessVerified: false,
+        gender: null,
+      };
     const withActiveNow = (userId: string) => isUserActiveNow(lastSeenByUserId.get(userId), now);
 
     const data = visibleRows.map((row) => {
@@ -367,6 +372,7 @@ export class IcebreakerService {
         isPremium: withFlair(row.user_id).isPremium,
         avatarTheme: withFlair(row.user_id).avatarTheme,
         livenessVerified: withFlair(row.user_id).livenessVerified,
+        gender: withFlair(row.user_id).gender,
         activeNow: withActiveNow(row.user_id),
       };
     });
@@ -394,6 +400,7 @@ export class IcebreakerService {
         isPremium: withFlair(otherUserId).isPremium,
         avatarTheme: withFlair(otherUserId).avatarTheme,
         livenessVerified: withFlair(otherUserId).livenessVerified,
+        gender: withFlair(otherUserId).gender,
         activeNow: withActiveNow(otherUserId),
       });
     }

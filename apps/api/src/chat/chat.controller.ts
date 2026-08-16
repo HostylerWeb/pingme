@@ -62,6 +62,12 @@ export class ChatController {
     return this.chatService.sendMessage(user.id, id, dto.content);
   }
 
+  @Post(':id/hide')
+  @ApiOperation({ summary: 'Hide chat from your inbox (messages before now stay hidden)' })
+  hide(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.chatService.hideChat(user.id, id);
+  }
+
   @Post(':id/close')
   @ApiOperation({ summary: 'Close chat' })
   close(@CurrentUser() user: User, @Param('id') id: string) {

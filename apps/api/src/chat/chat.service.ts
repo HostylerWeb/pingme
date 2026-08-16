@@ -56,21 +56,29 @@ export class ChatService {
     });
 
     const chatIds = chats.map((chat) => chat.id);
-    const unreadCounts =
+    const hiddenStates = await this.prisma.chatParticipantState.findMany({
+      where: { userId, chatId: { in: chatIds } },
+    });
+    const hiddenByChatId = new Map(hiddenStates.map((row) => [row.chatId, row]));
+
+    const unreadMessages =
       chatIds.length > 0
-        ? await this.prisma.message.groupBy({
-            by: ['chatId'],
+        ? await this.prisma.message.findMany({
             where: {
               chatId: { in: chatIds },
               senderId: { not: userId },
               status: { notIn: [MessageStatus.deleted, MessageStatus.read] },
             },
-            _count: { _all: true },
+            select: { chatId: true, createdAt: true },
           })
         : [];
-    const unreadByChatId = new Map(
-      unreadCounts.map((row) => [row.chatId, row._count._all]),
-    );
+
+    const unreadByChatId = new Map<string, number>();
+    for (const row of unreadMessages) {
+      const visibleAfter = hiddenByChatId.get(row.chatId)?.visibleAfter;
+      if (visibleAfter && row.createdAt <= visibleAfter) continue;
+      unreadByChatId.set(row.chatId, (unreadByChatId.get(row.chatId) ?? 0) + 1);
+    }
 
     const otherUserIds = chats.map((chat) =>
       chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId,
@@ -84,6 +92,16 @@ export class ChatService {
         const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
         if (blockedIds.includes(otherUserId)) return null;
 
+        const hiddenState = hiddenByChatId.get(chat.id);
+        const lastMessage = chat.messages[0] ?? null;
+        if (hiddenState?.visibleAfter) {
+          const hasNewFromOther =
+            lastMessage &&
+            lastMessage.senderId !== userId &&
+            lastMessage.createdAt > hiddenState.visibleAfter;
+          if (!hasNewFromOther) return null;
+        }
+
         const otherUser =
           chat.match.userAId === userId ? chat.match.userB : chat.match.userA;
         const otherProfile = otherUser.profile;
@@ -92,7 +110,6 @@ export class ChatService {
           otherUser.subscription,
           verifiedSet.has(otherUserId),
         );
-        const lastMessage = chat.messages[0] ?? null;
         const sortAt = lastMessage?.createdAt ?? chat.createdAt;
 
         return {
@@ -106,15 +123,18 @@ export class ChatService {
             isPremium: flair.isPremium,
             avatarTheme: flair.avatarTheme,
             livenessVerified: flair.livenessVerified,
+            gender: flair.gender,
           },
-          lastMessage: lastMessage
-            ? {
-                id: lastMessage.id,
-                content: lastMessage.content,
-                createdAt: lastMessage.createdAt,
-                isYou: lastMessage.senderId === userId,
-              }
-            : null,
+          lastMessage:
+            lastMessage &&
+            (!hiddenState?.visibleAfter || lastMessage.createdAt > hiddenState.visibleAfter)
+              ? {
+                  id: lastMessage.id,
+                  content: lastMessage.content,
+                  createdAt: lastMessage.createdAt,
+                  isYou: lastMessage.senderId === userId,
+                }
+              : null,
           unreadCount: unreadByChatId.get(chat.id) ?? 0,
           createdAt: chat.createdAt,
           sortAt,
@@ -175,6 +195,7 @@ export class ChatService {
           isPremium: flair.isPremium,
           avatarTheme: flair.avatarTheme,
           livenessVerified: flair.livenessVerified,
+          gender: flair.gender,
         },
         createdAt: chat.createdAt,
       },
@@ -183,12 +204,18 @@ export class ChatService {
 
   async listMessages(userId: string, chatId: string, page = 1, limit = 50) {
     await this.getChatForUser(userId, chatId);
+    const participantState = await this.prisma.chatParticipantState.findUnique({
+      where: { userId_chatId: { userId, chatId } },
+    });
     const offset = (page - 1) * limit;
 
     const messages = await this.prisma.message.findMany({
       where: {
         chatId,
         status: { not: MessageStatus.deleted },
+        ...(participantState?.visibleAfter
+          ? { createdAt: { gt: participantState.visibleAfter } }
+          : {}),
       },
       orderBy: { createdAt: 'asc' },
       skip: offset,
@@ -232,6 +259,11 @@ export class ChatService {
         senderId: userId,
         content: content.trim(),
       },
+    });
+
+    await this.prisma.chatParticipantState.updateMany({
+      where: { userId: otherUserId, chatId },
+      data: { hiddenAt: null },
     });
 
     await this.audit.log({
@@ -281,6 +313,34 @@ export class ChatService {
     };
   }
 
+  async hideChat(userId: string, chatId: string) {
+    await this.getChatForUser(userId, chatId);
+    const now = new Date();
+
+    await this.prisma.chatParticipantState.upsert({
+      where: { userId_chatId: { userId, chatId } },
+      create: {
+        userId,
+        chatId,
+        hiddenAt: now,
+        visibleAfter: now,
+      },
+      update: {
+        hiddenAt: now,
+        visibleAfter: now,
+      },
+    });
+
+    await this.audit.log({
+      userId,
+      action: 'chat.hide',
+      entityType: 'chat',
+      entityId: chatId,
+    });
+
+    return { success: true, data: { hidden: true } };
+  }
+
   async closeChat(userId: string, chatId: string) {
     const chat = await this.getChatForUser(userId, chatId);
 
@@ -301,11 +361,17 @@ export class ChatService {
 
   async markMessagesRead(userId: string, chatId: string, messageIds?: string[]) {
     await this.getChatForUser(userId, chatId);
+    const participantState = await this.prisma.chatParticipantState.findUnique({
+      where: { userId_chatId: { userId, chatId } },
+    });
 
     const where = {
       chatId,
       senderId: { not: userId },
       status: { not: MessageStatus.deleted },
+      ...(participantState?.visibleAfter
+        ? { createdAt: { gt: participantState.visibleAfter } }
+        : {}),
       ...(messageIds?.length ? { id: { in: messageIds } } : {}),
     };
 

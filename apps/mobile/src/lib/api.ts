@@ -582,6 +582,9 @@ export const api = {
   closeChat: (chatId: string) =>
     apiFetch(`/chats/${chatId}/close`, { method: 'POST' }),
 
+  hideChat: (chatId: string) =>
+    apiFetch(`/chats/${chatId}/hide`, { method: 'POST' }),
+
   blockUser: (userId: string) =>
     apiFetch('/blocks', {
       method: 'POST',
@@ -764,6 +767,7 @@ export interface PublicUserFlair {
   isPremium?: boolean;
   avatarTheme?: string | null;
   livenessVerified?: boolean;
+  gender?: 'male' | 'female' | 'transgender' | 'other' | null;
 }
 
 export interface NearbyAvailableUser extends PublicUserFlair {
@@ -808,6 +812,7 @@ export interface WallPost {
     isPremium?: boolean;
     avatarTheme?: string | null;
     livenessVerified?: boolean;
+    gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   };
 }
 
@@ -824,6 +829,7 @@ export interface WallPostDetail extends WallPost {
       isPremium?: boolean;
       avatarTheme?: string | null;
       livenessVerified?: boolean;
+      gender?: 'male' | 'female' | 'transgender' | 'other' | null;
     };
   }>;
 }
@@ -925,6 +931,7 @@ export interface MatchOtherUser {
   isPremium?: boolean;
   avatarTheme?: string | null;
   livenessVerified?: boolean;
+  gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   activeNow?: boolean;
   anonymous: boolean;
   label: string;
@@ -958,6 +965,7 @@ export interface ChatSummary {
     isPremium?: boolean;
     avatarTheme?: string | null;
     livenessVerified?: boolean;
+    gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   };
   lastMessage: {
     id: string;
@@ -980,6 +988,7 @@ export interface ChatDetail {
     isPremium?: boolean;
     avatarTheme?: string | null;
     livenessVerified?: boolean;
+    gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   };
   createdAt: string;
 }
@@ -1060,5 +1069,6 @@ export interface EventComment {
     isPremium?: boolean;
     avatarTheme?: string | null;
     livenessVerified?: boolean;
+    gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   };
 }

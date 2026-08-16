@@ -1,10 +1,11 @@
-import { SubscriptionPlan, SubscriptionStatus, VerificationStatus, VerificationType } from '@pingme/db';
+import { Gender, SubscriptionPlan, SubscriptionStatus, VerificationStatus, VerificationType } from '@pingme/db';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface PublicProfileFields {
   isPremium: boolean;
   avatarTheme: string | null;
   livenessVerified: boolean;
+  gender: Gender | null;
 }
 
 export function isActivePremiumSubscription(subscription: {
@@ -28,7 +29,7 @@ export function isActivePremiumSubscription(subscription: {
 }
 
 export function getPublicProfileFields(
-  profile: { avatarConfig?: unknown } | null | undefined,
+  profile: { avatarConfig?: unknown; gender?: Gender | null } | null | undefined,
   subscription: {
     plan: SubscriptionPlan | string;
     status: SubscriptionStatus | string;
@@ -44,6 +45,7 @@ export function getPublicProfileFields(
     isPremium,
     avatarTheme: isPremium ? theme : null,
     livenessVerified,
+    gender: profile?.gender ?? null,
   };
 }
 
@@ -77,7 +79,7 @@ export async function loadPublicProfileMap(prisma: PrismaService, userIds: strin
   const [profiles, subscriptions, verifiedSet] = await Promise.all([
     prisma.profile.findMany({
       where: { userId: { in: uniqueIds } },
-      select: { userId: true, avatarConfig: true },
+      select: { userId: true, avatarConfig: true, gender: true },
     }),
     prisma.subscription.findMany({
       where: { userId: { in: uniqueIds } },

@@ -304,7 +304,12 @@ export class PresenceService {
       .filter((row) => !blockedSet.has(row.user_id))
       .map((row) => {
         const profile = profileByUserId.get(row.user_id);
-        const flair = flairByUserId.get(row.user_id) ?? { isPremium: false, avatarTheme: null };
+        const flair = flairByUserId.get(row.user_id) ?? {
+          isPremium: false,
+          avatarTheme: null,
+          livenessVerified: false,
+          gender: null,
+        };
         return {
           userId: row.user_id,
           displayName: profile?.displayName ?? 'Someone nearby',
@@ -312,6 +317,8 @@ export class PresenceService {
           distanceBucket: distanceBucket(Number(row.distance_meters)),
           isPremium: flair.isPremium,
           avatarTheme: flair.avatarTheme,
+          livenessVerified: flair.livenessVerified,
+          gender: flair.gender,
         };
       });
 

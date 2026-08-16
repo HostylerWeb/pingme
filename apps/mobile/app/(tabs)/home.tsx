@@ -23,6 +23,7 @@ import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { DeletionScheduledBanner } from '../../src/components/deletion-scheduled-banner';
+import { GenderSymbol } from '../../src/components/ui/gender-symbol';
 import { NearbyRadiusPicker, wallRadiusRangeLabelFromConfig } from '../../src/components/nearby-radius-picker';
 import { showToast } from '../../src/stores/toast-store';
 import { formatWallPostTime } from '../../src/lib/format-post-time';
@@ -107,6 +108,7 @@ function PostRow({
         <View style={styles.postMeta}>
           <DisplayNameWithFlair
             name={name}
+            gender={post.author.gender}
             isPremium={post.author.isPremium}
             isVerified={!post.author.isYou && post.author.livenessVerified}
           />
@@ -473,9 +475,12 @@ export default function WallScreen() {
                   size="lg"
                   themeId={person.isPremium ? person.avatarTheme : null}
                 />
-                <Text style={styles.nearbyName} numberOfLines={1}>
-                  {person.displayName}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', maxWidth: 64, justifyContent: 'center' }}>
+                  <GenderSymbol gender={person.gender} size={11} />
+                  <Text style={styles.nearbyName} numberOfLines={1}>
+                    {person.displayName}
+                  </Text>
+                </View>
               </View>
             ))}
           </ScrollView>

@@ -303,7 +303,7 @@ function PendingConnectionCard({
           themeId={other.isPremium ? other.avatarTheme : null}
         />
         <View style={styles.meta}>
-          <DisplayNameWithFlair name={name} isPremium={other.isPremium} isVerified={other.livenessVerified} />
+          <DisplayNameWithFlair name={name} gender={other.gender} isPremium={other.isPremium} isVerified={other.livenessVerified} />
           <Text style={styles.source}>{sourceLabel}</Text>
           {other.activeNow ? <ActiveNowBadge /> : null}
         </View>
@@ -422,7 +422,7 @@ function IcebreakerRow({
           themeId={person.isPremium ? person.avatarTheme : null}
         />
         <View style={styles.personMeta}>
-          <DisplayNameWithFlair name={person.displayName} isPremium={person.isPremium} isVerified={person.livenessVerified} />
+          <DisplayNameWithFlair name={person.displayName} gender={person.gender} isPremium={person.isPremium} isVerified={person.livenessVerified} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' }}>
             <DistancePill
               label={icebreakerRadiusText}
