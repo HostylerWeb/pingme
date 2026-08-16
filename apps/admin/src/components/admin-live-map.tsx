@@ -16,7 +16,8 @@ type ClusterCell = {
   lat: number;
   lng: number;
   count: number;
-  availableCount: number;
+  wallCount: number;
+  icebreakerCount: number;
 };
 
 function buildClustersGeoJSON(cells: ClusterCell[]): FeatureCollection<Point> {
@@ -27,7 +28,8 @@ function buildClustersGeoJSON(cells: ClusterCell[]): FeatureCollection<Point> {
         type: 'Feature',
         properties: {
           count: cell.count,
-          availableCount: cell.availableCount,
+          wallCount: cell.wallCount,
+          icebreakerCount: cell.icebreakerCount,
         },
         geometry: { type: 'Point', coordinates: [cell.lng, cell.lat] },
       }),
@@ -144,14 +146,15 @@ function setupMapInteractions(
 
     const coordinates = [...feature.geometry.coordinates] as [number, number];
     const count = Number(feature.properties?.count ?? 0);
-    const availableCount = Number(feature.properties?.availableCount ?? 0);
+    const wallCount = Number(feature.properties?.wallCount ?? 0);
+    const icebreakerCount = Number(feature.properties?.icebreakerCount ?? 0);
 
     popupRef.current?.remove();
     popupRef.current = new mapboxgl.Popup({ closeButton: false, offset: 12 })
       .setLngLat(coordinates)
       .setHTML(
-        `<div style="font-size:13px;font-weight:600;margin-bottom:4px">${count} user${count === 1 ? '' : 's'} nearby</div>` +
-          `<div style="font-size:11px;color:#8c8c8c;margin-bottom:2px">${availableCount} available on Wall</div>` +
+        `<div style="font-size:13px;font-weight:600;margin-bottom:4px">${count} user${count === 1 ? '' : 's'} online</div>` +
+          `<div style="font-size:11px;color:#8c8c8c;margin-bottom:2px">${wallCount} on Wall · ${icebreakerCount} Break the ice</div>` +
           `<div style="font-size:11px;color:#8c8c8c">~${clusterRadiusMeters}m area (fuzzy)</div>`,
       )
       .addTo(map);

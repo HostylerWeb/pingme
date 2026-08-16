@@ -10,9 +10,17 @@ import { AdminLiveMap } from '@/components/admin-live-map';
 
 interface HeatmapResponse {
   totalActive: number;
-  availableCount: number;
+  wallCount: number;
+  icebreakerCount: number;
   clusterRadiusMeters: number;
-  cells: Array<{ lat: number; lng: number; count: number; availableCount: number }>;
+  ready?: boolean;
+  cells: Array<{
+    lat: number;
+    lng: number;
+    count: number;
+    wallCount: number;
+    icebreakerCount: number;
+  }>;
 }
 
 export default function MapPage() {
@@ -26,7 +34,7 @@ export default function MapPage() {
 
     const interval = setInterval(() => {
       adminFetch<HeatmapResponse>('/admin/map/heatmap').then(setData).catch(() => {});
-    }, 30000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, []);
@@ -39,21 +47,28 @@ export default function MapPage() {
     <div>
       <PageHeader
         title="Live map"
-        description={`Grouped presence clusters (~${data?.clusterRadiusMeters ?? 550}m fuzzy areas). Refreshes every 30s.`}
+        description={`Users on Wall or Break the ice, grouped in ~${data?.clusterRadiusMeters ?? 550}m fuzzy areas. Refreshes every 60s.`}
       />
 
       {error ? <p className="mb-4 text-sm text-error">{error}</p> : null}
+      {data && data.ready === false ? (
+        <p className="mb-4 text-sm text-ink-secondary">Map data is warming up — refresh in a few seconds.</p>
+      ) : null}
 
       {data ? (
         <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <div className="mb-6 grid gap-4 sm:grid-cols-4">
             <Card>
-              <CardTitle>Active sessions</CardTitle>
+              <CardTitle>Online now</CardTitle>
               <CardValue>{data.totalActive}</CardValue>
             </Card>
             <Card>
-              <CardTitle>Available now</CardTitle>
-              <CardValue>{data.availableCount}</CardValue>
+              <CardTitle>On Wall</CardTitle>
+              <CardValue>{data.wallCount}</CardValue>
+            </Card>
+            <Card>
+              <CardTitle>Break the ice</CardTitle>
+              <CardValue>{data.icebreakerCount}</CardValue>
             </Card>
             <Card>
               <CardTitle>Clusters</CardTitle>
@@ -65,7 +80,7 @@ export default function MapPage() {
             <Card className="overflow-hidden p-0">
               <AdminLiveMap cells={data.cells} clusterRadiusMeters={data.clusterRadiusMeters} />
               <div className="border-t border-divider px-4 py-3 text-xs text-ink-muted">
-                Circles group users into ~{data.clusterRadiusMeters}m fuzzy areas. Number = users in that zone.
+                Shows users visible on Wall or with Break the ice on. Number = total in that zone.
                 Locations are never exact GPS.
               </div>
             </Card>
@@ -86,13 +101,14 @@ export default function MapPage() {
                         <p className="font-medium text-foreground">
                           {cluster.count} user{cluster.count === 1 ? '' : 's'}
                         </p>
+                        <p className="text-[11px] text-ink-muted">
+                          {cluster.wallCount} Wall · {cluster.icebreakerCount} ice
+                        </p>
                         <p className="font-mono text-[11px] text-ink-muted">
                           {cluster.lat.toFixed(4)}, {cluster.lng.toFixed(4)}
                         </p>
                       </div>
-                      <Badge color={cluster.availableCount > 0 ? 'green' : 'zinc'}>
-                        {cluster.availableCount} visible
-                      </Badge>
+                      <Badge color={cluster.count > 0 ? 'green' : 'zinc'}>active</Badge>
                     </li>
                   ))}
                 </ul>

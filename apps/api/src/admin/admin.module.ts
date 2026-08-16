@@ -19,6 +19,7 @@ import { AdminChatsService } from './chats/admin-chats.service';
 import { AdminDashboardController } from './dashboard/admin-dashboard.controller';
 import { AdminDashboardService } from './dashboard/admin-dashboard.service';
 import { AdminMapController } from './map/admin-map.controller';
+import { AdminMapRefreshService } from './map/admin-map-refresh.service';
 import { AdminMapService } from './map/admin-map.service';
 import { AdminReportsController } from './reports/admin-reports.controller';
 import { AdminReportsService } from './reports/admin-reports.service';
@@ -72,6 +73,7 @@ import { AdminWallService } from './wall/admin-wall.service';
     AdminChatsService,
     AdminAdminsService,
     AdminMapService,
+    AdminMapRefreshService,
   ],
 })
 export class AdminModule {}
