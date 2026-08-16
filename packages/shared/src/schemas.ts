@@ -117,6 +117,21 @@ export const ResetPasswordSchema = z
   })
   .strict();
 
+export const DeleteAccountSchema = z
+  .object({
+    password: z.string().min(1, 'Password is required'),
+    confirmation: z.literal('DELETE', {
+      errorMap: () => ({ message: 'Type DELETE to confirm' }),
+    }),
+  })
+  .strict();
+
+export const CancelAccountDeletionSchema = z
+  .object({
+    password: z.string().min(1, 'Password is required'),
+  })
+  .strict();
+
 export type SignUpInput = z.infer<typeof SignUpSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
@@ -124,6 +139,8 @@ export type UpdateSettingsInput = z.infer<typeof UpdateSettingsSchema>;
 export type VerifyOtpInput = z.infer<typeof VerifyOtpSchema>;
 export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;
+export type DeleteAccountInput = z.infer<typeof DeleteAccountSchema>;
+export type CancelAccountDeletionInput = z.infer<typeof CancelAccountDeletionSchema>;
 
 export const CreateWallPostSchema = z.object({
   content: z.string().min(1).max(500),

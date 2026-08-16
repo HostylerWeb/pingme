@@ -2,28 +2,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../src/lib/api';
-import { useAppConfig } from '../src/hooks/use-app-config';
-import { useAuthStore } from '../src/stores/auth-store';
 import { showToast } from '../src/stores/toast-store';
 import { useThemeStore } from '../src/stores/theme-store';
+import { DeletionScheduledBanner } from '../src/components/deletion-scheduled-banner';
 import { AppHeader, AppSwitch, Button, EmptyState, LoadingView, Screen, SectionLabel } from '../src/components/ui';
 import { PremiumCta } from '../src/components/premium-cta';
 import { AppIcon } from '../src/components/ui/app-icon';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
-
-function defaultLegalUrl(path: 'privacy.html' | 'terms.html') {
-  const explicit =
-    path === 'privacy.html'
-      ? process.env.EXPO_PUBLIC_PRIVACY_URL
-      : process.env.EXPO_PUBLIC_TERMS_URL;
-  if (explicit) return explicit;
-  return `${API_URL.replace(/\/$/, '')}/legal/${path}`;
-}
 
 type NotificationKey = 'allowPushReplies' | 'allowPushChat' | 'allowPushIcebreaker';
 
@@ -56,9 +44,7 @@ export default function SettingsScreen() {
   const { colors } = useTheme();
   const darkMode = useThemeStore((s) => s.darkMode);
   const setDarkMode = useThemeStore((s) => s.setDarkMode);
-  const logout = useAuthStore((s) => s.logout);
   const [osNotificationsGranted, setOsNotificationsGranted] = useState<boolean | null>(null);
-  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const refreshOsPermission = useCallback(async () => {
     const { status } = await Notifications.getPermissionsAsync();
@@ -75,13 +61,6 @@ export default function SettingsScreen() {
     queryKey: ['subscription'],
     queryFn: () => api.getSubscription(),
   });
-  const { data: appConfig } = useAppConfig();
-  const privacyUrl = appConfig?.privacyPolicyUrl || defaultLegalUrl('privacy.html');
-  const termsUrl = appConfig?.termsOfServiceUrl || defaultLegalUrl('terms.html');
-
-  const openLegal = (url: string) => {
-    void Linking.openURL(url).catch(() => showToast('Could not open link', 'error'));
-  };
 
   const styles = useThemedStyles(({ colors }) => ({
     content: { paddingHorizontal: spacing.container },
@@ -165,36 +144,6 @@ export default function SettingsScreen() {
     linkLabel: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16, flex: 1 },
   }));
 
-  const confirmDeleteAccount = () => {
-    Alert.alert(
-      'Delete account?',
-      'This permanently removes your profile, posts, and login. You cannot undo this.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete account',
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setDeletingAccount(true);
-              try {
-                await api.deleteAccount();
-                queryClient.clear();
-                await logout();
-                showToast('Your account was deleted', 'success');
-                router.replace('/(auth)/login');
-              } catch {
-                showToast('Could not delete account', 'error');
-              } finally {
-                setDeletingAccount(false);
-              }
-            })();
-          },
-        },
-      ],
-    );
-  };
-
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['user-settings'],
     queryFn: () => api.getSettings(),
@@ -246,6 +195,8 @@ export default function SettingsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
+          <DeletionScheduledBanner />
+
           <View style={{ marginBottom: spacing.lg }}>
             <PremiumCta isPremium={isPremium} onPress={() => router.push('/premium')} />
           </View>
@@ -303,14 +254,14 @@ export default function SettingsScreen() {
           <Text style={styles.sectionHint}>Policies for how PingMe handles your data and account.</Text>
           <View style={styles.group}>
             <Pressable
-              onPress={() => openLegal(privacyUrl)}
+              onPress={() => router.push('/legal?doc=privacy')}
               style={({ pressed }) => [styles.linkRow, styles.linkRowBorder, pressed && { opacity: 0.85 }]}
             >
               <Text style={styles.linkLabel}>Privacy policy</Text>
               <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
             </Pressable>
             <Pressable
-              onPress={() => openLegal(termsUrl)}
+              onPress={() => router.push('/legal?doc=terms')}
               style={({ pressed }) => [styles.linkRow, pressed && { opacity: 0.85 }]}
             >
               <Text style={styles.linkLabel}>Terms of service</Text>
@@ -320,19 +271,13 @@ export default function SettingsScreen() {
 
           <SectionLabel>Account</SectionLabel>
           <Text style={styles.dangerHint}>
-            Deleting your account removes your profile and login. This cannot be undone.
+            Deleting your account starts a grace period before permanent removal. You can cancel during that time.
           </Text>
           <Pressable
-            onPress={confirmDeleteAccount}
-            disabled={deletingAccount}
-            style={({ pressed }) => [
-              styles.deleteButton,
-              (pressed || deletingAccount) && styles.deleteButtonPressed,
-            ]}
+            onPress={() => router.push('/delete-account')}
+            style={({ pressed }) => [styles.deleteButton, pressed && styles.deleteButtonPressed]}
           >
-            <Text style={styles.deleteButtonLabel}>
-              {deletingAccount ? 'Deleting…' : 'Delete account'}
-            </Text>
+            <Text style={styles.deleteButtonLabel}>Delete account</Text>
           </Pressable>
         </ScrollView>
       )}

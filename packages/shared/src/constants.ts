@@ -27,6 +27,9 @@ export const MAX_MESSAGE_LENGTH = 2000;
 
 export const MIN_AGE_YEARS = 18;
 
+/** Days after scheduling before an account is permanently deleted. */
+export const ACCOUNT_DELETION_GRACE_DAYS = 14;
+
 export const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },
   { value: 'female', label: 'Female' },

@@ -1,34 +1,19 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Linking, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import type { GenderValue } from '@pingme/shared';
 import { ApiError } from '../../src/lib/api';
-import { useAppConfig } from '../../src/hooks/use-app-config';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { showToast } from '../../src/stores/toast-store';
 import { Button, DateOfBirthField, GenderPicker, Input, PasswordInput, Screen, SegmentedControl } from '../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
-
-function defaultLegalUrl(path: 'privacy.html' | 'terms.html') {
-  const explicit =
-    path === 'privacy.html'
-      ? process.env.EXPO_PUBLIC_PRIVACY_URL
-      : process.env.EXPO_PUBLIC_TERMS_URL;
-  if (explicit) return explicit;
-  return `${API_URL.replace(/\/$/, '')}/legal/${path}`;
-}
 
 export default function RegisterScreen() {
   const router = useRouter();
   const register = useAuthStore((s) => s.register);
   const isLoading = useAuthStore((s) => s.isLoading);
   const { colors } = useTheme();
-  const { data: appConfig } = useAppConfig();
-  const privacyUrl = appConfig?.privacyPolicyUrl || defaultLegalUrl('privacy.html');
-  const termsUrl = appConfig?.termsOfServiceUrl || defaultLegalUrl('terms.html');
   const [mode, setMode] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -167,14 +152,14 @@ export default function RegisterScreen() {
               By signing up you agree to our{' '}
               <Text
                 style={styles.legalLink}
-                onPress={() => void Linking.openURL(termsUrl)}
+                onPress={() => router.push('/legal?doc=terms')}
               >
                 Terms
               </Text>{' '}
               and{' '}
               <Text
                 style={styles.legalLink}
-                onPress={() => void Linking.openURL(privacyUrl)}
+                onPress={() => router.push('/legal?doc=privacy')}
               >
                 Privacy Policy
               </Text>

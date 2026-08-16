@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common';
+import { RedisModule } from '../redis/redis.module';
 import { VerificationModule } from '../verification/verification.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { AccountDeletionService } from './account-deletion.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
-  imports: [VerificationModule, SubscriptionsModule],
+  imports: [RedisModule, VerificationModule, SubscriptionsModule],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, AccountDeletionService],
   exports: [UsersService],
 })
 export class UsersModule {}

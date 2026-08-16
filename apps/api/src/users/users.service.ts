@@ -1,6 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Profile, Prisma, UserStatus, WallPostStatus, WallReplyStatus } from '@pingme/db';
-import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
+import { ACCOUNT_DELETION_GRACE_DAYS, PREMIUM_AVATAR_THEMES, CancelAccountDeletionInput, DeleteAccountInput, MediaConfirmInput, MediaPresignInput, UpdateProfileInput, UpdateSettingsInput } from '@pingme/shared';
+import * as bcrypt from 'bcrypt';
 import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
 import { R2Service } from '../common/services/r2.service';
@@ -8,12 +9,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { VerificationService } from '../verification/verification.service';
-import {
-  MediaConfirmInput,
-  MediaPresignInput,
-  UpdateProfileInput,
-  UpdateSettingsInput,
-} from '@pingme/shared';
 import { assertSafeAvatarObjectKey } from '../common/utils/upload-key.util';
 
 const GEO_AVAILABLE_KEY = 'geo:available';
@@ -172,13 +167,155 @@ export class UsersService {
     };
   }
 
-  async deleteAccount(userId: string, meta: { ipAddress?: string; userAgent?: string }) {
+  async scheduleAccountDeletion(
+    userId: string,
+    dto: DeleteAccountInput,
+    meta: { ipAddress?: string; userAgent?: string },
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { subscription: true },
+    });
+
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.deletionScheduledAt) {
+      throw new ConflictException('Account deletion is already scheduled');
+    }
+
+    if (!user.passwordHash) {
+      throw new BadRequestException('Password confirmation is not available for this account');
+    }
+
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Incorrect password');
+    }
+
+    const subscription = await this.subscriptions.getSubscriptionView(userId);
+    if (subscription.isPremium && !subscription.cancelAtPeriodEnd) {
+      throw new ForbiddenException(
+        'Cancel your Premium subscription in the app store before deleting your account',
+      );
+    }
+
+    const effectiveAt = new Date(
+      Date.now() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        deletionScheduledAt: effectiveAt,
+        isAvailable: false,
+      },
+    });
+
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    await this.prisma.presenceSession.updateMany({
+      where: { userId },
+      data: {
+        isActive: false,
+        endedAt: new Date(),
+        latitude: null,
+        longitude: null,
+        fuzzyLat: null,
+        fuzzyLng: null,
+      },
+    });
+
+    try {
+      await this.redis.client.zrem(GEO_AVAILABLE_KEY, userId);
+    } catch {
+      // best effort
+    }
+
+    await this.audit.log({
+      userId,
+      action: 'user.delete.scheduled',
+      entityType: 'user',
+      entityId: userId,
+      metadata: { effectiveAt: effectiveAt.toISOString() },
+      ...meta,
+    });
+
+    return {
+      scheduled: true,
+      graceDays: ACCOUNT_DELETION_GRACE_DAYS,
+      effectiveAt: effectiveAt.toISOString(),
+    };
+  }
+
+  async cancelAccountDeletion(
+    userId: string,
+    dto: CancelAccountDeletionInput,
+    meta: { ipAddress?: string; userAgent?: string },
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user || user.deletedAt) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (!user.deletionScheduledAt) {
+      throw new BadRequestException('No account deletion is scheduled');
+    }
+
+    if (!user.passwordHash) {
+      throw new BadRequestException('Password confirmation is not available for this account');
+    }
+
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Incorrect password');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { deletionScheduledAt: null },
+    });
+
+    await this.audit.log({
+      userId,
+      action: 'user.delete.cancelled',
+      entityType: 'user',
+      entityId: userId,
+      ...meta,
+    });
+
+    return { cancelled: true };
+  }
+
+  async finalizeScheduledDeletions(): Promise<number> {
+    const due = await this.prisma.user.findMany({
+      where: {
+        deletionScheduledAt: { lte: new Date() },
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    for (const row of due) {
+      await this.purgeAccount(row.id, {});
+    }
+
+    return due.length;
+  }
+
+  async purgeAccount(userId: string, meta: { ipAddress?: string; userAgent?: string }) {
     await this.prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userId },
         data: {
           status: UserStatus.deleted,
           deletedAt: new Date(),
+          deletionScheduledAt: null,
           email: null,
           phone: null,
           passwordHash: null,

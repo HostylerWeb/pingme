@@ -198,10 +198,23 @@ export const api = {
 
   me: () => apiFetch<{ success: boolean; data: AuthUser }>('/users/me'),
 
-  deleteAccount: () =>
-    apiFetch<{ success: boolean }>('/users/me', {
+  scheduleAccountDeletion: (payload: { password: string; confirmation: 'DELETE' }) =>
+    apiFetch<{
+      success: boolean;
+      data: { scheduled: boolean; graceDays: number; effectiveAt: string };
+    }>('/users/me', {
       method: 'DELETE',
+      body: JSON.stringify(payload),
     }),
+
+  cancelAccountDeletion: (payload: { password: string }) =>
+    apiFetch<{ success: boolean; data: { cancelled: boolean } }>('/users/me/delete/cancel', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  exportUserData: () =>
+    apiFetch<{ success: boolean; data: Record<string, unknown> }>('/users/me/export'),
 
   updateProfile: (payload: {
     displayName?: string;
@@ -654,6 +667,7 @@ export interface AuthUser {
   emailVerified: boolean;
   phoneVerified: boolean;
   livenessVerified?: boolean;
+  deletionScheduledAt?: string | null;
   profile?: {
     displayName: string;
     bio?: string | null;

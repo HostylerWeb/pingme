@@ -24,6 +24,7 @@ import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
 import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
+import { DeletionScheduledBanner } from '../../src/components/deletion-scheduled-banner';
 import { NearbyRadiusPicker, wallRadiusRangeLabelFromConfig } from '../../src/components/nearby-radius-picker';
 import { showToast } from '../../src/stores/toast-store';
 import {
@@ -456,6 +457,7 @@ export default function WallScreen() {
       </View>
 
       {!isVerified ? <LivenessBanner /> : null}
+      <DeletionScheduledBanner />
 
       {nearbyUsers.length > 0 ? (
         <View style={styles.nearbySection}>

@@ -161,7 +161,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (!onboardingComplete) {
       target = '/(onboarding)';
     } else if (!user) {
-      target = '/(auth)/login';
+      const onAuthScreen =
+        pathname.startsWith('/(auth)') ||
+        pathname === '/login' ||
+        pathname === '/register' ||
+        pathname === '/forgot-password' ||
+        pathname === '/reset-password';
+      const onLegalScreen = pathname === '/legal' || pathname.startsWith('/legal/');
+      if (!onAuthScreen && !onLegalScreen) {
+        target = '/(auth)/login';
+      }
     } else if ((user.email && !user.emailVerified) || (user.phone && !user.phoneVerified)) {
       target = '/(setup)/verify';
     } else if (
@@ -244,6 +253,8 @@ function RootLayoutContent() {
                 <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="premium" options={{ headerShown: false }} />
                 <Stack.Screen name="settings" options={{ headerShown: false }} />
+                <Stack.Screen name="legal" options={{ headerShown: false }} />
+                <Stack.Screen name="delete-account" options={{ headerShown: false }} />
                 <Stack.Screen name="verification-complete" options={{ headerShown: false }} />
               </Stack>
             </AuthGate>

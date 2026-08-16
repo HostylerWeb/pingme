@@ -1,12 +1,17 @@
 import { Body, Controller, Delete, Get, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors, BadRequestException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import {
+  CancelAccountDeletionSchema,
+  DeleteAccountSchema,
   MediaConfirmSchema,
   MediaPresignSchema,
   MediaUploadBase64Schema,
   UpdateProfileSchema,
   UpdateSettingsSchema,
+  CancelAccountDeletionInput,
+  DeleteAccountInput,
   MediaConfirmInput,
   MediaPresignInput,
   MediaUploadBase64Input,
@@ -64,9 +69,26 @@ export class UsersController {
   }
 
   @Delete('users/me')
-  @ApiOperation({ summary: 'Delete account' })
-  async deleteAccount(@CurrentUser() user: User, @Req() req: Request) {
-    const data = await this.usersService.deleteAccount(user.id, getRequestMeta(req));
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Schedule account deletion (grace period)' })
+  async deleteAccount(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(DeleteAccountSchema)) dto: DeleteAccountInput,
+    @Req() req: Request,
+  ) {
+    const data = await this.usersService.scheduleAccountDeletion(user.id, dto, getRequestMeta(req));
+    return { success: true, data };
+  }
+
+  @Post('users/me/delete/cancel')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Cancel a scheduled account deletion' })
+  async cancelAccountDeletion(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(CancelAccountDeletionSchema)) dto: CancelAccountDeletionInput,
+    @Req() req: Request,
+  ) {
+    const data = await this.usersService.cancelAccountDeletion(user.id, dto, getRequestMeta(req));
     return { success: true, data };
   }
 
