@@ -30,6 +30,7 @@ export class AdminEventsController {
   @Get()
   listEvents(
     @Query('status') status?: EventStatus,
+    @Query('lifecycle') lifecycle?: 'ended' | 'upcoming',
     @Query('q') q?: string,
     @Query('userId') userId?: string,
     @Query('page') page?: string,
@@ -37,11 +38,17 @@ export class AdminEventsController {
   ) {
     return this.events.listEvents({
       status,
+      lifecycle,
       q,
       userId,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
+  }
+
+  @Get(':id/withdrawals')
+  listWithdrawals(@Param('id', ParseUUIDPipe) id: string) {
+    return this.events.listWithdrawals(id);
   }
 
   @Patch(':id/hide')

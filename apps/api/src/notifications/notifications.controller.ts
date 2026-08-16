@@ -1,10 +1,11 @@
-import { Controller, ForbiddenException, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { NOTIFICATION_TYPES } from '@pingme/shared';
 import { User } from '@pingme/db';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { InboxService } from './inbox.service';
 import { NotificationService } from './notification.service';
 
 @ApiTags('notifications')
@@ -13,9 +14,33 @@ import { NotificationService } from './notification.service';
 @Controller('notifications')
 export class NotificationsController {
   constructor(
+    private readonly inbox: InboxService,
     private readonly notifications: NotificationService,
     private readonly config: ConfigService,
   ) {}
+
+  @Get('summary')
+  @ApiOperation({ summary: 'Unread counts for tab badges' })
+  getSummary(@CurrentUser() user: User) {
+    return this.inbox.getSummary(user.id).then((data) => ({ success: true, data }));
+  }
+
+  @Get('wall')
+  @ApiOperation({ summary: 'Wall reply notifications for the bell inbox' })
+  listWall(
+    @CurrentUser() user: User,
+    @Query('limit') limit?: string,
+  ) {
+    return this.inbox
+      .listWallNotifications(user.id, limit ? Number(limit) : 30)
+      .then((data) => ({ success: true, data }));
+  }
+
+  @Post('wall/mark-read')
+  @ApiOperation({ summary: 'Mark wall notifications read' })
+  markWallRead(@CurrentUser() user: User, @Body() body: { postId?: string }) {
+    return this.inbox.markWallNotificationsRead(user.id, body.postId);
+  }
 
   @Post('test')
   @ApiOperation({ summary: 'Send a test push notification to the current user (non-production only)' })

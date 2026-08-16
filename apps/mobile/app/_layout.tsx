@@ -22,6 +22,7 @@ import {
   type NotificationNavigationPayload,
 } from '../src/lib/push-notifications';
 import { registerAuthFailureHandler } from '../src/lib/auth-session';
+import { api } from '../src/lib/api';
 import { queryClient } from '../src/lib/query-client';
 import { initSentry } from '../src/lib/sentry';
 import { useAuthStore } from '../src/stores/auth-store';
@@ -126,8 +127,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    if (!user || !notificationsSetupStorage.isComplete()) return;
+    if (!user?.id || !notificationsSetupStorage.isComplete()) return;
     void registerForPushNotifications({ skipPermissionRequest: true });
+    void queryClient.prefetchQuery({
+      queryKey: ['notification-summary'],
+      queryFn: () => api.getNotificationSummary(),
+    });
+    void queryClient.prefetchQuery({
+      queryKey: ['wall-notifications'],
+      queryFn: () => api.getWallNotifications(),
+    });
   }, [user?.id]);
 
   useEffect(() => {
@@ -152,8 +161,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (payload.type === 'chat.message') {
         queryClient.invalidateQueries({ queryKey: ['chats'] });
       }
-      if (payload.type === 'wall.reply') {
+      if (
+        payload.type === 'wall.reply.on_post' ||
+        payload.type === 'wall.reply.on_thread'
+      ) {
         queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+        queryClient.invalidateQueries({ queryKey: ['notification-summary'] });
+        void queryClient.refetchQueries({ queryKey: ['wall-notifications'] });
         if (payload.postId) {
           queryClient.invalidateQueries({ queryKey: ['wall-post', payload.postId] });
         }
@@ -161,6 +175,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       if (payload.type === 'event.comment.reply' && payload.eventId) {
         queryClient.invalidateQueries({ queryKey: ['event', payload.eventId] });
         queryClient.invalidateQueries({ queryKey: ['event-comments', payload.eventId] });
+      }
+      if (payload.type === 'event.rsvp.withdrawal' && payload.eventId) {
+        queryClient.invalidateQueries({ queryKey: ['event', payload.eventId] });
       }
       if (!shouldSuppressIncomingBanner(pathname, payload)) {
         showIncomingBanner({

@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, ApiError, WallPost } from '../../src/lib/api';
+import { api, ApiError, WallNotificationItem, WallPost } from '../../src/lib/api';
 import {
   stopBackgroundLocation,
   syncBackgroundLocationWithAvailability,
@@ -22,6 +22,8 @@ import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
+import { useNotificationSummary } from '../../src/hooks/use-notification-summary';
+import { useWallNotifications } from '../../src/hooks/use-wall-notifications';
 import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { DeletionScheduledBanner } from '../../src/components/deletion-scheduled-banner';
 import { GenderSymbol } from '../../src/components/ui/gender-symbol';
@@ -152,6 +154,7 @@ export default function WallScreen() {
   const [showPhoto, setShowPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
   const [deletePostTarget, setDeletePostTarget] = useState<WallPost | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [availableOn, setAvailableOn] = useState(false);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
   const user = useAuthStore((s) => s.user);
@@ -225,7 +228,50 @@ export default function WallScreen() {
       borderColor: colors.border,
     },
     headerIconBtnPressed: { opacity: 0.85 },
+    bellBadge: {
+      position: 'absolute',
+      top: -2,
+      right: -2,
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      paddingHorizontal: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accent,
+    },
+    bellBadgeText: { ...typography.labelSm, color: colors.onAccent, fontSize: 10 },
+    notificationRow: {
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+      gap: 4,
+    },
+    notificationRowUnread: { backgroundColor: colors.accentSoft },
+    notificationTitle: { ...typography.bodySemiBold, color: colors.ink },
+    notificationBody: { ...typography.bodyMd, color: colors.inkSecondary, lineHeight: 22 },
+    notificationMeta: { ...typography.caption, color: colors.inkTertiary },
   }));
+
+  const { wallUnread } = useNotificationSummary();
+  const {
+    data: notificationsData,
+    isLoading: notificationsLoading,
+  } = useWallNotifications(screenFocused);
+
+  const markNotificationsReadMutation = useMutation({
+    mutationFn: (postId: string) => api.markWallNotificationsRead(postId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['notification-summary'] });
+      await queryClient.invalidateQueries({ queryKey: ['wall-notifications'] });
+    },
+  });
+
+  const openWallNotification = (item: WallNotificationItem) => {
+    setNotificationsOpen(false);
+    markNotificationsReadMutation.mutate(item.postId);
+    router.push(`/post/${item.postId}`);
+  };
 
   const {
     data,
@@ -505,6 +551,19 @@ export default function WallScreen() {
         right={
           <View style={styles.headerActions}>
             <Pressable
+              onPress={() => setNotificationsOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Wall notifications"
+              style={({ pressed }) => [styles.headerIconBtn, pressed && styles.headerIconBtnPressed]}
+            >
+              <AppIcon name="notifications" size={20} color={colors.ink} />
+              {wallUnread > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{wallUnread > 9 ? '9+' : wallUnread}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable
               onPress={() => setRadiusSheetOpen(true)}
               accessibilityRole="button"
               accessibilityLabel={`Nearby radius, ${radiusMeters} meters`}
@@ -617,6 +676,42 @@ export default function WallScreen() {
             style={{ marginTop: spacing.md }}
           />
         ) : null}
+      </BottomSheet>
+
+      <BottomSheet
+        visible={notificationsOpen}
+        title="Wall activity"
+        subtitle="Replies on your posts and threads you joined."
+        onClose={() => setNotificationsOpen(false)}
+      >
+        {notificationsLoading && !notificationsData ? (
+          <ActivityIndicator color={colors.accent} style={{ marginVertical: spacing.lg }} />
+        ) : !notificationsData?.data.items.length ? (
+          <EmptyState
+            icon="notifications"
+            title="All caught up"
+            message="New replies on your posts or threads will show up here."
+          />
+        ) : (
+          notificationsData.data.items.map((item) => (
+            <Pressable
+              key={item.id}
+              onPress={() => openWallNotification(item)}
+              style={[
+                styles.notificationRow,
+                !item.readAt && styles.notificationRowUnread,
+              ]}
+            >
+              <Text style={styles.notificationTitle}>{item.title}</Text>
+              <Text style={styles.notificationBody} numberOfLines={2}>
+                {item.actorDisplayName}: {item.replyPreview}
+              </Text>
+              <Text style={styles.notificationMeta} numberOfLines={1}>
+                On “{item.postPreview}”
+              </Text>
+            </Pressable>
+          ))
+        )}
       </BottomSheet>
 
       <BottomSheet visible={modalOpen} title="Post to the wall" subtitle="Only people nearby will see this." onClose={() => setModalOpen(false)}>

@@ -15,7 +15,10 @@ Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const inForeground = AppState.currentState === 'active';
     const data = notification.request.content.data as { type?: string };
-    const isWallReply = data?.type === 'wall.reply';
+    const isWallReply =
+      data?.type === 'wall.reply' ||
+      data?.type === 'wall.reply.on_post' ||
+      data?.type === 'wall.reply.on_thread';
     const isIcebreakerNearby = data?.type === 'icebreaker.nearby';
 
     return {

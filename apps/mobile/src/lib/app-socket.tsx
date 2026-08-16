@@ -146,6 +146,7 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
         void queryClient.invalidateQueries({ queryKey: ['match', payload.matchId] });
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
+        void queryClient.invalidateQueries({ queryKey: ['notification-summary'] });
         if (
           payload.status === 'pending' &&
           !isMatchPromptDismissed(payload.matchId) &&

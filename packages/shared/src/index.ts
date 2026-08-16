@@ -1,4 +1,6 @@
 export * from './events';
+export * from './event-rsvp-withdrawal';
+export * from './wall-connect';
 export * from './constants';
 export * from './distance-config';
 export * from './enums';

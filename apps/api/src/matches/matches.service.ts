@@ -7,7 +7,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { MatchSource, MatchStatus, type Gender } from '@pingme/db';
-import { MATCH_EXPIRY_MINUTES, MatchRequestInput, NOTIFICATION_TYPES, isUserActiveNow } from '@pingme/shared';
+import { MATCH_EXPIRY_MINUTES, MatchRequestInput, NOTIFICATION_TYPES, isUserActiveNow, wallConnectReasonLabel } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { BlocksService } from '../common/services/blocks.service';
@@ -229,6 +229,9 @@ export class MatchesService {
           source: MatchSource.wall_reply,
           sourceReferenceId: reply.id,
           expiresAt,
+          requestReasonCode: dto.reasonCode,
+          requestReasonDetail:
+            dto.reasonCode === 'other' ? dto.reasonDetail?.trim() || null : null,
           userAAcceptedAt: userId === userAId ? new Date() : undefined,
           userBAcceptedAt: userId === userBId ? new Date() : undefined,
         },
@@ -254,7 +257,11 @@ export class MatchesService {
       action: 'match.request',
       entityType: 'match',
       entityId: match.id,
-      metadata: { source: dto.source, sourceReferenceId: dto.sourceReferenceId },
+      metadata: {
+        source: dto.source,
+        sourceReferenceId: dto.sourceReferenceId,
+        reasonCode: dto.reasonCode,
+      },
     });
 
     if (userId === userAId ? match.userBAcceptedAt : match.userAAcceptedAt) {
@@ -324,6 +331,8 @@ export class MatchesService {
       userBAcceptedAt: Date | null;
       expiresAt: Date;
       createdAt: Date;
+      requestReasonCode?: string | null;
+      requestReasonDetail?: string | null;
       chat?: { id: string } | null;
       userA?: {
         id: string;
@@ -372,6 +381,10 @@ export class MatchesService {
       chatId: match.chat?.id ?? null,
       myAccepted: !!myAccepted,
       theirAccepted: !!theirAccepted,
+      requestReasonLabel: match.requestReasonCode
+        ? wallConnectReasonLabel(match.requestReasonCode)
+        : null,
+      requestReasonDetail: match.requestReasonDetail ?? null,
       otherUser: isActive
         ? {
             id: otherUserId,

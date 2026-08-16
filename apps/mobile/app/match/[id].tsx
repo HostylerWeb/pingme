@@ -319,6 +319,12 @@ export default function MatchScreen() {
         </View>
 
         <View style={styles.copyBlock}>
+          {!match.youAccepted && match.theirAccepted && match.requestReasonLabel ? (
+            <Text style={styles.body}>
+              They said: {match.requestReasonLabel}
+              {match.requestReasonDetail ? ` — "${match.requestReasonDetail}"` : ''}
+            </Text>
+          ) : null}
           <Text style={styles.body}>
             If you both accept, a private chat opens. You stay anonymous until you choose to share more.
           </Text>

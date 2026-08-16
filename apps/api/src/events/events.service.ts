@@ -19,6 +19,7 @@ import {
   CreateEventInput,
   EventImageConfirmInput,
   EventRsvpInput,
+  EventRsvpWithdrawInput,
   MAX_EVENT_IMAGES,
   MessageEventHostInput,
   NOTIFICATION_TYPES,
@@ -348,6 +349,11 @@ export class EventsService {
       select: { id: true },
     });
 
+    const isHost = event.userId === userId;
+    const withdrawalCount = isHost
+      ? await this.prisma.eventRsvpWithdrawal.count({ where: { eventId } })
+      : undefined;
+
     return {
       success: true,
       data: {
@@ -380,13 +386,14 @@ export class EventsService {
           avatarTheme: hostFlair.avatarTheme,
           livenessVerified: hostFlair.livenessVerified,
           idVerified: Boolean(idVerified),
-          isYou: event.userId === userId,
+          isYou: isHost,
         },
         viewerRsvp:
           viewerRsvp && viewerRsvp.status !== EventRsvpStatus.cancelled
             ? viewerRsvp.status
             : null,
-        isHost: event.userId === userId,
+        isHost,
+        ...(isHost ? { withdrawalCount } : {}),
       },
     };
   }
@@ -602,6 +609,69 @@ export class EventsService {
     });
 
     return { success: true, data: { status: dto.status } };
+  }
+
+  async withdrawRsvp(userId: string, eventId: string, dto: EventRsvpWithdrawInput) {
+    const event = await this.getActiveEvent(eventId);
+    if (event.userId === userId) {
+      throw new BadRequestException('Hosts cannot withdraw from their own event');
+    }
+
+    const existing = await this.prisma.eventRsvp.findUnique({
+      where: { eventId_userId: { eventId, userId } },
+    });
+    if (
+      !existing ||
+      existing.status === EventRsvpStatus.cancelled ||
+      (existing.status !== EventRsvpStatus.going && existing.status !== EventRsvpStatus.maybe)
+    ) {
+      throw new BadRequestException('You are not attending this event');
+    }
+
+    const reasonDetail =
+      dto.reasonCode === 'other' ? dto.reasonDetail?.trim() || null : null;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.eventRsvpWithdrawal.create({
+        data: {
+          eventId,
+          userId,
+          previousStatus: existing.status,
+          reasonCode: dto.reasonCode,
+          reasonDetail,
+        },
+      });
+
+      await tx.eventRsvp.update({
+        where: { eventId_userId: { eventId, userId } },
+        data: { status: EventRsvpStatus.cancelled },
+      });
+
+      const goingDelta = existing.status === EventRsvpStatus.going ? -1 : 0;
+      const maybeDelta = existing.status === EventRsvpStatus.maybe ? -1 : 0;
+
+      if (goingDelta !== 0 || maybeDelta !== 0) {
+        await tx.event.update({
+          where: { id: eventId },
+          data: {
+            goingCount: { increment: goingDelta },
+            maybeCount: { increment: maybeDelta },
+          },
+        });
+      }
+    });
+
+    await this.notifications.sendToUser(event.userId, {
+      type: NOTIFICATION_TYPES.EVENT_RSVP_WITHDRAWAL,
+      title: 'RSVP update',
+      body: `Someone can no longer attend "${event.title}".`,
+      data: {
+        type: NOTIFICATION_TYPES.EVENT_RSVP_WITHDRAWAL,
+        eventId: String(eventId),
+      },
+    });
+
+    return { success: true, data: { withdrawn: true } };
   }
 
   async cancelRsvp(userId: string, eventId: string) {

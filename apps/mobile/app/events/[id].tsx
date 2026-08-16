@@ -1,4 +1,4 @@
-import { formatEventDateRange, distanceLabel } from '@pingme/shared';
+import { formatEventDateRange, distanceLabel, EVENT_RSVP_WITHDRAWAL_REASONS } from '@pingme/shared';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
@@ -13,7 +13,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, EventComment, EventDetail } from '../../src/lib/api';
 import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
@@ -25,11 +24,13 @@ import {
   ActionSheet,
   AppHeader,
   Avatar,
+  BottomSheet,
   Button,
   Card,
   DisplayNameWithFlair,
   DistancePill,
   EmptyState,
+  Input,
   Screen,
   SectionLabel,
 } from '../../src/components/ui';
@@ -87,8 +88,11 @@ function EventDetailsHeader({
   carouselIndex,
   onCarouselIndex,
   pendingRsvp,
+  effectiveRsvp,
+  withdrawPending,
   messagePending,
   onRsvp,
+  onWithdraw,
   onMessageHost,
 }: {
   event: EventDetail;
@@ -97,10 +101,14 @@ function EventDetailsHeader({
   carouselIndex: number;
   onCarouselIndex: (index: number) => void;
   pendingRsvp: 'going' | 'maybe' | null;
+  effectiveRsvp: 'going' | 'maybe' | null;
+  withdrawPending: boolean;
   messagePending: boolean;
   onRsvp: (status: 'going' | 'maybe') => void;
+  onWithdraw: () => void;
   onMessageHost: () => void;
 }) {
+  const { colors } = useTheme();
   const styles = useThemedStyles(({ colors }) => ({
     hero: { height: 220, borderRadius: radius.xl, overflow: 'hidden', marginBottom: spacing.lg },
     dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: spacing.md },
@@ -121,9 +129,12 @@ function EventDetailsHeader({
     rsvpRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
     counts: { ...typography.caption, color: colors.inkSecondary, marginBottom: spacing.lg },
     rsvpHint: { ...typography.caption, color: colors.inkTertiary, marginTop: -spacing.sm, marginBottom: spacing.lg },
+    hostInsightsCard: { marginBottom: spacing.lg },
+    hostInsightsText: { ...typography.bodyMd, color: colors.inkSecondary, lineHeight: 22 },
+    hostInsightsCount: { ...typography.headlineMd, color: colors.ink, marginTop: spacing.xs },
   }));
 
-  const viewerRsvp = event.viewerRsvp;
+  const viewerRsvp = effectiveRsvp;
 
   return (
     <View>
@@ -213,11 +224,32 @@ function EventDetailsHeader({
             />
           </View>
           {viewerRsvp ? (
-            <Text style={styles.rsvpHint}>
-              You marked {viewerRsvp === 'going' ? 'Going' : 'Maybe'} for this event.
-            </Text>
+            <>
+              <Text style={styles.rsvpHint}>
+                You marked {viewerRsvp === 'going' ? 'Going' : 'Maybe'} for this event.
+              </Text>
+              <Button
+                label="Can't attend"
+                variant="ghost"
+                loading={withdrawPending}
+                onPress={onWithdraw}
+                style={{ marginTop: -spacing.sm, marginBottom: spacing.lg }}
+              />
+            </>
           ) : null}
         </>
+      ) : null}
+
+      {event.isHost && (event.withdrawalCount ?? 0) > 0 ? (
+        <Card style={styles.hostInsightsCard} variant="flat">
+          <SectionLabel>Attendance changes</SectionLabel>
+          <Text style={styles.hostInsightsText}>
+            Some people changed their minds and are no longer attending.
+          </Text>
+          <Text style={styles.hostInsightsCount}>
+            {event.withdrawalCount} {event.withdrawalCount === 1 ? 'person' : 'people'} withdrew
+          </Text>
+        </Card>
       ) : null}
       <Text style={styles.counts}>
         {event.goingCount} going · {event.maybeCount} maybe · {event.commentCount} comments
@@ -325,6 +357,9 @@ export default function EventDetailScreen() {
   const [reportOpen, setReportOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<EventComment | null>(null);
   const [pendingRsvp, setPendingRsvp] = useState<'going' | 'maybe' | null>(null);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawOtherOpen, setWithdrawOtherOpen] = useState(false);
+  const [withdrawOtherDetail, setWithdrawOtherDetail] = useState('');
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [carouselWidth, setCarouselWidth] = useState(0);
   const scrollBottomPadding = useScrollBottomPadding(96);
@@ -348,16 +383,57 @@ export default function EventDetailScreen() {
 
   const rsvpMutation = useMutation({
     mutationFn: (status: 'going' | 'maybe') => api.rsvpEvent(id!, status),
-    onMutate: (status) => {
+    onMutate: async (status) => {
       setPendingRsvp(status);
+      await queryClient.cancelQueries({ queryKey: ['event', id] });
+      const previous = queryClient.getQueryData<{ success: boolean; data: EventDetail }>(['event', id]);
+      if (previous?.data) {
+        const prev = previous.data.viewerRsvp;
+        const goingDelta =
+          (status === 'going' ? 1 : 0) - (prev === 'going' ? 1 : 0);
+        const maybeDelta =
+          (status === 'maybe' ? 1 : 0) - (prev === 'maybe' ? 1 : 0);
+        queryClient.setQueryData(['event', id], {
+          ...previous,
+          data: {
+            ...previous.data,
+            viewerRsvp: status,
+            goingCount: Math.max(0, previous.data.goingCount + goingDelta),
+            maybeCount: Math.max(0, previous.data.maybeCount + maybeDelta),
+          },
+        });
+      }
+      return { previous };
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['event', id] });
       void queryClient.invalidateQueries({ queryKey: ['events-nearby'] });
       void queryClient.invalidateQueries({ queryKey: ['events-attending'] });
     },
-    onError: (err: Error) => showToast(err.message, 'error'),
+    onError: (err: Error, _status, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['event', id], context.previous);
+      }
+      showToast(err.message, 'error');
+    },
     onSettled: () => setPendingRsvp(null),
+  });
+
+  const withdrawMutation = useMutation({
+    mutationFn: (payload: {
+      reasonCode: 'schedule_conflict' | 'lost_interest' | 'other';
+      reasonDetail?: string;
+    }) => api.withdrawEventRsvp(id!, payload),
+    onSuccess: () => {
+      setWithdrawOpen(false);
+      setWithdrawOtherOpen(false);
+      setWithdrawOtherDetail('');
+      void queryClient.invalidateQueries({ queryKey: ['event', id] });
+      void queryClient.invalidateQueries({ queryKey: ['events-nearby'] });
+      void queryClient.invalidateQueries({ queryKey: ['events-attending'] });
+      showToast('Your RSVP was removed', 'success');
+    },
+    onError: (err: Error) => showToast(err.message, 'error'),
   });
 
   const commentMutation = useMutation({
@@ -479,6 +555,7 @@ export default function EventDetailScreen() {
   }
 
   const images = event.images.length > 0 ? event.images : [];
+  const effectiveRsvp = pendingRsvp ?? event.viewerRsvp;
 
   const onRsvp = async (status: 'going' | 'maybe') => {
     try {
@@ -513,7 +590,7 @@ export default function EventDetailScreen() {
 
   return (
     <Screen padded={false} edges={[]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <View style={{ flex: 1 }}>
         <AppHeader
           title="Event"
           showBrand={false}
@@ -547,8 +624,11 @@ export default function EventDetailScreen() {
               carouselIndex={carouselIndex}
               onCarouselIndex={setCarouselIndex}
               pendingRsvp={pendingRsvp}
+              effectiveRsvp={effectiveRsvp}
+              withdrawPending={withdrawMutation.isPending}
               messagePending={messageHostMutation.isPending}
               onRsvp={(status) => void onRsvp(status)}
+              onWithdraw={() => setWithdrawOpen(true)}
               onMessageHost={() => void onMessageHost()}
             />
           }
@@ -600,7 +680,54 @@ export default function EventDetailScreen() {
             <Text style={styles.closedText}>Comments are closed for this event.</Text>
           </View>
         )}
-      </KeyboardAvoidingView>
+      </View>
+
+      <ActionSheet
+        visible={withdrawOpen}
+        title="Can't attend?"
+        subtitle="Tell us why so we can improve events. Your name won't be shared with the host."
+        onClose={() => setWithdrawOpen(false)}
+        options={EVENT_RSVP_WITHDRAWAL_REASONS.map((reason) => ({
+          label: reason.label,
+          onPress: () => {
+            if (reason.code === 'other') {
+              setWithdrawOtherOpen(true);
+              return;
+            }
+            withdrawMutation.mutate({ reasonCode: reason.code });
+          },
+        }))}
+      />
+
+      <BottomSheet
+        visible={withdrawOtherOpen}
+        title="Tell us more"
+        subtitle="A short note helps us understand what went wrong."
+        onClose={() => {
+          setWithdrawOtherOpen(false);
+          setWithdrawOtherDetail('');
+        }}
+      >
+        <Input
+          placeholder="Why can't you attend?"
+          value={withdrawOtherDetail}
+          onChangeText={setWithdrawOtherDetail}
+          multiline
+          style={{ minHeight: 96, marginBottom: spacing.md }}
+        />
+        <Button
+          label="Remove my RSVP"
+          loading={withdrawMutation.isPending}
+          onPress={() => {
+            const detail = withdrawOtherDetail.trim();
+            if (!detail) {
+              showToast('Please tell us a bit more', 'error');
+              return;
+            }
+            withdrawMutation.mutate({ reasonCode: 'other', reasonDetail: detail });
+          }}
+        />
+      </BottomSheet>
 
       <ActionSheet
         visible={reportOpen}

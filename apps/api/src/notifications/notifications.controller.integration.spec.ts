@@ -5,6 +5,7 @@ import { User } from '@pingme/db';
 import { NOTIFICATION_TYPES } from '@pingme/shared';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { NotificationService } from './notification.service';
+import { InboxService } from './inbox.service';
 import { NotificationsController } from './notifications.controller';
 
 describe('NotificationsController (integration)', () => {
@@ -13,6 +14,11 @@ describe('NotificationsController (integration)', () => {
 
   async function createModule(nodeEnv: string, testEnabled = 'false') {
     notifications = { sendToUser: jest.fn().mockResolvedValue(undefined) };
+    const inbox = {
+      getSummary: jest.fn(),
+      listWallNotifications: jest.fn(),
+      markWallNotificationsRead: jest.fn(),
+    };
     const config = {
       get: jest.fn((key: string, fallback?: string) => {
         if (key === 'NODE_ENV') return nodeEnv;
@@ -25,6 +31,7 @@ describe('NotificationsController (integration)', () => {
       controllers: [NotificationsController],
       providers: [
         { provide: NotificationService, useValue: notifications },
+        { provide: InboxService, useValue: inbox },
         { provide: ConfigService, useValue: config },
       ],
     })

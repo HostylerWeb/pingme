@@ -477,6 +477,32 @@ export const api = {
       method: 'DELETE',
     }),
 
+  deleteWallReply: (replyId: string) =>
+    apiFetch<{ success: boolean }>(`/wall/replies/${replyId}`, {
+      method: 'DELETE',
+    }),
+
+  getNotificationSummary: () =>
+    apiFetch<{
+      success: boolean;
+      data: { wallUnread: number; icebreakerUnread: number };
+    }>('/notifications/summary'),
+
+  getWallNotifications: (limit = 30) =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        unreadCount: number;
+        items: WallNotificationItem[];
+      };
+    }>(`/notifications/wall?limit=${limit}`),
+
+  markWallNotificationsRead: (postId?: string) =>
+    apiFetch<{ success: boolean }>('/notifications/wall/mark-read', {
+      method: 'POST',
+      body: JSON.stringify(postId ? { postId } : {}),
+    }),
+
   registerDevice: (payload: {
     platform: 'ios' | 'android';
     pushToken: string;
@@ -612,7 +638,12 @@ export const api = {
       method: 'POST',
     }),
 
-  requestMatch: (payload: { source: 'wall_reply'; sourceReferenceId: string }) =>
+  requestMatch: (payload: {
+    source: 'wall_reply';
+    sourceReferenceId: string;
+    reasonCode: 'shared_interest' | 'meet_up' | 'continue_conversation' | 'other';
+    reasonDetail?: string;
+  }) =>
     apiFetch<{ success: boolean; data: MatchDetail }>('/matches/request', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -778,6 +809,15 @@ export const api = {
   cancelEventRsvp: (eventId: string) =>
     apiFetch(`/events/${eventId}/rsvp`, { method: 'DELETE' }),
 
+  withdrawEventRsvp: (
+    eventId: string,
+    payload: { reasonCode: 'schedule_conflict' | 'lost_interest' | 'other'; reasonDetail?: string },
+  ) =>
+    apiFetch(`/events/${eventId}/rsvp/withdraw`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   getEventComments: (eventId: string, page = 1) =>
     apiFetch<{
       success: boolean;
@@ -866,6 +906,19 @@ export interface IcebreakerNearbyUser extends PublicUserFlair {
   highlight: 'mutual_match' | 'interested_in_you' | null;
   matchId: string | null;
   activeNow?: boolean;
+}
+
+export interface WallNotificationItem {
+  id: string;
+  type: 'wall_reply_on_post' | 'wall_reply_on_thread';
+  postId: string;
+  replyId: string;
+  readAt: string | null;
+  createdAt: string;
+  postPreview: string;
+  replyPreview: string;
+  actorDisplayName: string;
+  title: string;
 }
 
 export interface WallPost {
@@ -1016,6 +1069,8 @@ export interface MatchSummary {
   chatId: string | null;
   myAccepted: boolean;
   theirAccepted: boolean;
+  requestReasonLabel?: string | null;
+  requestReasonDetail?: string | null;
   otherUser: MatchOtherUser;
 }
 
@@ -1129,6 +1184,7 @@ export interface EventDetail {
   host: EventHostSummary;
   viewerRsvp: 'going' | 'maybe' | null;
   isHost: boolean;
+  withdrawalCount?: number;
 }
 
 export interface EventComment {

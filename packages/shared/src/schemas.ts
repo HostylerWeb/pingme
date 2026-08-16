@@ -205,10 +205,22 @@ export type MediaUploadBase64Input = z.infer<typeof MediaUploadBase64Schema>;
 export type RegisterDeviceInput = z.infer<typeof RegisterDeviceSchema>;
 export type UnregisterDeviceInput = z.infer<typeof UnregisterDeviceSchema>;
 
-export const MatchRequestSchema = z.object({
-  source: z.enum(['wall_reply', 'manual']),
-  sourceReferenceId: z.string().uuid(),
-});
+export const MatchRequestSchema = z
+  .object({
+    source: z.enum(['wall_reply', 'manual']),
+    sourceReferenceId: z.string().uuid(),
+    reasonCode: z.enum(['shared_interest', 'meet_up', 'continue_conversation', 'other']),
+    reasonDetail: z.string().max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.reasonCode === 'other' && !data.reasonDetail?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Please tell them why you want to connect',
+        path: ['reasonDetail'],
+      });
+    }
+  });
 
 export const SendMessageSchema = z.object({
   content: z.string().min(1).max(2000),
@@ -269,6 +281,21 @@ export const EventRsvpSchema = z.object({
   status: z.enum(['going', 'maybe']),
 });
 
+export const EventRsvpWithdrawSchema = z
+  .object({
+    reasonCode: z.enum(['schedule_conflict', 'lost_interest', 'other']),
+    reasonDetail: z.string().max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.reasonCode === 'other' && !data.reasonDetail?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Please tell us a bit more',
+        path: ['reasonDetail'],
+      });
+    }
+  });
+
 export const CreateEventCommentSchema = z.object({
   content: z.string().min(1).max(500),
   parentId: z.string().uuid().optional(),
@@ -298,6 +325,7 @@ export type CreateReportInput = z.infer<typeof CreateReportSchema>;
 export type CreateEventInput = z.infer<typeof CreateEventSchema>;
 export type UpdateEventInput = z.infer<typeof UpdateEventSchema>;
 export type EventRsvpInput = z.infer<typeof EventRsvpSchema>;
+export type EventRsvpWithdrawInput = z.infer<typeof EventRsvpWithdrawSchema>;
 export type CreateEventCommentInput = z.infer<typeof CreateEventCommentSchema>;
 export type MessageEventHostInput = z.infer<typeof MessageEventHostSchema>;
 export type EventImageConfirmInput = z.infer<typeof EventImageConfirmSchema>;

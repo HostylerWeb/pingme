@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Pagination } from '@/components/ui/pagination';
+import { Modal } from '@/components/ui/modal';
 import { Table, THead, TBody, TR, TH, TD } from '@/components/ui/table';
 
 interface EventItem {
@@ -19,22 +20,41 @@ interface EventItem {
   title: string;
   status: string;
   startsAt: string;
+  endsAt: string;
   goingCount: number;
   maybeCount: number;
+  withdrawalCount: number;
+  isEnded: boolean;
   hostDisplayName: string | null;
   userId: string;
   hostLivenessVerified: boolean;
   hostIdVerified: boolean;
 }
 
+interface WithdrawalItem {
+  id: string;
+  userId: string;
+  displayName: string;
+  previousStatus: string;
+  reasonCode: string;
+  reasonLabel: string;
+  reasonDetail: string | null;
+  createdAt: string;
+}
+
 export default function EventsPage() {
   const [status, setStatus] = useState('active');
+  const [lifecycle, setLifecycle] = useState('');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<{ items: EventItem[]; total: number; limit: number } | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [withdrawalsOpen, setWithdrawalsOpen] = useState(false);
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
+  const [withdrawalsEvent, setWithdrawalsEvent] = useState<{ id: string; title: string } | null>(null);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,6 +62,7 @@ export default function EventsPage() {
     try {
       const params = new URLSearchParams({ page: String(page), limit: '20' });
       if (status) params.set('status', status);
+      if (lifecycle) params.set('lifecycle', lifecycle);
       if (q.trim()) params.set('q', q.trim());
       const result = await adminFetch<{ items: EventItem[]; total: number; limit: number }>(
         `/admin/events?${params}`,
@@ -52,7 +73,7 @@ export default function EventsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, status, q]);
+  }, [page, status, lifecycle, q]);
 
   useEffect(() => {
     load();
@@ -77,9 +98,32 @@ export default function EventsPage() {
     }
   }
 
+  async function openWithdrawals(event: EventItem) {
+    setWithdrawalsOpen(true);
+    setWithdrawalsLoading(true);
+    setWithdrawalsEvent({ id: event.id, title: event.title });
+    setWithdrawals([]);
+    try {
+      const result = await adminFetch<{
+        event: { id: string; title: string };
+        items: WithdrawalItem[];
+      }>(`/admin/events/${event.id}/withdrawals`);
+      setWithdrawalsEvent(result.event);
+      setWithdrawals(result.items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load withdrawals');
+      setWithdrawalsOpen(false);
+    } finally {
+      setWithdrawalsLoading(false);
+    }
+  }
+
   return (
     <div>
-      <PageHeader title="Events" description="Moderate user-created meetups and review host verification." />
+      <PageHeader
+        title="Events"
+        description="Moderate user-created meetups, review host verification, and study RSVP withdrawals."
+      />
 
       <div className="mb-4 flex flex-wrap gap-3">
         <Select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
@@ -88,6 +132,11 @@ export default function EventsPage() {
           <option value="cancelled">Cancelled</option>
           <option value="hidden">Hidden</option>
           <option value="deleted">Deleted</option>
+        </Select>
+        <Select value={lifecycle} onChange={(e) => { setPage(1); setLifecycle(e.target.value); }}>
+          <option value="">All lifecycles</option>
+          <option value="upcoming">Upcoming</option>
+          <option value="ended">Ended (past)</option>
         </Select>
         <Input
           placeholder="Search title or description"
@@ -112,6 +161,7 @@ export default function EventsPage() {
                 <TH>Host</TH>
                 <TH>Starts</TH>
                 <TH>RSVP</TH>
+                <TH>Withdrawals</TH>
                 <TH>Trust</TH>
                 <TH>Status</TH>
                 <TH />
@@ -130,15 +180,31 @@ export default function EventsPage() {
                   <TD>
                     {event.goingCount} / {event.maybeCount}
                   </TD>
+                  <TD>
+                    {event.withdrawalCount > 0 ? (
+                      <button
+                        type="button"
+                        className="font-medium text-accent hover:underline"
+                        onClick={() => void openWithdrawals(event)}
+                      >
+                        {event.withdrawalCount}
+                      </button>
+                    ) : (
+                      '0'
+                    )}
+                  </TD>
                   <TD className="space-x-1">
                     {event.hostLivenessVerified ? <Badge color="green">Liveness</Badge> : null}
                     {event.hostIdVerified ? <Badge color="blue">ID</Badge> : null}
                   </TD>
                   <TD>
-                    <Badge>{event.status}</Badge>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge>{event.status}</Badge>
+                      {event.isEnded ? <Badge color="zinc">Ended</Badge> : null}
+                    </div>
                   </TD>
                   <TD className="space-x-2 text-right">
-                    {event.status === 'active' ? (
+                    {event.status === 'active' && !event.isEnded ? (
                       <Button
                         variant="secondary"
                         disabled={actionId === event.id}
@@ -175,6 +241,46 @@ export default function EventsPage() {
           />
         </>
       )}
+
+      <Modal
+        open={withdrawalsOpen}
+        title={withdrawalsEvent ? `Withdrawals — ${withdrawalsEvent.title}` : 'Withdrawals'}
+        onClose={() => setWithdrawalsOpen(false)}
+        wide
+      >
+        {withdrawalsLoading ? (
+          <LoadingBlock />
+        ) : withdrawals.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No withdrawals recorded for this event.</p>
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>User</TH>
+                <TH>Was</TH>
+                <TH>Reason</TH>
+                <TH>Details</TH>
+                <TH>When</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {withdrawals.map((item) => (
+                <TR key={item.id}>
+                  <TD>
+                    <Link href={`/users/${item.userId}`} className="text-accent hover:underline">
+                      {item.displayName}
+                    </Link>
+                  </TD>
+                  <TD>{item.previousStatus}</TD>
+                  <TD>{item.reasonLabel}</TD>
+                  <TD className="max-w-xs truncate">{item.reasonDetail ?? '—'}</TD>
+                  <TD>{formatDate(item.createdAt)}</TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </Modal>
     </div>
   );
 }

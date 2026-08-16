@@ -17,11 +17,13 @@ import {
   EventImageConfirmSchema,
   MediaUploadBase64Schema,
   EventRsvpSchema,
+  EventRsvpWithdrawSchema,
   MessageEventHostSchema,
   UpdateEventSchema,
   CreateEventInput,
   UpdateEventInput,
   EventRsvpInput,
+  EventRsvpWithdrawInput,
   CreateEventCommentInput,
   MessageEventHostInput,
   EventImageConfirmInput,
@@ -163,8 +165,18 @@ export class EventsController {
     return this.eventsService.upsertRsvp(user.id, id, dto);
   }
 
+  @Post(':id/rsvp/withdraw')
+  @ApiOperation({ summary: 'Withdraw RSVP with a reason' })
+  withdrawRsvp(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(EventRsvpWithdrawSchema)) dto: EventRsvpWithdrawInput,
+  ) {
+    return this.eventsService.withdrawRsvp(user.id, id, dto);
+  }
+
   @Delete(':id/rsvp')
-  @ApiOperation({ summary: 'Cancel RSVP' })
+  @ApiOperation({ summary: 'Cancel RSVP (deprecated — use withdraw with reason)' })
   cancelRsvp(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {
     return this.eventsService.cancelRsvp(user.id, id);
   }

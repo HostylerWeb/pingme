@@ -294,7 +294,7 @@ export class VerificationService {
           : null;
       const url = typeof metadata.url === 'string' ? metadata.url : null;
 
-      if (url && existingWorkflowType === workflowType) {
+      if (url && (!existingWorkflowType || existingWorkflowType === workflowType)) {
         return {
           success: true,
           data: {
@@ -306,6 +306,36 @@ export class VerificationService {
         };
       }
 
+      if (!url && existing.providerReference) {
+        await this.syncFromDidit(existing.providerReference, userId);
+        const refreshed = await this.prisma.verification.findUnique({
+          where: { id: existing.id },
+        });
+        if (refreshed?.metadata) {
+          const refreshedMeta = refreshed.metadata as Record<string, unknown>;
+          const refreshedUrl = typeof refreshedMeta.url === 'string' ? refreshedMeta.url : null;
+          const refreshedWorkflowType =
+            refreshedMeta.workflow_type === 'id' || refreshedMeta.workflow_type === 'kyc'
+              ? refreshedMeta.workflow_type
+              : null;
+          if (
+            refreshedUrl &&
+            (!refreshedWorkflowType || refreshedWorkflowType === workflowType) &&
+            refreshed.status === VerificationStatus.pending
+          ) {
+            return {
+              success: true,
+              data: {
+                verificationUrl: refreshedUrl,
+                sessionId: refreshed.providerReference,
+                status: refreshed.status,
+                resumed: true,
+              },
+            };
+          }
+        }
+      }
+
       if (existing) {
         await this.prisma.verification.update({
           where: { id: existing.id },
@@ -314,11 +344,24 @@ export class VerificationService {
             metadata: {
               ...metadata,
               superseded_at: new Date().toISOString(),
-              superseded_reason: `Expected ${workflowType} workflow`,
+              superseded_reason: existingWorkflowType
+                ? `Expected ${workflowType} workflow`
+                : 'Could not resume pending session',
             },
           },
         });
       }
+    } else if (existing) {
+      await this.prisma.verification.update({
+        where: { id: existing.id },
+        data: {
+          status: VerificationStatus.expired,
+          metadata: {
+            superseded_at: new Date().toISOString(),
+            superseded_reason: 'Missing session metadata',
+          },
+        },
+      });
     }
 
     const session = await this.didit.createSession(userId, email, workflowType);

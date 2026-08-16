@@ -60,6 +60,12 @@ export function getNotificationHref(payload: NotificationNavigationPayload): Hre
   if (payload.type === 'wall.reply' && payload.postId) {
     return `/post/${payload.postId}`;
   }
+  if (
+    (payload.type === 'wall.reply.on_post' || payload.type === 'wall.reply.on_thread') &&
+    payload.postId
+  ) {
+    return `/post/${payload.postId}`;
+  }
   if (payload.type === 'chat.message' && payload.chatId) {
     return `/chat/${payload.chatId}`;
   }
@@ -85,6 +91,9 @@ export function getNotificationHref(payload: NotificationNavigationPayload): Hre
     return payload.eventId ? `/events/${payload.eventId}` : '/(tabs)/events';
   }
   if (payload.type === 'event.comment.reply' && payload.eventId) {
+    return `/events/${payload.eventId}`;
+  }
+  if (payload.type === 'event.rsvp.withdrawal' && payload.eventId) {
     return `/events/${payload.eventId}`;
   }
   return null;

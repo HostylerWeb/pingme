@@ -26,7 +26,9 @@ export function showIncomingBanner(banner: IncomingBanner) {
 }
 
 export function iconForNotificationType(type: string): AppIconName {
-  if (type === 'wall.reply') return 'wall';
+  if (type === 'wall.reply' || type === 'wall.reply.on_post' || type === 'wall.reply.on_thread') {
+    return 'wall';
+  }
   if (type === 'chat.message') return 'chats';
   if (
     type === 'icebreaker.interest' ||
@@ -36,6 +38,8 @@ export function iconForNotificationType(type: string): AppIconName {
   ) {
     return 'icebreaker';
   }
-  if (type === 'event.nearby' || type === 'event.comment.reply') return 'calendar';
+  if (type === 'event.nearby' || type === 'event.comment.reply' || type === 'event.rsvp.withdrawal') {
+    return 'calendar';
+  }
   return 'notifications';
 }

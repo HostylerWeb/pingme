@@ -20,6 +20,9 @@ export const NOTIFICATION_TYPES = {
   MODERATION_ACTION: 'moderation.action',
   EVENT_NEARBY: 'event.nearby',
   EVENT_COMMENT_REPLY: 'event.comment.reply',
+  EVENT_RSVP_WITHDRAWAL: 'event.rsvp.withdrawal',
+  WALL_REPLY_ON_POST: 'wall.reply.on_post',
+  WALL_REPLY_ON_THREAD: 'wall.reply.on_thread',
 } as const;
 
 export const MAX_EVENT_IMAGES = 5;

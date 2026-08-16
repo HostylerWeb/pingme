@@ -5,12 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, UserStatus, WallPostStatus, WallReplyStatus } from '@pingme/db';
-import { distanceBucket, NOTIFICATION_TYPES, WALL_POST_MAX_AGE_HOURS, CreateWallPostInput, CreateWallReplyInput } from '@pingme/shared';
+import { distanceBucket, WALL_POST_MAX_AGE_HOURS, CreateWallPostInput, CreateWallReplyInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
 import { BlocksService } from '../common/services/blocks.service';
 import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
-import { NotificationService } from '../notifications/notification.service';
+import { InboxService } from '../notifications/inbox.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 interface WallPostRow {
@@ -41,7 +41,7 @@ export class WallService {
     private readonly appConfig: AppConfigService,
     private readonly audit: AuditService,
     private readonly blocks: BlocksService,
-    private readonly notifications: NotificationService,
+    private readonly inbox: InboxService,
   ) {}
 
   async listPosts(userId: string, page = 1, limit = 20) {
@@ -343,18 +343,13 @@ export class WallService {
       metadata: { postId },
     });
 
-    if (post.userId !== userId) {
-      await this.notifications.sendToUser(post.userId, {
-        type: NOTIFICATION_TYPES.WALL_REPLY,
-        title: 'Someone replied on your post',
-        body: dto.content.trim().slice(0, 80),
-        data: {
-          type: NOTIFICATION_TYPES.WALL_REPLY,
-          postId: String(postId),
-          replyId: String(reply.id),
-        },
-      });
-    }
+    await this.inbox.createWallReplyNotifications({
+      postId,
+      postAuthorId: post.userId,
+      replyId: reply.id,
+      replierId: userId,
+      replyPreview: dto.content.trim(),
+    });
 
     return { success: true, data: reply };
   }

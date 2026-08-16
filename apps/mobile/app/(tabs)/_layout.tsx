@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useChatsUnreadCount } from '../../src/hooks/use-chats-unread';
+import { useIcebreakerTabBadge, useWallTabBadge } from '../../src/hooks/use-notification-summary';
 import { TAB_BAR_CONTENT_HEIGHT, TAB_BAR_VERTICAL_PADDING, useBottomInset } from '../../src/hooks/use-tab-bar-insets';
 import { AppIcon, type AppIconName } from '../../src/components/ui/app-icon';
 import { typography, useTheme } from '../../src/theme';
@@ -27,6 +28,9 @@ export default function TabLayout() {
   const { colors } = useTheme();
   const unreadChatCount = useChatsUnreadCount();
   const chatsTabBadge = unreadChatCount > 0 ? (unreadChatCount > 9 ? '9+' : unreadChatCount) : undefined;
+  const wallTabBadge = useWallTabBadge();
+  const icebreakerTabBadge = useIcebreakerTabBadge();
+  const badgeStyle = { backgroundColor: colors.accent, color: colors.onAccent, fontSize: 10 };
 
   return (
     <Tabs
@@ -65,6 +69,8 @@ export default function TabLayout() {
         name="home"
         options={{
           title: 'Wall',
+          tabBarBadge: wallTabBadge,
+          tabBarBadgeStyle: badgeStyle,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="wall-filled" color={String(color)} focused={focused} />
           ),
@@ -74,6 +80,8 @@ export default function TabLayout() {
         name="icebreaker"
         options={{
           title: 'IceBreaker',
+          tabBarBadge: icebreakerTabBadge,
+          tabBarBadgeStyle: badgeStyle,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="icebreaker-filled" color={String(color)} focused={focused} />
           ),
@@ -84,7 +92,7 @@ export default function TabLayout() {
         options={{
           title: 'Chats',
           tabBarBadge: chatsTabBadge,
-          tabBarBadgeStyle: { backgroundColor: colors.accent, color: colors.onAccent, fontSize: 10 },
+          tabBarBadgeStyle: badgeStyle,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="chats-filled" color={String(color)} focused={focused} />
           ),

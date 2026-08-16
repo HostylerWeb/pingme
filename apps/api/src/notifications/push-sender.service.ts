@@ -36,7 +36,10 @@ export class PushSenderService {
       data: payload.data,
       channelId:
         payload.type === NOTIFICATION_TYPES.WALL_REPLY ||
-        payload.type === NOTIFICATION_TYPES.EVENT_COMMENT_REPLY
+        payload.type === NOTIFICATION_TYPES.WALL_REPLY_ON_POST ||
+        payload.type === NOTIFICATION_TYPES.WALL_REPLY_ON_THREAD ||
+        payload.type === NOTIFICATION_TYPES.EVENT_COMMENT_REPLY ||
+        payload.type === NOTIFICATION_TYPES.EVENT_RSVP_WITHDRAWAL
           ? 'wall-replies'
           : payload.type === NOTIFICATION_TYPES.ICEBREAKER_NEARBY ||
               payload.type === NOTIFICATION_TYPES.ICEBREAKER_INTEREST ||

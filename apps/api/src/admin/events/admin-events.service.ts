@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EventStatus, Prisma } from '@pingme/db';
+import { eventRsvpWithdrawalReasonLabel } from '@pingme/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class AdminEventsService {
 
   async listEvents(params: {
     status?: EventStatus;
+    lifecycle?: 'ended' | 'upcoming';
     q?: string;
     userId?: string;
     page?: number;
@@ -16,10 +18,17 @@ export class AdminEventsService {
     const page = Math.max(1, params.page ?? 1);
     const limit = Math.min(100, Math.max(1, params.limit ?? 20));
     const skip = (page - 1) * limit;
+    const now = new Date();
 
     const where: Prisma.EventWhereInput = {
       ...(params.status ? { status: params.status } : {}),
       ...(params.userId ? { userId: params.userId } : {}),
+      ...(params.lifecycle === 'ended'
+        ? { status: EventStatus.active, endsAt: { lt: now } }
+        : {}),
+      ...(params.lifecycle === 'upcoming'
+        ? { status: EventStatus.active, endsAt: { gte: now } }
+        : {}),
       ...(params.q
         ? {
             OR: [
@@ -52,6 +61,7 @@ export class AdminEventsService {
             },
           },
           images: { where: { isCover: true }, take: 1 },
+          _count: { select: { withdrawals: true } },
         },
       }),
       this.prisma.event.count({ where }),
@@ -67,6 +77,8 @@ export class AdminEventsService {
         goingCount: event.goingCount,
         maybeCount: event.maybeCount,
         commentCount: event.commentCount,
+        withdrawalCount: event._count.withdrawals,
+        isEnded: event.status === EventStatus.active && event.endsAt < now,
         createdAt: event.createdAt,
         userId: event.userId,
         hostDisplayName: event.user.profile?.displayName ?? null,
@@ -81,6 +93,43 @@ export class AdminEventsService {
       total,
       page,
       limit,
+    };
+  }
+
+  async listWithdrawals(eventId: string) {
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      select: { id: true, title: true },
+    });
+    if (!event) {
+      return { items: [], total: 0 };
+    }
+
+    const withdrawals = await this.prisma.eventRsvpWithdrawal.findMany({
+      where: { eventId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: {
+          include: {
+            profile: { select: { displayName: true } },
+          },
+        },
+      },
+    });
+
+    return {
+      event: { id: event.id, title: event.title },
+      items: withdrawals.map((withdrawal) => ({
+        id: withdrawal.id,
+        userId: withdrawal.userId,
+        displayName: withdrawal.user.profile?.displayName ?? 'User',
+        previousStatus: withdrawal.previousStatus,
+        reasonCode: withdrawal.reasonCode,
+        reasonLabel: eventRsvpWithdrawalReasonLabel(withdrawal.reasonCode),
+        reasonDetail: withdrawal.reasonDetail,
+        createdAt: withdrawal.createdAt,
+      })),
+      total: withdrawals.length,
     };
   }
 

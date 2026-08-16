@@ -1,7 +1,7 @@
-import { distanceLabel } from '@pingme/shared';
+import { distanceLabel, WALL_CONNECT_REASONS } from '@pingme/shared';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useScrollBottomPadding } from '../../src/hooks/use-tab-bar-insets';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,11 +23,13 @@ import {
   ActionSheet,
   AppHeader,
   Avatar,
+  BottomSheet,
   Button,
   DisplayNameWithFlair,
   Card,
   DistancePill,
   EmptyState,
+  Input,
   PostDetailSkeleton,
   SectionLabel,
 } from '../../src/components/ui';
@@ -50,6 +51,10 @@ export default function PostDetailScreen() {
   const [reply, setReply] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [connectingReplyId, setConnectingReplyId] = useState<string | null>(null);
+  const [connectTargetReplyId, setConnectTargetReplyId] = useState<string | null>(null);
+  const [connectOtherOpen, setConnectOtherOpen] = useState(false);
+  const [connectOtherDetail, setConnectOtherDetail] = useState('');
+  const [deleteReplyTarget, setDeleteReplyTarget] = useState<{ id: string } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
@@ -149,6 +154,15 @@ export default function PostDetailScreen() {
       lineHeight: 24,
       paddingLeft: 44,
     },
+    replyActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingLeft: 44,
+      marginTop: spacing.sm,
+    },
+    replyActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    replyActionLabel: { ...typography.caption, color: colors.error },
     composer: {
       flexDirection: 'row',
       gap: spacing.sm,
@@ -186,6 +200,14 @@ export default function PostDetailScreen() {
     enabled: !!id,
   });
 
+  useEffect(() => {
+    if (!id) return;
+    void api.markWallNotificationsRead(id).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ['notification-summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['wall-notifications'] });
+    });
+  }, [id, queryClient]);
+
   const deleteMutation = useMutation({
     mutationFn: () => api.deleteWallPost(id!),
     onSuccess: async () => {
@@ -222,9 +244,21 @@ export default function PostDetailScreen() {
   });
 
   const requestMatchMutation = useMutation({
-    mutationFn: (replyId: string) =>
-      api.requestMatch({ source: 'wall_reply', sourceReferenceId: replyId }),
+    mutationFn: (payload: {
+      replyId: string;
+      reasonCode: 'shared_interest' | 'meet_up' | 'continue_conversation' | 'other';
+      reasonDetail?: string;
+    }) =>
+      api.requestMatch({
+        source: 'wall_reply',
+        sourceReferenceId: payload.replyId,
+        reasonCode: payload.reasonCode,
+        reasonDetail: payload.reasonDetail,
+      }),
     onSuccess: (result) => {
+      setConnectTargetReplyId(null);
+      setConnectOtherOpen(false);
+      setConnectOtherDetail('');
       queryClient.invalidateQueries({ queryKey: ['matches'] });
       router.push(`/match/${result.data.id}`);
     },
@@ -234,6 +268,17 @@ export default function PostDetailScreen() {
       }
     },
     onSettled: () => setConnectingReplyId(null),
+  });
+
+  const deleteReplyMutation = useMutation({
+    mutationFn: (replyId: string) => api.deleteWallReply(replyId),
+    onSuccess: async () => {
+      setDeleteReplyTarget(null);
+      await queryClient.invalidateQueries({ queryKey: ['wall-post', id] });
+      await queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+      showToast('Reply deleted', 'success');
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
   });
 
   const post = data?.data;
@@ -260,8 +305,20 @@ export default function PostDetailScreen() {
 
   const onConnect = (replyId: string) => {
     if (!ensureVerified()) return;
-    setConnectingReplyId(replyId);
-    requestMatchMutation.mutate(replyId);
+    setConnectTargetReplyId(replyId);
+  };
+
+  const submitConnect = (
+    reasonCode: 'shared_interest' | 'meet_up' | 'continue_conversation' | 'other',
+    reasonDetail?: string,
+  ) => {
+    if (!connectTargetReplyId) return;
+    setConnectingReplyId(connectTargetReplyId);
+    requestMatchMutation.mutate({
+      replyId: connectTargetReplyId,
+      reasonCode,
+      reasonDetail,
+    });
   };
 
   const onDeletePost = () => {
@@ -302,7 +359,7 @@ export default function PostDetailScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior="padding">
+    <View style={styles.container}>
       <AppHeader
         title="Post"
         showBrand={false}
@@ -422,13 +479,24 @@ export default function PostDetailScreen() {
                   </View>
                 </View>
                 <Text style={styles.replyContent}>{item.content}</Text>
+                {item.author.isYou ? (
+                  <View style={styles.replyActions}>
+                    <Pressable
+                      style={styles.replyActionBtn}
+                      onPress={() => setDeleteReplyTarget({ id: item.id })}
+                    >
+                      <AppIcon name="delete" size={14} color={colors.error} />
+                      <Text style={styles.replyActionLabel}>Delete</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </Card>
             </View>
           );
         }}
       />
 
-      <KeyboardComposerFooter style={styles.composer}>
+      <KeyboardComposerFooter useTabBarInset={false} style={styles.composer}>
         <TextInput
           style={styles.input}
           placeholder="Write a reply..."
@@ -449,6 +517,72 @@ export default function PostDetailScreen() {
           )}
         </Pressable>
       </KeyboardComposerFooter>
+
+      <ActionSheet
+        visible={connectTargetReplyId !== null && !connectOtherOpen}
+        title="Why connect?"
+        subtitle="Pick a reason — they'll see this when they review your request."
+        onClose={() => setConnectTargetReplyId(null)}
+        options={WALL_CONNECT_REASONS.map((reason) => ({
+          label: reason.label,
+          onPress: () => {
+            if (reason.code === 'other') {
+              setConnectOtherOpen(true);
+              return;
+            }
+            submitConnect(reason.code);
+          },
+        }))}
+      />
+
+      <BottomSheet
+        visible={connectOtherOpen}
+        title="Tell them why"
+        subtitle="A short note helps them decide whether to accept."
+        onClose={() => {
+          setConnectOtherOpen(false);
+          setConnectOtherDetail('');
+          setConnectTargetReplyId(null);
+        }}
+      >
+        <Input
+          placeholder="Why do you want to connect?"
+          value={connectOtherDetail}
+          onChangeText={setConnectOtherDetail}
+          multiline
+          style={{ minHeight: 96, marginBottom: spacing.md }}
+        />
+        <Button
+          label="Send connect request"
+          loading={requestMatchMutation.isPending}
+          onPress={() => {
+            const detail = connectOtherDetail.trim();
+            if (!detail) {
+              showToast('Please tell them why you want to connect', 'error');
+              return;
+            }
+            submitConnect('other', detail);
+          }}
+        />
+      </BottomSheet>
+
+      <ActionSheet
+        visible={deleteReplyTarget !== null}
+        title="Delete reply?"
+        subtitle="This cannot be undone."
+        onClose={() => setDeleteReplyTarget(null)}
+        options={[
+          {
+            label: 'Delete reply',
+            destructive: true,
+            onPress: () => {
+              if (deleteReplyTarget) {
+                deleteReplyMutation.mutate(deleteReplyTarget.id);
+              }
+            },
+          },
+        ]}
+      />
 
       <ActionSheet
         visible={deleteOpen}
@@ -509,6 +643,6 @@ export default function PostDetailScreen() {
           },
         ]}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 }

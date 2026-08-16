@@ -23,12 +23,17 @@ export class NotificationService {
       return;
     }
 
-    if (payload.type === NOTIFICATION_TYPES.WALL_REPLY && settings?.allowPushReplies === false) {
+    if (
+      payload.type === NOTIFICATION_TYPES.EVENT_COMMENT_REPLY &&
+      settings?.allowPushReplies === false
+    ) {
       return;
     }
 
     if (
-      payload.type === NOTIFICATION_TYPES.EVENT_COMMENT_REPLY &&
+      (payload.type === NOTIFICATION_TYPES.WALL_REPLY ||
+        payload.type === NOTIFICATION_TYPES.WALL_REPLY_ON_POST ||
+        payload.type === NOTIFICATION_TYPES.WALL_REPLY_ON_THREAD) &&
       settings?.allowPushReplies === false
     ) {
       return;

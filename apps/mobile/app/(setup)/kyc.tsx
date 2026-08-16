@@ -90,6 +90,14 @@ export default function KycScreen() {
     setStatusMessage('Starting ID verification...');
 
     try {
+      const statusResult = await api.getVerificationStatus();
+      const pendingUrl = statusResult.data.idVerification?.verificationUrl;
+      if (statusResult.data.idVerification?.status === 'pending' && pendingUrl) {
+        setVerificationUrl(pendingUrl);
+        setStatusMessage('Continue your government ID check below.');
+        return;
+      }
+
       const result = await api.startKycVerification();
       setVerificationUrl(result.data.verificationUrl);
       setStatusMessage('Complete your government ID and liveness check below.');
