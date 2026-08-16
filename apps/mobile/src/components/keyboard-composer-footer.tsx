@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, View, ViewStyle } from 'react-native';
+import { View, ViewStyle } from 'react-native';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing } from '../theme';
 
@@ -9,23 +10,14 @@ type KeyboardComposerFooterProps = {
 };
 
 /**
- * Keeps a bottom composer (message input, reply field) above the software keyboard.
- * Wrap only the composer — not the whole screen — for reliable avoidance on iOS and Android.
+ * Pins a bottom composer (chat input, reply field) above the software keyboard.
  */
 export function KeyboardComposerFooter({ children, style }: KeyboardComposerFooterProps) {
   const insets = useSafeAreaInsets();
 
-  const footer = (
-    <View style={[{ paddingBottom: insets.bottom + spacing.sm }, style]}>{children}</View>
-  );
-
-  if (Platform.OS !== 'ios') {
-    return footer;
-  }
-
   return (
-    <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0}>
-      {footer}
-    </KeyboardAvoidingView>
+    <KeyboardStickyView offset={{ closed: insets.bottom + spacing.sm, opened: spacing.sm }}>
+      <View style={style}>{children}</View>
+    </KeyboardStickyView>
   );
 }

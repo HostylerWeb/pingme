@@ -10,7 +10,6 @@ import {
   ScrollView,
   Text,
   View,
-  Alert,
 } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, WallPost } from '../../src/lib/api';
@@ -28,6 +27,7 @@ import { NearbyRadiusPicker, wallRadiusRangeLabelFromConfig } from '../../src/co
 import { showToast } from '../../src/stores/toast-store';
 import {
   AppHeader,
+  ActionSheet,
   AppSwitch,
   AvailableChip,
   Avatar,
@@ -141,6 +141,7 @@ export default function WallScreen() {
   const [draft, setDraft] = useState('');
   const [showPhoto, setShowPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [deletePostTarget, setDeletePostTarget] = useState<WallPost | null>(null);
   const [availableOn, setAvailableOn] = useState(false);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
 
@@ -380,22 +381,20 @@ export default function WallScreen() {
   };
 
   const onDeletePost = (post: WallPost) => {
-    Alert.alert('Delete post?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.deleteWallPost(post.id);
-            await queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
-            showToast('Post deleted', 'success');
-          } catch (error) {
-            showToast(error instanceof ApiError ? error.message : 'Could not delete post', 'error');
-          }
-        },
-      },
-    ]);
+    setDeletePostTarget(post);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!deletePostTarget) return;
+    try {
+      await api.deleteWallPost(deletePostTarget.id);
+      await queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+      showToast('Post deleted', 'success');
+    } catch (error) {
+      showToast(error instanceof ApiError ? error.message : 'Could not delete post', 'error');
+    } finally {
+      setDeletePostTarget(null);
+    }
   };
 
   if (locationError && !coords) {
@@ -622,6 +621,20 @@ export default function WallScreen() {
         </View>
         <Button label="Post" onPress={onCreatePost} loading={posting} disabled={!draft.trim()} />
       </BottomSheet>
+
+      <ActionSheet
+        visible={deletePostTarget !== null}
+        title="Delete post?"
+        subtitle="This cannot be undone."
+        onClose={() => setDeletePostTarget(null)}
+        options={[
+          {
+            label: 'Delete post',
+            destructive: true,
+            onPress: () => void confirmDeletePost(),
+          },
+        ]}
+      />
     </Screen>
   );
 }

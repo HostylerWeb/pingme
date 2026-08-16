@@ -794,7 +794,23 @@ export default function IcebreakerScreen() {
           </View>
         ) : null}
 
-        {canBrowse ? (
+        {!icebreakerOn && pendingConnections.length === 0 ? (
+          <EmptyState
+            icon="people"
+            title="You're hidden for now"
+            message={`Turn on Break the ice to browse people ${icebreakerRadiusTextLower} who also want to connect. Tap yes on someone — if they tap yes too, you can start chatting.`}
+            action={
+              <Button
+                label="Turn on Break the ice"
+                variant="icebreaker"
+                onPress={() => {
+                  if (!ensureVerified()) return;
+                  setIcebreakerSetupOpen(true);
+                }}
+              />
+            }
+          />
+        ) : canBrowse ? (
           <View style={styles.browseSection}>
             <View style={styles.sectionHeader}>
               <SectionLabel>

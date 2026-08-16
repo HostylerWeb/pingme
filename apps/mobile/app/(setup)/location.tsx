@@ -87,8 +87,8 @@ export default function LocationSetupScreen() {
         <Card variant="muted" style={styles.noteCard}>
           <AppIcon name="info" size={18} color={colors.inkSecondary} />
           <Text style={styles.note}>
-            On the next screen, tap &quot;Allow only while using the app&quot;. Do not choose &quot;Allow all
-            the time&quot; — that is only needed later if you turn Visible on Wall on.
+            On the next screen, tap &quot;Allow only while using the app&quot;. &quot;Allow all
+            the time&quot; is optional if you want to stay visible when PingMe is closed.
           </Text>
         </Card>
 

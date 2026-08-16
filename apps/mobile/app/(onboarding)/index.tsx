@@ -22,7 +22,7 @@ function buildSlides(wallDefaultMeters: number) {
     {
       icon: 'location' as AppIconName,
       title: 'You stay in control',
-      body: 'Choose "Allow only while using the app" for location. Background access is only requested when you turn Visible on Wall on.',
+      body: 'Choose "Allow only while using the app" for location. That is enough to use the Wall while PingMe is open.',
     },
   ];
 }

@@ -4,6 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../src/lib/background-location';
 import { AppSocketProvider } from '../src/lib/app-socket';
@@ -267,10 +268,12 @@ function RootLayoutContent() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <AppErrorBoundary>
-        <RootLayoutContent />
-      </AppErrorBoundary>
-    </ThemeProvider>
+    <KeyboardProvider>
+      <ThemeProvider>
+        <AppErrorBoundary>
+          <RootLayoutContent />
+        </AppErrorBoundary>
+      </ThemeProvider>
+    </KeyboardProvider>
   );
 }

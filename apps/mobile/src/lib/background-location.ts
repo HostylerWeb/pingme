@@ -39,9 +39,28 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   }
 });
 
+export async function hasBackgroundLocationPermission() {
+  const foreground = await Location.getForegroundPermissionsAsync();
+  if (foreground.status !== 'granted') {
+    return false;
+  }
+
+  const background = await Location.getBackgroundPermissionsAsync();
+  return background.status === 'granted';
+}
+
+/** Only prompts when background permission has never been decided. */
 export async function requestBackgroundPermissions() {
   const foreground = await Location.getForegroundPermissionsAsync();
   if (foreground.status !== 'granted') {
+    return false;
+  }
+
+  const existing = await Location.getBackgroundPermissionsAsync();
+  if (existing.status === 'granted') {
+    return true;
+  }
+  if (existing.status === 'denied') {
     return false;
   }
 

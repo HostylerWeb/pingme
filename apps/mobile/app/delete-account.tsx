@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { ACCOUNT_DELETION_GRACE_DAYS } from '@pingme/shared';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, ScrollView, Share, Text, View } from 'react-native';
+import { Linking, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, api } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
@@ -68,22 +68,6 @@ export default function DeleteAccountScreen() {
     scheduledText: { ...typography.bodyMd, color: colors.ink, lineHeight: 22 },
     field: { marginBottom: spacing.md },
   }));
-
-  const exportMutation = useMutation({
-    mutationFn: () => api.exportUserData(),
-    onSuccess: async (result) => {
-      const json = JSON.stringify(result.data, null, 2);
-      try {
-        await Share.share({
-          title: 'PingMe data export',
-          message: json,
-        });
-      } catch {
-        showToast('Could not share export', 'error');
-      }
-    },
-    onError: () => showToast('Could not export data', 'error'),
-  });
 
   const scheduleMutation = useMutation({
     mutationFn: () =>
@@ -177,14 +161,6 @@ export default function DeleteAccountScreen() {
             />
           </View>
         ) : null}
-
-        <Button
-          label={exportMutation.isPending ? 'Preparing export…' : 'Download my data first'}
-          variant="secondary"
-          onPress={() => exportMutation.mutate()}
-          loading={exportMutation.isPending}
-          style={{ marginBottom: spacing.lg }}
-        />
 
         <View style={styles.field}>
           <PasswordInput

@@ -4,13 +4,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../src/lib/api';
@@ -50,6 +50,7 @@ export default function PostDetailScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const { ensureVerified, handleLivenessError } = useLivenessGate();
 
   const styles = useThemedStyles(({ colors }) => ({
@@ -261,14 +262,7 @@ export default function PostDetailScreen() {
   };
 
   const onDeletePost = () => {
-    Alert.alert('Delete post?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => deleteMutation.mutate(),
-      },
-    ]);
+    setDeleteOpen(true);
   };
 
   if (isLoading) {
@@ -305,7 +299,7 @@ export default function PostDetailScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
       <AppHeader
         title="Post"
         showBrand={false}
@@ -451,6 +445,20 @@ export default function PostDetailScreen() {
       </KeyboardComposerFooter>
 
       <ActionSheet
+        visible={deleteOpen}
+        title="Delete post?"
+        subtitle="This cannot be undone."
+        onClose={() => setDeleteOpen(false)}
+        options={[
+          {
+            label: 'Delete post',
+            destructive: true,
+            onPress: () => deleteMutation.mutate(),
+          },
+        ]}
+      />
+
+      <ActionSheet
         visible={menuOpen}
         title="Post options"
         onClose={() => setMenuOpen(false)}
@@ -495,6 +503,6 @@ export default function PostDetailScreen() {
           },
         ]}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }

@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { api, ChatMessage } from '../../src/lib/api';
 import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
@@ -319,7 +320,7 @@ export default function ChatThreadScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding">
       <AppHeader
         title={chat.otherUser.displayName}
         showBrand={false}
@@ -432,6 +433,6 @@ export default function ChatThreadScreen() {
           },
         ]}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
