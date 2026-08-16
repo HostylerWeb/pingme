@@ -354,7 +354,7 @@ export default function PostDetailScreen() {
               <View style={styles.postHeader}>
                 <Avatar
                   uri={post.author.avatarUrl}
-                  name={authorName}
+                  name={post.author.displayName}
                   size="md"
                   themeId={post.author.isPremium ? post.author.avatarTheme : null}
                 />
@@ -401,7 +401,7 @@ export default function PostDetailScreen() {
                 <View style={styles.replyHeader}>
                   <Avatar
                     uri={item.author.avatarUrl}
-                    name={replyName}
+                    name={item.author.displayName}
                     size="sm"
                     themeId={item.author.isPremium ? item.author.avatarTheme : null}
                   />

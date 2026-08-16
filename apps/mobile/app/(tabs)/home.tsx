@@ -15,7 +15,6 @@ import {
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, WallPost } from '../../src/lib/api';
 import {
-  requestBackgroundPermissions,
   stopBackgroundLocation,
   syncBackgroundLocationWithAvailability,
 } from '../../src/lib/background-location';
@@ -95,7 +94,7 @@ function PostRow({
       <View style={styles.postTop}>
         <Avatar
           uri={post.author.avatarUrl}
-          name={name}
+          name={post.author.displayName}
           size="sm"
           themeId={post.author.isPremium ? post.author.avatarTheme : null}
         />
@@ -314,13 +313,6 @@ export default function WallScreen() {
           if (!location) {
             throw new Error('Could not get your location. Try again in a moment.');
           }
-        }
-        const backgroundGranted = await requestBackgroundPermissions();
-        if (!backgroundGranted) {
-          showToast(
-            'Visible with foreground location only. Allow Always/background location for updates when the app is closed.',
-            'info',
-          );
         }
       } else {
         void stopBackgroundLocation();

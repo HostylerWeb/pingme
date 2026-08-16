@@ -133,7 +133,8 @@ export class WallService {
       author: {
         id: row.user_id,
         displayName: row.display_name,
-        avatarUrl: row.show_photo ? row.avatar_url : null,
+        avatarUrl:
+          row.show_photo || row.user_id === userId ? row.avatar_url : null,
         isYou: row.user_id === userId,
         isPremium: flair.isPremium,
         avatarTheme: flair.avatarTheme,
@@ -269,7 +270,9 @@ export class WallService {
           post.userId,
           post.user.profile,
           post.user.subscription,
-          post.showPhoto ? post.user.profile?.avatarUrl ?? null : null,
+          post.showPhoto || post.userId === userId
+            ? post.user.profile?.avatarUrl ?? null
+            : null,
         ),
         replies: post.replies.map((reply) => ({
           id: reply.id,
