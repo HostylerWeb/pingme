@@ -1,6 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RegisterDeviceSchema, RegisterDeviceInput } from '@pingme/shared';
+import {
+  RegisterDeviceSchema,
+  RegisterDeviceInput,
+  UnregisterDeviceSchema,
+  UnregisterDeviceInput,
+} from '@pingme/shared';
 import { User } from '@pingme/db';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -30,6 +35,15 @@ export class DevicesController {
   @ApiOperation({ summary: 'List registered devices' })
   list(@CurrentUser() user: User) {
     return this.devicesService.list(user.id);
+  }
+
+  @Delete('by-token')
+  @ApiOperation({ summary: 'Unregister device by push token' })
+  removeByToken(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(UnregisterDeviceSchema)) dto: UnregisterDeviceInput,
+  ) {
+    return this.devicesService.removeByPushToken(user.id, dto.pushToken);
   }
 
   @Delete(':id')

@@ -389,6 +389,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  unregisterDevice: (pushToken: string) =>
+    apiFetch('/devices/by-token', {
+      method: 'DELETE',
+      body: JSON.stringify({ pushToken }),
+    }),
+
   getSettings: () =>
     apiFetch<{
       success: boolean;
@@ -677,6 +683,8 @@ export interface AppConfig {
       discoveryRadiusMeters: number;
     };
   };
+  privacyPolicyUrl: string;
+  termsOfServiceUrl: string;
 }
 
 export interface SubscriptionPlansResponse {

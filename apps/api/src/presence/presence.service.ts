@@ -282,6 +282,7 @@ export class PresenceService {
           ${radius}
         )
       ORDER BY distance_meters ASC
+      LIMIT 100
     `;
 
     const userIds = rows.map((row) => row.user_id).filter((id) => !blockedSet.has(id));

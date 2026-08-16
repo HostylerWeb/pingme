@@ -44,6 +44,8 @@ export class WallService {
   ) {}
 
   async listPosts(userId: string, page = 1, limit = 20) {
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safeLimit = Math.min(50, Math.max(1, Number.isFinite(limit) ? Math.floor(limit) : 20));
     const session = await this.prisma.presenceSession.findUnique({ where: { userId } });
     if (!session?.latitude || !session?.longitude) {
       throw new BadRequestException('Location required — send a ping first');
@@ -52,7 +54,7 @@ export class WallService {
     const settings = await this.prisma.userSettings.findUnique({ where: { userId } });
     const radius = this.appConfig.resolveWallRadius(settings?.radiusMeters);
     const blockedIds = await this.blocks.getBlockedUserIds(userId);
-    const offset = (page - 1) * limit;
+    const offset = (safePage - 1) * safeLimit;
 
     const blockedFilter =
       blockedIds.length > 0
@@ -101,7 +103,7 @@ export class WallService {
         )
         ${blockedFilter}
       ORDER BY wp.created_at DESC
-      LIMIT ${limit} OFFSET ${offset}
+      LIMIT ${safeLimit} OFFSET ${offset}
     `;
 
     const data = rows.map((row) => {
@@ -135,7 +137,7 @@ export class WallService {
     };
     });
 
-    return { success: true, data, meta: { page, limit, radiusMeters: radius } };
+    return { success: true, data, meta: { page: safePage, limit: safeLimit, radiusMeters: radius } };
   }
 
   async createPost(userId: string, dto: CreateWallPostInput) {

@@ -17,8 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../src/lib/api';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { REPORT_SHEET_FOOTER, REPORT_SUBMITTED_MESSAGE } from '../../src/lib/report-copy';
 import { showToast } from '../../src/stores/toast-store';
 import {
+  ActionSheet,
   AppHeader,
   Avatar,
   Button,
@@ -46,6 +48,9 @@ export default function PostDetailScreen() {
   const [reply, setReply] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [connectingReplyId, setConnectingReplyId] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
   const { ensureVerified, handleLivenessError } = useLivenessGate();
 
   const styles = useThemedStyles(({ colors }) => ({
@@ -188,6 +193,31 @@ export default function PostDetailScreen() {
     onError: (error: Error) => showToast(error.message, 'error'),
   });
 
+  const blockMutation = useMutation({
+    mutationFn: (userId: string) => api.blockUser(userId),
+    onSuccess: async () => {
+      setBlockOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+      showToast('User blocked', 'success');
+      router.back();
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+
+  const reportMutation = useMutation({
+    mutationFn: (payload: {
+      reportedUserId: string;
+      targetType: 'post';
+      targetId: string;
+      reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other';
+    }) => api.reportUser(payload),
+    onSuccess: () => {
+      setReportOpen(false);
+      showToast(REPORT_SUBMITTED_MESSAGE, 'success');
+    },
+    onError: (error: Error) => showToast(error.message, 'error'),
+  });
+
   const requestMatchMutation = useMutation({
     mutationFn: (replyId: string) =>
       api.requestMatch({ source: 'wall_reply', sourceReferenceId: replyId }),
@@ -266,6 +296,15 @@ export default function PostDetailScreen() {
 
   const authorName = post.author.isYou ? 'You' : post.author.displayName;
 
+  const submitReport = (reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other') => {
+    reportMutation.mutate({
+      reportedUserId: post.author.id,
+      targetType: 'post',
+      targetId: post.id,
+      reason,
+    });
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -292,7 +331,16 @@ export default function PostDetailScreen() {
                 <AppIcon name="delete" size={22} color={colors.error} />
               )}
             </Pressable>
-          ) : undefined
+          ) : (
+            <Pressable
+              onPress={() => setMenuOpen(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Post options"
+            >
+              <AppIcon name="more-menu" size={22} color={colors.ink} />
+            </Pressable>
+          )
         }
       />
 
@@ -403,6 +451,52 @@ export default function PostDetailScreen() {
           )}
         </Pressable>
       </View>
+
+      <ActionSheet
+        visible={menuOpen}
+        title="Post options"
+        onClose={() => setMenuOpen(false)}
+        options={[
+          {
+            label: 'Report post',
+            onPress: () => setTimeout(() => setReportOpen(true), 280),
+          },
+          {
+            label: 'Block user',
+            destructive: true,
+            onPress: () => setTimeout(() => setBlockOpen(true), 280),
+          },
+        ]}
+      />
+
+      <ActionSheet
+        visible={reportOpen}
+        title="Report post"
+        subtitle="Why are you reporting this post?"
+        footer={REPORT_SHEET_FOOTER}
+        onClose={() => setReportOpen(false)}
+        options={[
+          { label: 'Harassment', onPress: () => submitReport('harassment') },
+          { label: 'Spam', onPress: () => submitReport('spam') },
+          { label: 'Inappropriate content', onPress: () => submitReport('inappropriate') },
+          { label: 'Underage', onPress: () => submitReport('underage') },
+          { label: 'Other', onPress: () => submitReport('other') },
+        ]}
+      />
+
+      <ActionSheet
+        visible={blockOpen}
+        title="Block user?"
+        subtitle={`${post.author.displayName} won't be able to interact with you, and you won't see each other.`}
+        onClose={() => setBlockOpen(false)}
+        options={[
+          {
+            label: 'Block',
+            destructive: true,
+            onPress: () => blockMutation.mutate(post.author.id),
+          },
+        ]}
+      />
     </KeyboardAvoidingView>
   );
 }

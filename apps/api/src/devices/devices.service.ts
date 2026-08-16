@@ -81,6 +81,13 @@ export class DevicesService {
     return { success: true };
   }
 
+  async removeByPushToken(userId: string, pushToken: string) {
+    await this.prisma.device.deleteMany({
+      where: { userId, pushToken },
+    });
+    return { success: true };
+  }
+
   async getTokensForUser(userId: string) {
     const devices = await this.prisma.device.findMany({
       where: { userId },

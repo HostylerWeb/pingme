@@ -114,6 +114,23 @@ export async function registerForPushNotifications(options?: { skipPermissionReq
   }
 }
 
+export async function unregisterPushNotifications() {
+  if (!Device.isDevice) return;
+  try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
+    const tokenData = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+    if (tokenData?.data) {
+      await api.unregisterDevice(tokenData.data);
+    }
+  } catch {
+    // Best-effort on logout
+  }
+}
+
 export async function getInitialNotificationPayload(): Promise<NotificationNavigationPayload | null> {
   const response = await Notifications.getLastNotificationResponseAsync();
   if (!response) return null;

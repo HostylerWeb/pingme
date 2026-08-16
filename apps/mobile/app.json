@@ -52,7 +52,7 @@
         {
           "locationWhenInUsePermission": "PingMe uses your location to show nearby posts and people around you.",
           "locationAlwaysAndWhenInUsePermission": "PingMe uses your location in the background while you're Visible on Wall so nearby people can see you're around.",
-          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
       ],

@@ -423,11 +423,13 @@ Do one Part at a time. Each Part has three fixes (1 → 2 → 3). Numbers below 
 
 | Step | Fix | Audit # | Status |
 |------|-----|---------|--------|
-| 1 | Privacy policy + Terms — placeholder pages on staging + Settings/registration links | #4 | Pending |
-| 2 | Wall report/block (reuse chat report API) + logout cleanup (stop BG location, clear query cache, unregister push) + request background permission when enabling Visible (or fix copy) | #5, #16, #17 | Pending |
-| 3 | Geo `LIMIT` caps server-side + PostGIS GiST (or geography) indexes | #11 | Pending |
+| 1 | Privacy policy + Terms — placeholder pages on staging + Settings/registration links | #4 | Done |
+| 2 | Wall report/block (reuse chat report API) + logout cleanup (stop BG location, clear query cache, unregister push) + request background permission when enabling Visible (or fix copy) | #5, #16, #17 | Done |
+| 3 | Geo `LIMIT` caps server-side + PostGIS GiST (or geography) indexes | #11 | Done |
 
 **Done when:** legal links open from the app; wall posts can be reported/blocked; logout leaves no lingering location/cache/push; nearby/wall queries are capped and indexed.
+
+> Part 2 note: run `pnpm --filter @pingme/db migrate:deploy` (or staging deploy) so GiST indexes apply.
 
 ---
 

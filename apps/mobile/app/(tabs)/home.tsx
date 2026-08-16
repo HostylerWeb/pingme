@@ -14,6 +14,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, WallPost } from '../../src/lib/api';
 import {
+  requestBackgroundPermissions,
   stopBackgroundLocation,
   syncBackgroundLocationWithAvailability,
 } from '../../src/lib/background-location';
@@ -291,6 +292,13 @@ export default function WallScreen() {
           if (!location) {
             throw new Error('Could not get your location. Try again in a moment.');
           }
+        }
+        const backgroundGranted = await requestBackgroundPermissions();
+        if (!backgroundGranted) {
+          showToast(
+            'Visible with foreground location only. Allow Always/background location for updates when the app is closed.',
+            'info',
+          );
         }
       } else {
         void stopBackgroundLocation();

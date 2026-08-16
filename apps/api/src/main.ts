@@ -31,6 +31,15 @@ async function bootstrap() {
   app.useStaticAssets(join(process.cwd(), uploadsDir), {
     prefix: '/v1/uploads/',
   });
+  // Legal pages: monorepo root cwd (prod systemd) or apps/api cwd (local)
+  const legalCandidates = [
+    join(process.cwd(), 'apps/api/public/legal'),
+    join(process.cwd(), 'public/legal'),
+    join(__dirname, '..', 'public', 'legal'),
+  ];
+  for (const legalDir of legalCandidates) {
+    app.useStaticAssets(legalDir, { prefix: '/v1/legal/' });
+  }
 
   app.enableCors({
     origin: createCorsOriginDelegate(allowedOrigins, nodeEnv),

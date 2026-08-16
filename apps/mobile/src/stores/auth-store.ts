@@ -8,6 +8,9 @@ import {
   saveCachedUser,
   saveTokens,
 } from '../lib/auth-storage';
+import { stopBackgroundLocation } from '../lib/background-location';
+import { unregisterPushNotifications } from '../lib/push-notifications';
+import { queryClient } from '../lib/query-client';
 
 interface AuthState {
   user: AuthUser | null;
@@ -27,7 +30,7 @@ interface AuthState {
   refreshMe: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: false,
   isHydrated: false,
@@ -103,10 +106,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    try {
+      await stopBackgroundLocation();
+    } catch {
+      // ignore
+    }
+    try {
+      await unregisterPushNotifications();
+    } catch {
+      // ignore
+    }
+
     const refreshToken = (await getRefreshToken()) ?? undefined;
     try {
       await api.logout(refreshToken);
     } finally {
+      queryClient.clear();
       await clearTokens();
       set({ user: null });
     }

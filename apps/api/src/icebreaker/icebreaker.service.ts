@@ -269,6 +269,7 @@ export class IcebreakerService {
           ${radius}
         )
       ORDER BY distance_meters ASC
+      LIMIT 100
     `;
 
     const blocked = await this.blocks.getBlockedUserIds(userId);

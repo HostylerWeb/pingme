@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../src/lib/api';
+import { useAppConfig } from '../src/hooks/use-app-config';
 import { useAuthStore } from '../src/stores/auth-store';
 import { showToast } from '../src/stores/toast-store';
 import { useThemeStore } from '../src/stores/theme-store';
@@ -12,6 +13,17 @@ import { AppHeader, AppSwitch, Button, EmptyState, LoadingView, Screen, SectionL
 import { PremiumCta } from '../src/components/premium-cta';
 import { AppIcon } from '../src/components/ui/app-icon';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+
+function defaultLegalUrl(path: 'privacy.html' | 'terms.html') {
+  const explicit =
+    path === 'privacy.html'
+      ? process.env.EXPO_PUBLIC_PRIVACY_URL
+      : process.env.EXPO_PUBLIC_TERMS_URL;
+  if (explicit) return explicit;
+  return `${API_URL.replace(/\/$/, '')}/legal/${path}`;
+}
 
 type NotificationKey = 'allowPushReplies' | 'allowPushChat' | 'allowPushIcebreaker';
 
@@ -63,6 +75,13 @@ export default function SettingsScreen() {
     queryKey: ['subscription'],
     queryFn: () => api.getSubscription(),
   });
+  const { data: appConfig } = useAppConfig();
+  const privacyUrl = appConfig?.privacyPolicyUrl || defaultLegalUrl('privacy.html');
+  const termsUrl = appConfig?.termsOfServiceUrl || defaultLegalUrl('terms.html');
+
+  const openLegal = (url: string) => {
+    void Linking.openURL(url).catch(() => showToast('Could not open link', 'error'));
+  };
 
   const styles = useThemedStyles(({ colors }) => ({
     content: { paddingHorizontal: spacing.container },
@@ -131,6 +150,19 @@ export default function SettingsScreen() {
       color: colors.error,
       fontSize: 16,
     },
+    linkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      minHeight: 56,
+      gap: spacing.md,
+    },
+    linkRowBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.divider,
+    },
+    linkLabel: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16, flex: 1 },
   }));
 
   const confirmDeleteAccount = () => {
@@ -265,6 +297,25 @@ export default function SettingsScreen() {
                 isLast={index === NOTIFICATION_OPTIONS.length - 1}
               />
             ))}
+          </View>
+
+          <SectionLabel>Legal</SectionLabel>
+          <Text style={styles.sectionHint}>Policies for how PingMe handles your data and account.</Text>
+          <View style={styles.group}>
+            <Pressable
+              onPress={() => openLegal(privacyUrl)}
+              style={({ pressed }) => [styles.linkRow, styles.linkRowBorder, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.linkLabel}>Privacy policy</Text>
+              <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
+            </Pressable>
+            <Pressable
+              onPress={() => openLegal(termsUrl)}
+              style={({ pressed }) => [styles.linkRow, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.linkLabel}>Terms of service</Text>
+              <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
+            </Pressable>
           </View>
 
           <SectionLabel>Account</SectionLabel>

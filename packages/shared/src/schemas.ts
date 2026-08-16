@@ -149,6 +149,10 @@ export const RegisterDeviceSchema = z.object({
   appVersion: z.string().max(40).optional(),
 });
 
+export const UnregisterDeviceSchema = z.object({
+  pushToken: z.string().min(10),
+});
+
 export type CreateWallPostInput = z.infer<typeof CreateWallPostSchema>;
 export type CreateWallReplyInput = z.infer<typeof CreateWallReplySchema>;
 export type PresencePingInput = z.infer<typeof PresencePingSchema>;
@@ -157,6 +161,7 @@ export type MediaPresignInput = z.infer<typeof MediaPresignSchema>;
 export type MediaConfirmInput = z.infer<typeof MediaConfirmSchema>;
 export type MediaUploadBase64Input = z.infer<typeof MediaUploadBase64Schema>;
 export type RegisterDeviceInput = z.infer<typeof RegisterDeviceSchema>;
+export type UnregisterDeviceInput = z.infer<typeof UnregisterDeviceSchema>;
 
 export const MatchRequestSchema = z.object({
   source: z.enum(['wall_reply', 'manual']),

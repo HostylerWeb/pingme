@@ -40,7 +40,16 @@ export class AppConfigService {
   }
 
   getAppConfig(): AppConfigPayload {
-    return buildAppConfigPayload(this.distance);
+    const apiPublic = (this.config.get<string>('API_PUBLIC_URL') ?? 'http://localhost:3000/v1').replace(
+      /\/$/,
+      '',
+    );
+    const privacyPolicyUrl =
+      this.config.get<string>('PRIVACY_POLICY_URL')?.trim() || `${apiPublic}/legal/privacy.html`;
+    const termsOfServiceUrl =
+      this.config.get<string>('TERMS_OF_SERVICE_URL')?.trim() || `${apiPublic}/legal/terms.html`;
+
+    return buildAppConfigPayload(this.distance, { privacyPolicyUrl, termsOfServiceUrl });
   }
 
   resolveWallRadius(userRadiusMeters?: number | null): number {

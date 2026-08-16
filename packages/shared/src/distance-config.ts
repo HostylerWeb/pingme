@@ -20,6 +20,8 @@ export type DistanceConfig = {
 export type AppConfigPayload = {
   version: 1;
   distance: DistanceConfig;
+  privacyPolicyUrl: string;
+  termsOfServiceUrl: string;
 };
 
 export type DistanceEnvInput = {
@@ -156,10 +158,15 @@ export function parseDistanceConfigFromEnv(input: DistanceEnvInput): DistanceCon
   };
 }
 
-export function buildAppConfigPayload(distance: DistanceConfig): AppConfigPayload {
+export function buildAppConfigPayload(
+  distance: DistanceConfig,
+  legal?: { privacyPolicyUrl?: string; termsOfServiceUrl?: string },
+): AppConfigPayload {
   return {
     version: 1,
     distance,
+    privacyPolicyUrl: legal?.privacyPolicyUrl ?? '',
+    termsOfServiceUrl: legal?.termsOfServiceUrl ?? '',
   };
 }
 
