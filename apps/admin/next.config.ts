@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
               "connect-src 'self' https: wss:",
+              "worker-src blob:",
+              "child-src blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

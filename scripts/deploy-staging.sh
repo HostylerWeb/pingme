@@ -42,6 +42,18 @@ do
   fi
 done
 
+# Admin dashboard client env (Next.js inlines NEXT_PUBLIC_* at build time)
+ADMIN_ENV_FILE="$SITE_DIR/apps/admin/.env.production.local"
+MAPBOX_TOKEN=$(grep -E '^MAPBOX_PUBLIC_ACCESS_TOKEN=' "$SITE_DIR/.env" 2>/dev/null | cut -d= -f2- | tr -d '"' || true)
+if [[ -z "$MAPBOX_TOKEN" ]]; then
+  echo "WARN: MAPBOX_PUBLIC_ACCESS_TOKEN missing in $SITE_DIR/.env — admin map tiles will be blank until set."
+fi
+sudo -u hostyler tee "$ADMIN_ENV_FILE" > /dev/null <<EOF
+NEXT_PUBLIC_API_URL=https://pingme.hostyler.cloud/v1
+NEXT_PUBLIC_APP_ENV=staging
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=${MAPBOX_TOKEN}
+EOF
+
 # Install systemd units (API + worker + admin)
 if [[ -f "$SITE_DIR/infrastructure/systemd/pingme-api.service" ]]; then
   cp "$SITE_DIR/infrastructure/systemd/pingme-api.service" /etc/systemd/system/pingme.service

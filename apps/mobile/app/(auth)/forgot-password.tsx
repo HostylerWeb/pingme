@@ -50,7 +50,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <Screen padded={false} edges={['top', 'bottom']}>
+    <Screen padded={false} transparent edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.brandRow}>

@@ -1,7 +1,8 @@
 import { GENDER_OPTIONS, type GenderValue } from '@pingme/shared';
 import { Pressable, Text, View } from 'react-native';
-import { radius, spacing, typography } from '../../theme';
+import { radius, spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
+import { GenderSymbol } from './gender-symbol';
 
 export function GenderPicker({
   value,
@@ -14,6 +15,7 @@ export function GenderPicker({
   disabled?: boolean;
   label?: string;
 }) {
+  const { colors } = useTheme();
   const styles = useThemedStyles(({ colors }) => ({
     wrap: { marginBottom: spacing.lg },
     label: {
@@ -30,15 +32,16 @@ export function GenderPicker({
     },
     option: {
       flex: 1,
-      minHeight: 40,
+      minHeight: 56,
       paddingVertical: spacing.sm,
       paddingHorizontal: 4,
-      borderRadius: radius.full,
+      borderRadius: radius.lg,
       borderWidth: 1.5,
       borderColor: colors.outlineVariant,
       backgroundColor: colors.surfaceMuted,
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 4,
     },
     optionSelected: {
       borderColor: colors.accent,
@@ -82,6 +85,11 @@ export function GenderPicker({
               accessibilityState={{ selected, disabled }}
               accessibilityLabel={option.label}
             >
+              <GenderSymbol
+                gender={option.value}
+                size={16}
+                color={selected ? colors.accent : disabled ? colors.inkTertiary : colors.inkSecondary}
+              />
               <Text
                 numberOfLines={2}
                 adjustsFontSizeToFit

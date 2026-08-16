@@ -10,11 +10,13 @@ export function Screen({
   children,
   style,
   padded = true,
+  transparent = false,
   edges = ['top', 'bottom'],
 }: {
   children: ReactNode;
   style?: ViewStyle;
   padded?: boolean;
+  transparent?: boolean;
   edges?: ('top' | 'bottom')[];
 }) {
   const insets = useSafeAreaInsets();
@@ -22,7 +24,7 @@ export function Screen({
   const styles = useThemedStyles(({ colors }) => ({
     base: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: transparent ? 'transparent' : colors.background,
     },
     padded: {
       paddingHorizontal: spacing.container,

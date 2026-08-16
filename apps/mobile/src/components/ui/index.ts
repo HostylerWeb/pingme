@@ -4,6 +4,7 @@ export { GenderPicker, GenderReadOnly } from './gender-picker';
 export { DateOfBirthField } from './date-of-birth-field';
 export { PasswordInput } from './password-input';
 export { Screen } from './screen';
+export { AuthBackdrop } from './auth-backdrop';
 export { AppHeader, AvailableChip, SectionLabel } from './app-header';
 export { BrandMark, PingGlyph } from './brand-mark';
 export { PresencePulse } from './presence-pulse';

@@ -51,7 +51,7 @@ export default function ResetPasswordScreen() {
       : 'Enter the reset code from your email or SMS.';
 
   return (
-    <Screen padded={false} edges={['top', 'bottom']}>
+    <Screen padded={false} transparent edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.brandRow}>

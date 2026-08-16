@@ -63,7 +63,7 @@ Use this section to see what is left without reading the full plan. Details live
 |--------|------:|----------|
 | **Done** | 33 | All backlog polish items through #35 complete |
 | **Partial** | 0 | — |
-| **UNDONE** | 8+ | IAP, Events (#33), web app, self-hosted OTA, venues (Phase 9), admin map tiles (#21) |
+| **UNDONE** | 6+ | IAP, web app, self-hosted OTA, venues (Phase 9) |
 
 Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-plan (E0–E5): mostly **UNDONE** except Phase 0 decisions (**Done**).
 
@@ -1305,6 +1305,8 @@ EXPO_PUBLIC_SENTRY_DSN=
 
 ```bash
 NEXT_PUBLIC_API_URL=https://api.yourdomain.com/admin/v1
+# Same Mapbox public token as mobile (`EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN`)
+NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN=pk.xxx
 ```
 
 ---
@@ -2341,7 +2343,6 @@ NOTIFICATIONS_TEST_ENABLED=false
 |---|---------|--------|-------|
 | 6 | **Stripe checkout** — Mobile opens checkout URL; webhook updates subscription | **Done** | `StripeGateway`; set `PAYMENT_PROVIDER=stripe` + keys on server |
 | 7 | **Premium pricing page** — Monthly price, free vs paid, benefits copy (badge on posts/replies/icebreaker) | **Done** | `premium.tsx` + shared benefit copy; cancel flow for paid subs |
-| 8 | **Free trial** — e.g. 7 days | **UNDONE** | |
 | 9 | **Restore purchases** — App Store / Play IAP | **UNDONE** | |
 | 10 | **Admin: subscription history** — Who paid, refunds, grant/revoke audit | **Done** | Timeline on user page from audit logs + Stripe webhook events |
 
@@ -2372,7 +2373,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 21 | **Real map tiles** — Leaflet + OpenStreetMap on admin map | **UNDONE** | Grid + dots/heatmap only |
+| 21 | **Real map tiles** — Mapbox GL on admin live map (same `pk.*` token as mobile Events) | **Done** | `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`; heatmap + user dots on Mapbox streets/dark |
 | 22 | **Bulk actions on reports** | **Done** | Bulk assign/resolve/dismiss API + checkbox UI on admin reports |
 | 23 | **User search** — Email, phone, display name | **Done** | Query on admin Users page |
 | 24 | **Staging vs prod env indicator** | **Done** | Amber banner on admin when `NEXT_PUBLIC_APP_ENV=staging` or API URL is hostyler |
@@ -2554,7 +2555,7 @@ GET /config       → public app limits (distance radii); mobile prefetches at l
 
 | Goal | Top 5 |
 |------|-------|
-| **Monetize soon** | Stripe go-live → 8 (free trial) → 10 (subscription history) → 31 (IAP) |
+| **Monetize soon** | Stripe go-live → 10 (subscription history) → 31 (IAP) |
 | **Grow / test icebreaker** | Device test checklist → 35 (analytics) → E5.3 event push |
 | **Ship Events** | E1 (KYC) → E2 → E3 → E4 → E5 |
 | **Polish for launch** | 26 → 27 → 28 → 19 → 21 → legal pages |

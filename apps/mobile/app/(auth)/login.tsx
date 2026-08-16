@@ -22,23 +22,8 @@ export default function LoginScreen() {
       justifyContent: 'center',
       padding: spacing.container,
     },
-    brandWrapper: {
-      position: 'relative',
-      alignSelf: 'flex-start',
-      marginBottom: spacing.xl,
-    },
-    glowAura: {
-      position: 'absolute',
-      top: -24,
-      left: -24,
-      width: 120,
-      height: 120,
-      borderRadius: 60,
-      backgroundColor: colors.accentSoft,
-      opacity: 0.65,
-    },
     brandRow: {
-      zIndex: 1,
+      marginBottom: spacing.xl,
     },
     title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
     subtitle: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl, lineHeight: 22 },
@@ -64,14 +49,11 @@ export default function LoginScreen() {
   };
 
   return (
-    <Screen padded={false} edges={['top', 'bottom']}>
+    <Screen padded={false} transparent edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.brandWrapper}>
-            <View style={styles.glowAura} />
-            <View style={styles.brandRow}>
-              <BrandMark size="lg" />
-            </View>
+          <View style={styles.brandRow}>
+            <BrandMark size="lg" />
           </View>
 
           <Text style={styles.title}>Welcome back</Text>
