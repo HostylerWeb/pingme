@@ -424,7 +424,7 @@ export class AdminUsersService {
     return {
       subscription,
       events: events.map((event) => ({
-        id: event.id,
+        id: event.id.toString(),
         action: event.action,
         createdAt: event.createdAt,
         metadata: event.metadata,

@@ -18,14 +18,3 @@ export function getAppEnv(): AppEnv {
 
   return 'production';
 }
-
-export function envBannerLabel(env: AppEnv): string | null {
-  switch (env) {
-    case 'staging':
-      return 'Staging environment';
-    case 'local':
-      return 'Local development';
-    default:
-      return null;
-  }
-}
