@@ -6,7 +6,7 @@ import {
   NotFoundException,
   forwardRef,
 } from '@nestjs/common';
-import { MatchSource, MatchStatus } from '@pingme/db';
+import { MatchSource, MatchStatus, type Gender } from '@pingme/db';
 import { MATCH_EXPIRY_MINUTES, MatchRequestInput, NOTIFICATION_TYPES, isUserActiveNow } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { ChatGateway } from '../chat/chat.gateway';
@@ -328,7 +328,7 @@ export class MatchesService {
       userA?: {
         id: string;
         lastSeenAt: Date | null;
-        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown; gender?: string | null } | null;
+        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown; gender?: Gender | null } | null;
         subscription: {
           plan: string;
           status: string;
@@ -338,7 +338,7 @@ export class MatchesService {
       userB?: {
         id: string;
         lastSeenAt: Date | null;
-        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown; gender?: string | null } | null;
+        profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown; gender?: Gender | null } | null;
         subscription: {
           plan: string;
           status: string;
