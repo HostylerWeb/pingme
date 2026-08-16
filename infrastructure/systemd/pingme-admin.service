@@ -1,0 +1,24 @@
+[Unit]
+Description=PingMe Admin Dashboard (Next.js)
+After=network.target pingme.service
+Wants=pingme.service
+
+[Service]
+Type=simple
+User=hostyler
+Group=hostyler
+WorkingDirectory=/var/www/sites/pingme/apps/admin
+Environment=NODE_ENV=production
+Environment=PORT=3004
+# Prefer apps/admin/.env.production.local for NEXT_PUBLIC_API_URL
+ExecStart=/usr/bin/node node_modules/next/dist/bin/next start -p 3004
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pingme-admin
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -6,7 +6,7 @@ Project documentation lives here. Package-local READMEs and agent files stay nex
 
 | Folder | Contents |
 |--------|----------|
-| [getting-started/](./getting-started/) | Local and staging runbooks (`howtorun.md`) |
+| [getting-started/](./getting-started/) | Local runbook + **full new-VPS / migrate** guide (`howtorun.md`) |
 | [product/](./product/) | Strategy and phased development plan |
 | [engineering/](./engineering/) | Production-readiness audit / fixes board, UI design gaps |
 | [testing/](./testing/) | Device checklist + full API pentest plan |

@@ -150,9 +150,11 @@ Worker unit sets `RUN_MODE=worker` (same `.env`, different process).
 From your machine (after `git push origin main`):
 
 ```bash
-sshpass -f sshpass.txt ssh root@145.223.88.74 \
+SSHPASS='…' sshpass -e ssh -o StrictHostKeyChecking=no root@145.223.88.74 \
   'bash /var/www/sites/pingme/scripts/deploy-staging.sh'
 ```
+
+Full greenfield / migrate checklist: **[docs/getting-started/howtorun.md](../getting-started/howtorun.md) Part B**.
 
 Deploy script:
 
