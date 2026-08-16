@@ -66,4 +66,25 @@ describe('SubscriptionsService', () => {
       'Payments are not configured yet',
     );
   });
+
+  it('blocks demo gateway in production', async () => {
+    const prodConfig = {
+      get: jest.fn((key: string, fallback?: string) => {
+        if (key === 'PAYMENT_PROVIDER') return 'demo';
+        if (key === 'NODE_ENV') return 'production';
+        return fallback;
+      }),
+    } as unknown as ConfigService;
+    const prodService = new SubscriptionsService(
+      prisma,
+      audit,
+      prodConfig,
+      new UnconfiguredGateway(),
+      new DemoGateway(),
+    );
+
+    await expect(prodService.createCheckout('user-1', 'premium')).rejects.toThrow(
+      'Payments are not configured yet',
+    );
+  });
 });

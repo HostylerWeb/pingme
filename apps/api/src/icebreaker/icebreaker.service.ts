@@ -257,6 +257,9 @@ export class IcebreakerService {
           ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography
         ) AS distance_meters
       FROM icebreaker_sessions s
+      INNER JOIN users u ON u.id = s.user_id
+        AND u.deleted_at IS NULL
+        AND u.status <> 'deleted'
       WHERE s.user_id != ${userId}::uuid
         AND s.status = 'active'
         AND s.expires_at > ${now}

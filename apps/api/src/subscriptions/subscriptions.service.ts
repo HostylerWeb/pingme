@@ -288,6 +288,11 @@ export class SubscriptionsService {
   }
 
   private getGateway(): PaymentGateway {
+    const nodeEnv = this.config.get<string>('NODE_ENV', 'development');
+    // Never allow demo self-grant premium in production
+    if (nodeEnv === 'production' && this.configuredProvider === 'demo') {
+      return this.unconfiguredGateway;
+    }
     if (this.configuredProvider === 'demo') {
       return this.demoGateway;
     }

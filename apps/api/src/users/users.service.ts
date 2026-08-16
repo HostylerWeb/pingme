@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { Profile, Prisma, UserStatus } from '@pingme/db';
+import { Profile, Prisma, UserStatus, WallPostStatus, WallReplyStatus } from '@pingme/db';
 import { PREMIUM_AVATAR_THEMES } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
 import { R2Service } from '../common/services/r2.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.module';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { VerificationService } from '../verification/verification.service';
 import {
@@ -13,6 +14,9 @@ import {
   UpdateProfileInput,
   UpdateSettingsInput,
 } from '@pingme/shared';
+import { assertSafeAvatarObjectKey } from '../common/utils/upload-key.util';
+
+const GEO_AVAILABLE_KEY = 'geo:available';
 
 @Injectable()
 export class UsersService {
@@ -23,6 +27,7 @@ export class UsersService {
     private readonly r2: R2Service,
     private readonly verification: VerificationService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly redis: RedisService,
   ) {}
 
   async getMe(userId: string) {
@@ -168,22 +173,65 @@ export class UsersService {
   }
 
   async deleteAccount(userId: string, meta: { ipAddress?: string; userAgent?: string }) {
-    await this.prisma.$transaction([
-      this.prisma.user.update({
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
         where: { id: userId },
         data: {
           status: UserStatus.deleted,
           deletedAt: new Date(),
           email: null,
           phone: null,
+          passwordHash: null,
           isAvailable: false,
         },
-      }),
-      this.prisma.refreshToken.updateMany({
+      });
+
+      await tx.refreshToken.updateMany({
         where: { userId, revokedAt: null },
         data: { revokedAt: new Date() },
-      }),
-    ]);
+      });
+
+      await tx.profile.updateMany({
+        where: { userId },
+        data: {
+          displayName: 'Deleted User',
+          bio: null,
+          avatarUrl: null,
+          avatarConfig: Prisma.DbNull,
+          avatarType: 'generated',
+        },
+      });
+
+      await tx.wallPost.updateMany({
+        where: { userId, status: WallPostStatus.active },
+        data: { status: WallPostStatus.deleted },
+      });
+
+      await tx.wallReply.updateMany({
+        where: { userId, status: WallReplyStatus.active },
+        data: { status: WallReplyStatus.deleted },
+      });
+
+      await tx.device.deleteMany({ where: { userId } });
+
+      await tx.presenceSession.updateMany({
+        where: { userId },
+        data: {
+          isActive: false,
+          endedAt: new Date(),
+          latitude: null,
+          longitude: null,
+          fuzzyLat: null,
+          fuzzyLng: null,
+        },
+      });
+    });
+
+    try {
+      await this.redis.client.zrem(GEO_AVAILABLE_KEY, userId);
+    } catch {
+      // Deletion must succeed even if Redis is briefly unavailable
+    }
 
     await this.audit.log({
       userId,
@@ -197,7 +245,8 @@ export class UsersService {
   }
 
   async createPresignedUpload(userId: string, dto: MediaPresignInput) {
-    const key = `avatars/${userId}/${Date.now()}-${dto.fileName}`;
+    const safeName = dto.fileName.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 180) || 'avatar';
+    const key = assertSafeAvatarObjectKey(userId, `avatars/${userId}/${Date.now()}-${safeName}`);
     return this.r2.createPresignedUpload(key, dto.contentType);
   }
 
@@ -207,11 +256,8 @@ export class UsersService {
       throw new NotFoundException('Profile not found');
     }
 
-    if (!dto.key.startsWith(`avatars/${userId}/`)) {
-      throw new ForbiddenException('Invalid upload key');
-    }
-
-    const publicUrl = this.r2.getPublicUrl(dto.key);
+    const safeKey = assertSafeAvatarObjectKey(userId, dto.key);
+    const publicUrl = this.r2.getPublicUrl(safeKey);
 
     return this.prisma.profile.update({
       where: { userId },
@@ -231,15 +277,13 @@ export class UsersService {
       throw new BadRequestException('Direct upload is only used when R2 is not configured');
     }
 
-    if (!key.startsWith(`avatars/${userId}/`)) {
-      throw new ForbiddenException('Invalid upload key');
-    }
+    const safeKey = assertSafeAvatarObjectKey(userId, key);
 
     if (!file.mimetype.startsWith('image/')) {
       throw new BadRequestException('File must be an image');
     }
 
-    const publicUrl = await this.r2.saveLocalFile(key, file.buffer);
+    const publicUrl = await this.r2.saveLocalFile(safeKey, file.buffer);
 
     return this.prisma.profile.update({
       where: { userId },

@@ -2,9 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../src/lib/api';
+import { useAuthStore } from '../src/stores/auth-store';
 import { showToast } from '../src/stores/toast-store';
 import { useThemeStore } from '../src/stores/theme-store';
 import { AppHeader, AppSwitch, Button, EmptyState, LoadingView, Screen, SectionLabel } from '../src/components/ui';
@@ -43,7 +44,9 @@ export default function SettingsScreen() {
   const { colors } = useTheme();
   const darkMode = useThemeStore((s) => s.darkMode);
   const setDarkMode = useThemeStore((s) => s.setDarkMode);
+  const logout = useAuthStore((s) => s.logout);
   const [osNotificationsGranted, setOsNotificationsGranted] = useState<boolean | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const refreshOsPermission = useCallback(async () => {
     const { status } = await Notifications.getPermissionsAsync();
@@ -105,7 +108,60 @@ export default function SettingsScreen() {
       borderColor: colors.border,
       marginBottom: spacing.xxl,
     },
+    dangerHint: {
+      ...typography.caption,
+      color: colors.inkSecondary,
+      marginBottom: spacing.md,
+      marginTop: -spacing.xs,
+      lineHeight: 18,
+    },
+    deleteButton: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.error,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      alignItems: 'center',
+      marginBottom: spacing.xxl,
+    },
+    deleteButtonPressed: { opacity: 0.85 },
+    deleteButtonLabel: {
+      ...typography.bodySemiBold,
+      color: colors.error,
+      fontSize: 16,
+    },
   }));
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently removes your profile, posts, and login. You cannot undo this.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setDeletingAccount(true);
+              try {
+                await api.deleteAccount();
+                queryClient.clear();
+                await logout();
+                showToast('Your account was deleted', 'success');
+                router.replace('/(auth)/login');
+              } catch {
+                showToast('Could not delete account', 'error');
+              } finally {
+                setDeletingAccount(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  };
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['user-settings'],
@@ -210,6 +266,23 @@ export default function SettingsScreen() {
               />
             ))}
           </View>
+
+          <SectionLabel>Account</SectionLabel>
+          <Text style={styles.dangerHint}>
+            Deleting your account removes your profile and login. This cannot be undone.
+          </Text>
+          <Pressable
+            onPress={confirmDeleteAccount}
+            disabled={deletingAccount}
+            style={({ pressed }) => [
+              styles.deleteButton,
+              (pressed || deletingAccount) && styles.deleteButtonPressed,
+            ]}
+          >
+            <Text style={styles.deleteButtonLabel}>
+              {deletingAccount ? 'Deleting…' : 'Delete account'}
+            </Text>
+          </Pressable>
         </ScrollView>
       )}
     </Screen>

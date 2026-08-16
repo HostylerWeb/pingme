@@ -7,6 +7,7 @@ import { join } from 'path';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { assertRequiredSecrets } from './common/utils/assert-required-secrets';
 import { createCorsOriginDelegate, parseCorsOrigins } from './common/utils/cors.util';
 import { getRunMode, shouldRunApi } from './common/utils/run-mode';
 
@@ -14,6 +15,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
   const config = app.get(ConfigService);
   const nodeEnv = config.get<string>('NODE_ENV', 'development');
+  assertRequiredSecrets(config, nodeEnv);
   const allowedOrigins = parseCorsOrigins(config.get<string>('CORS_ORIGINS'), nodeEnv);
   const uploadsDir = config.get<string>('UPLOADS_DIR', 'uploads');
 
@@ -45,13 +47,15 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('PingMe API')
-    .setDescription('Proximity social API')
-    .setVersion('0.0.1')
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+  if (nodeEnv !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('PingMe API')
+      .setDescription('Proximity social API')
+      .setVersion('0.0.1')
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, document);
+  }
 
   const port = config.get<number>('PORT', 3000);
   const host = config.get<string>('HOST', '0.0.0.0');

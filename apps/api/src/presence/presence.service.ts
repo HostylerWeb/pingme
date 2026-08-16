@@ -226,6 +226,8 @@ export class PresenceService {
       FROM presence_sessions ps
       INNER JOIN users u ON u.id = ps.user_id
       WHERE u.is_available = true
+        AND u.deleted_at IS NULL
+        AND u.status <> 'deleted'
         AND ps.is_active = true
         AND ps.latitude IS NOT NULL
         AND ps.longitude IS NOT NULL
@@ -268,6 +270,8 @@ export class PresenceService {
       FROM presence_sessions ps
       INNER JOIN users u ON u.id = ps.user_id
       WHERE u.is_available = true
+        AND u.deleted_at IS NULL
+        AND u.status <> 'deleted'
         AND ps.is_active = true
         AND ps.latitude IS NOT NULL
         AND ps.longitude IS NOT NULL

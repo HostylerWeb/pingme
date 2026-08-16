@@ -198,6 +198,11 @@ export const api = {
 
   me: () => apiFetch<{ success: boolean; data: AuthUser }>('/users/me'),
 
+  deleteAccount: () =>
+    apiFetch<{ success: boolean }>('/users/me', {
+      method: 'DELETE',
+    }),
+
   updateProfile: (payload: {
     displayName?: string;
     bio?: string;

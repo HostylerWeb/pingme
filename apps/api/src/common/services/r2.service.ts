@@ -2,8 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { BadRequestException } from '@nestjs/common';
 import { mkdir, writeFile } from 'fs/promises';
-import { dirname, join } from 'path';
+import { dirname, resolve, sep } from 'path';
 
 export type PresignResult = {
   uploadUrl: string | null;
@@ -72,7 +73,11 @@ export class R2Service {
   }
 
   async saveLocalFile(key: string, buffer: Buffer): Promise<string> {
-    const filePath = join(this.getUploadsDir(), key);
+    const uploadsRoot = resolve(process.cwd(), this.getUploadsDir());
+    const filePath = resolve(uploadsRoot, key);
+    if (filePath !== uploadsRoot && !filePath.startsWith(uploadsRoot + sep)) {
+      throw new BadRequestException('Invalid upload path');
+    }
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, buffer);
     return this.getLocalPublicUrl(key);

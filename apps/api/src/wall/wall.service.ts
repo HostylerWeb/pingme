@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, WallPostStatus, WallReplyStatus } from '@pingme/db';
+import { Prisma, UserStatus, WallPostStatus, WallReplyStatus } from '@pingme/db';
 import { distanceBucket, NOTIFICATION_TYPES, CreateWallPostInput, CreateWallReplyInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
@@ -89,6 +89,9 @@ export class WallService {
         ) AS liveness_verified
       FROM wall_posts wp
       INNER JOIN profiles p ON p.user_id = wp.user_id
+      INNER JOIN users u ON u.id = wp.user_id
+        AND u.deleted_at IS NULL
+        AND u.status <> 'deleted'
       LEFT JOIN subscriptions sub ON sub.user_id = wp.user_id
       WHERE wp.status = 'active'
         AND ST_DWithin(
@@ -165,6 +168,7 @@ export class WallService {
         id: postId,
         status: WallPostStatus.active,
         userId: blockedIds.length ? { notIn: blockedIds } : undefined,
+        user: { deletedAt: null, NOT: { status: UserStatus.deleted } },
       },
       include: {
         user: { include: { profile: true, subscription: true } },
