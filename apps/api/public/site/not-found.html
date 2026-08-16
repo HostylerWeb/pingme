@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PingMe — Not found</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a222c;
+      --text: #f2f5f8;
+      --muted: #9aa7b5;
+      --accent: #3d9bfd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 1.5rem;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, #1e3a5f 0%, transparent 55%),
+        var(--bg);
+    }
+    main {
+      width: min(100%, 28rem);
+      padding: 2rem 1.75rem;
+      border-radius: 1rem;
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.75rem;
+      letter-spacing: -0.02em;
+    }
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.98rem;
+    }
+    a {
+      display: inline-block;
+      margin-top: 1.25rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.92rem;
+    }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Page not found</h1>
+    <p>
+      This address is not a PingMe page. Use the mobile app, or go back to the home page.
+    </p>
+    <a href="/">Back to PingMe</a>
+  </main>
+</body>
+</html>

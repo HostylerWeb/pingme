@@ -1,5 +1,11 @@
 import { Catch, ExceptionFilter, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import { join } from 'path';
+import {
+  isNestRouteNotFoundMessage,
+  prefersHtml,
+  resolveSiteDir,
+} from '../utils/site-pages.util';
 
 function getExceptionStatus(exception: unknown): number {
   if (exception instanceof HttpException) {
@@ -41,13 +47,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     const status = getExceptionStatus(exception);
 
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : 'Internal server error';
 
-    const message = getExceptionMessage(exception, exceptionResponse);
+    let message = getExceptionMessage(exception, exceptionResponse);
+    const routeMissing = status === HttpStatus.NOT_FOUND && isNestRouteNotFoundMessage(message);
+
+    if (routeMissing && prefersHtml(request.headers.accept)) {
+      const siteDir = resolveSiteDir();
+      if (siteDir) {
+        response.status(status).type('html').sendFile(join(siteDir, 'not-found.html'));
+        return;
+      }
+    }
+
+    if (routeMissing) {
+      message = 'Not found';
+    }
 
     const customCode =
       typeof exceptionResponse === 'object' && exceptionResponse !== null

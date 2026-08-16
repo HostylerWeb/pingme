@@ -11,6 +11,7 @@ import { ChatModule } from './chat/chat.module';
 import { AdminModule } from './admin/admin.module';
 import { HealthModule } from './health/health.module';
 import { SafetyModule } from './safety/safety.module';
+import { SiteModule } from './site/site.module';
 import { IcebreakerModule } from './icebreaker/icebreaker.module';
 import { MatchesModule } from './matches/matches.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -54,6 +55,7 @@ import { WallModule } from './wall/wall.module';
     SubscriptionsModule,
     AdminModule,
     HealthModule,
+    SiteModule,
   ],
   providers: [
     {

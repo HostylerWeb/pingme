@@ -5,12 +5,14 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { join } from 'path';
+import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { assertRequiredSecrets } from './common/utils/assert-required-secrets';
 import { createCorsOriginDelegate, parseCorsOrigins } from './common/utils/cors.util';
 import { getRunMode, shouldRunApi } from './common/utils/run-mode';
+import { resolveSiteDir } from './common/utils/site-pages.util';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
@@ -54,6 +56,15 @@ async function bootstrap() {
   ];
   for (const legalDir of legalCandidates) {
     app.useStaticAssets(legalDir, { prefix: '/v1/legal/' });
+  }
+
+  const siteDir = resolveSiteDir();
+  if (siteDir) {
+    // Browser visits to https://host/ (outside /v1 prefix)
+    const expressApp = app.getHttpAdapter().getInstance();
+    expressApp.get('/', (_req: Request, res: Response) => {
+      res.type('html').sendFile(join(siteDir, 'index.html'));
+    });
   }
 
   app.enableCors({
