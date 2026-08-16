@@ -165,24 +165,6 @@ export class InboxService {
     };
   }
 
-  private async purgeStaleWallNotifications(userId: string) {
-    const cutoff = new Date(Date.now() - WALL_POST_MAX_AGE_HOURS * 60 * 60 * 1000);
-    const now = new Date();
-
-    await this.prisma.userNotification.deleteMany({
-      where: {
-        userId,
-        post: {
-          OR: [
-            { createdAt: { lt: cutoff } },
-            { status: { not: WallPostStatus.active } },
-            { expiresAt: { lte: now } },
-          ],
-        },
-      },
-    });
-  }
-
   private async countIcebreakerUnread(userId: string) {
     const matches = await this.prisma.match.findMany({
       where: {
