@@ -129,5 +129,20 @@ describe('SubscriptionsService', () => {
     const checkout = await prodService.createCheckout('user-1', 'premium');
     expect(checkout.inAppCheckout).toBe(true);
     expect(checkout.sessionId).toBeTruthy();
+
+    (prisma.subscription.upsert as jest.Mock).mockResolvedValue({
+      id: 'sub-1',
+      userId: 'user-1',
+      plan: SubscriptionPlan.premium,
+      status: SubscriptionStatus.active,
+      paymentProvider: 'manual',
+      cancelAtPeriodEnd: false,
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: new Date(Date.now() + 86_400_000 * 30),
+    });
+
+    const confirmed = await prodService.confirmCheckout('user-1', checkout.sessionId!);
+    expect(confirmed.isPremium).toBe(true);
+    expect(prisma.subscription.upsert).toHaveBeenCalled();
   });
 });

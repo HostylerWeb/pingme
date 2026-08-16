@@ -3,11 +3,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@pingme/db';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ConfirmCheckoutDto } from './dto/subscriptions.dto';
 import { SubscriptionsService } from './subscriptions.service';
-
-class ConfirmCheckoutDto {
-  sessionId!: string;
-}
 
 @ApiTags('subscriptions')
 @ApiBearerAuth()
