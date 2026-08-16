@@ -45,6 +45,7 @@ export default function LivenessScreen() {
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [isStartingSession, setIsStartingSession] = useState(true);
 
   const styles = useThemedStyles(({ colors }) => ({
     container: { flex: 1, backgroundColor: colors.background },
@@ -70,6 +71,7 @@ export default function LivenessScreen() {
   }));
 
   const startSession = useCallback(async () => {
+    setIsStartingSession(true);
     setError(null);
     setStatusMessage('Checking camera permission...');
 
@@ -78,6 +80,7 @@ export default function LivenessScreen() {
       setError('Camera permission is required for liveness verification. Enable it in Settings.');
       setStatusMessage('');
       setCameraReady(false);
+      setIsStartingSession(false);
       return;
     }
 
@@ -92,6 +95,8 @@ export default function LivenessScreen() {
       const message = err instanceof Error ? err.message : 'Could not start verification';
       setError(message);
       setStatusMessage('');
+    } finally {
+      setIsStartingSession(false);
     }
   }, []);
 
@@ -148,7 +153,7 @@ export default function LivenessScreen() {
       {statusMessage ? <Text style={styles.status}>{statusMessage}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {polling ? (
+      {polling || isStartingSession ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
@@ -177,7 +182,7 @@ export default function LivenessScreen() {
         />
       ) : null}
 
-      {!verificationUrl && !polling ? (
+      {!verificationUrl && !polling && !isStartingSession ? (
         <View style={[styles.actions, { paddingBottom: insets.bottom + spacing.lg }]}>
           <Button label="Try again" onPress={() => void startSession()} />
           {error ? (

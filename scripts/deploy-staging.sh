@@ -30,6 +30,7 @@ for kv in \
   "UPLOADS_DIR=uploads" \
   "JWT_ACCESS_EXPIRES=1h" \
   "JWT_REFRESH_DAYS=30" \
+  "DIDIT_WORKFLOW_ID_ID=b1679eea-ecd4-43d7-9d41-bb57fc484175" \
   "DIDIT_WORKFLOW_ID_KYC=213b1f05-2f42-4ac2-8c3c-4dccf3c90979" \
   "DIDIT_WEBHOOK_EVENTS=status.updated,data.updated"
 do

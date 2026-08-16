@@ -15,6 +15,7 @@ describe('DiditService safety detection', () => {
             get: jest.fn((key: string) => {
               if (key === 'DIDIT_API_KEY') return 'test-key';
               if (key === 'DIDIT_WORKFLOW_ID_LIVENESS') return 'workflow-liveness';
+              if (key === 'DIDIT_WORKFLOW_ID_ID') return 'workflow-id';
               if (key === 'DIDIT_WORKFLOW_ID_KYC') return 'workflow-kyc';
               return undefined;
             }),
@@ -55,8 +56,44 @@ describe('DiditService safety detection', () => {
     ).toBe(false);
   });
 
-  it('reports KYC workflow when configured', () => {
+  it('reports event host verification when ID or combined workflow is configured', () => {
     expect(service.isKycEnabled()).toBe(true);
+    expect(service.getWorkflowIdId()).toBe('workflow-id');
     expect(service.getWorkflowIdKyc()).toBe('workflow-kyc');
+  });
+
+  it('picks ID-only workflow when liveness already passed', () => {
+    expect(service.resolveEventHostWorkflow(true)).toBe('id');
+  });
+
+  it('picks combined workflow when liveness not passed', () => {
+    expect(service.resolveEventHostWorkflow(false)).toBe('kyc');
+  });
+
+  it('approves ID-only sessions without liveness checks in the decision', () => {
+    expect(
+      service.isDocumentVerificationApproved(
+        { id_verifications: [{ status: 'Approved' }] },
+        'id',
+      ),
+    ).toBe(true);
+    expect(
+      service.isDocumentVerificationApproved(
+        { id_verifications: [{ status: 'Approved' }] },
+        'kyc',
+      ),
+    ).toBe(false);
+  });
+
+  it('requires liveness in combined workflow decisions', () => {
+    expect(
+      service.isDocumentVerificationApproved(
+        {
+          id_verifications: [{ status: 'Approved' }],
+          liveness_checks: [{ status: 'Approved' }],
+        },
+        'kyc',
+      ),
+    ).toBe(true);
   });
 });

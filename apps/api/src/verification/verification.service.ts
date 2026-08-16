@@ -265,7 +265,15 @@ export class VerificationService {
 
   async startKycForUser(userId: string, email?: string | null) {
     if (!this.didit.isKycEnabled()) {
-      throw new ServiceUnavailableException('Full KYC workflow is not configured on this server');
+      throw new ServiceUnavailableException('ID verification for events is not configured on this server');
+    }
+
+    const livenessVerified = await this.hasPassedLiveness(userId);
+    let workflowType: 'id' | 'kyc';
+    try {
+      workflowType = this.didit.resolveEventHostWorkflow(livenessVerified);
+    } catch {
+      throw new ServiceUnavailableException('ID verification for events is not configured on this server');
     }
 
     const existing = await this.prisma.verification.findFirst({
@@ -294,13 +302,13 @@ export class VerificationService {
       }
     }
 
-    const session = await this.didit.createSession(userId, email, 'kyc');
+    const session = await this.didit.createSession(userId, email, workflowType);
     const metadata = {
       session_id: session.session_id,
       session_token: session.session_token ?? null,
       url: session.url,
       workflow_id: session.workflow_id,
-      workflow_type: 'kyc',
+      workflow_type: workflowType,
       didit_status: session.status,
       started_at: new Date().toISOString(),
     };
@@ -416,9 +424,17 @@ export class VerificationService {
 
     const existing = await this.prisma.verification.findUnique({ where: { id: verificationId } });
     const decision = payload.decision ?? null;
-    const isKyc = existing?.type === VerificationType.document;
-    const approved = isKyc
-      ? this.didit.isKycApproved(decision ?? { status: payload.status })
+    const isDocument = existing?.type === VerificationType.document;
+    const workflowType =
+      isDocument && existing?.metadata && typeof existing.metadata === 'object'
+        ? ((existing.metadata as Record<string, unknown>).workflow_type as 'id' | 'kyc' | undefined) ??
+          'kyc'
+        : undefined;
+    const approved = isDocument
+      ? this.didit.isDocumentVerificationApproved(
+          decision ?? { status: payload.status },
+          workflowType ?? 'kyc',
+        )
       : this.didit.isLivenessApproved(decision ?? { status: payload.status });
 
     let finalStatus = localStatus;
@@ -461,23 +477,27 @@ export class VerificationService {
     });
 
     if (finalStatus === 'passed' && existing?.status !== VerificationStatus.passed) {
+      if (isDocument && workflowType === 'kyc') {
+        await this.ensureLivenessPassedFromCombinedSession(userId, sessionId, metadata);
+      }
+
       await this.audit.log({
         userId,
-        action: isKyc ? 'verification.kyc_passed' : 'verification.passed',
+        action: isDocument ? 'verification.kyc_passed' : 'verification.passed',
         entityType: 'verification',
         entityId: updated.id,
-        metadata: { provider: 'didit', sessionId, type: updated.type },
+        metadata: { provider: 'didit', sessionId, type: updated.type, workflowType },
       });
 
       await this.notifications.sendToUser(userId, {
         type: NOTIFICATION_TYPES.VERIFICATION_PASSED,
-        title: isKyc ? 'ID verified' : "You're verified",
-        body: isKyc
-          ? 'Your ID check passed. You can host events when they launch.'
+        title: isDocument ? 'ID verified' : "You're verified",
+        body: isDocument
+          ? 'Your ID check passed. You can host events.'
           : 'Liveness check complete — you can post, chat, and break the ice.',
         data: {
           type: NOTIFICATION_TYPES.VERIFICATION_PASSED,
-          verificationType: isKyc ? 'kyc' : 'liveness',
+          verificationType: isDocument ? 'kyc' : 'liveness',
         },
       });
     }
@@ -493,6 +513,34 @@ export class VerificationService {
     }
 
     await this.applySafetyActions(userId, decision, finalStatus);
+  }
+
+  private async ensureLivenessPassedFromCombinedSession(
+    userId: string,
+    sessionId: string | undefined,
+    sourceMetadata: Prisma.InputJsonValue,
+  ) {
+    const alreadyPassed = await this.hasPassedLiveness(userId);
+    if (alreadyPassed) {
+      return;
+    }
+
+    await this.prisma.verification.create({
+      data: {
+        userId,
+        type: VerificationType.liveness,
+        provider: VerificationProvider.didit,
+        providerReference: sessionId ?? null,
+        status: VerificationStatus.passed,
+        verifiedAt: new Date(),
+        metadata: {
+          ...(typeof sourceMetadata === 'object' && sourceMetadata !== null
+            ? (sourceMetadata as Record<string, unknown>)
+            : {}),
+          source: 'combined_liveness_and_id_session',
+        },
+      },
+    });
   }
 
   private async applySafetyActions(

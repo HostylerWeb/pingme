@@ -35,10 +35,10 @@ export class DiditService implements OnModuleInit {
     }
 
     if (this.isKycEnabled()) {
-      this.logger.log('Didit ID KYC is enabled for event hosts');
+      this.logger.log('Didit ID verification is enabled for event hosts');
     } else if (this.isEnabled()) {
       this.logger.warn(
-        'DIDIT_WORKFLOW_ID_KYC is not set — users cannot complete ID verification to host events',
+        'Event host ID verification is not configured — set DIDIT_WORKFLOW_ID_ID and/or DIDIT_WORKFLOW_ID_KYC',
       );
     }
   }
@@ -54,13 +54,36 @@ export class DiditService implements OnModuleInit {
     return this.config.get<string>('DIDIT_WORKFLOW_ID_LIVENESS', '');
   }
 
+  getWorkflowIdId(): string | null {
+    const workflowId = this.config.get<string>('DIDIT_WORKFLOW_ID_ID');
+    return workflowId || null;
+  }
+
   getWorkflowIdKyc(): string | null {
     const workflowId = this.config.get<string>('DIDIT_WORKFLOW_ID_KYC');
     return workflowId || null;
   }
 
+  /** Combined liveness + ID — used when the user has not passed liveness yet. */
+  getWorkflowIdLivenessAndId(): string | null {
+    return this.getWorkflowIdKyc();
+  }
+
   isKycEnabled(): boolean {
-    return this.isEnabled() && !!this.getWorkflowIdKyc();
+    return this.isEnabled() && (!!this.getWorkflowIdId() || !!this.getWorkflowIdKyc());
+  }
+
+  resolveEventHostWorkflow(hasPassedLiveness: boolean): 'id' | 'kyc' {
+    if (hasPassedLiveness && this.getWorkflowIdId()) {
+      return 'id';
+    }
+    if (this.getWorkflowIdKyc()) {
+      return 'kyc';
+    }
+    if (this.getWorkflowIdId()) {
+      throw new Error('ID-only workflow requires liveness verification first');
+    }
+    throw new Error('Event host verification workflows are not configured');
   }
 
   private getBaseUrl(): string {
@@ -73,19 +96,23 @@ export class DiditService implements OnModuleInit {
   async createSession(
     userId: string,
     email?: string | null,
-    workflowType: 'liveness' | 'kyc' = 'liveness',
+    workflowType: 'liveness' | 'id' | 'kyc' = 'liveness',
   ): Promise<DiditSessionResponse> {
     const apiKey = this.config.get<string>('DIDIT_API_KEY');
     const workflowId =
-      workflowType === 'kyc'
-        ? this.getWorkflowIdKyc()
-        : this.getWorkflowIdLiveness();
+      workflowType === 'liveness'
+        ? this.getWorkflowIdLiveness()
+        : workflowType === 'id'
+          ? this.getWorkflowIdId()
+          : this.getWorkflowIdKyc();
 
     if (!workflowId) {
       throw new Error(
-        workflowType === 'kyc'
-          ? 'KYC workflow is not configured'
-          : 'Liveness workflow is not configured',
+        workflowType === 'liveness'
+          ? 'Liveness workflow is not configured'
+          : workflowType === 'id'
+            ? 'ID-only workflow is not configured'
+            : 'Liveness + ID workflow is not configured',
       );
     }
     const callback =
@@ -209,24 +236,38 @@ export class DiditService implements OnModuleInit {
     );
   }
 
-  isKycApproved(decision: Record<string, unknown> | null | undefined): boolean {
+  isIdApproved(decision: Record<string, unknown> | null | undefined): boolean {
     if (!decision) return false;
 
     const idVerifications = decision.id_verifications;
-    const hasApprovedId =
+    return (
       Array.isArray(idVerifications) &&
       idVerifications.some(
         (item) =>
           item &&
           typeof item === 'object' &&
           (item as { status?: string }).status === 'Approved',
-      );
+      )
+    );
+  }
 
-    if (!hasApprovedId) {
+  isKycApproved(decision: Record<string, unknown> | null | undefined): boolean {
+    if (!this.isIdApproved(decision)) {
       return false;
     }
 
     return this.isLivenessApproved(decision);
+  }
+
+  isDocumentVerificationApproved(
+    decision: Record<string, unknown> | null | undefined,
+    workflowType: 'id' | 'kyc',
+  ): boolean {
+    if (workflowType === 'id') {
+      return this.isIdApproved(decision);
+    }
+
+    return this.isKycApproved(decision);
   }
 
   extractRejectionReason(payload: DiditWebhookPayload): string | null {

@@ -38,12 +38,14 @@ export default function KycScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const user = useAuthStore((s) => s.user);
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('Starting ID verification...');
   const [error, setError] = useState<string | null>(null);
   const [polling, setPolling] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [isStartingSession, setIsStartingSession] = useState(true);
 
   const styles = useThemedStyles(({ colors }) => ({
     container: { flex: 1, backgroundColor: colors.background },
@@ -69,6 +71,7 @@ export default function KycScreen() {
   }));
 
   const startSession = useCallback(async () => {
+    setIsStartingSession(true);
     setError(null);
     setStatusMessage('Checking camera permission...');
 
@@ -77,6 +80,7 @@ export default function KycScreen() {
       setError('Camera permission is required for ID verification. Enable it in Settings.');
       setStatusMessage('');
       setCameraReady(false);
+      setIsStartingSession(false);
       return;
     }
 
@@ -91,6 +95,8 @@ export default function KycScreen() {
       const message = err instanceof Error ? err.message : 'Could not start ID verification';
       setError(message);
       setStatusMessage('');
+    } finally {
+      setIsStartingSession(false);
     }
   }, []);
 
@@ -145,15 +151,16 @@ export default function KycScreen() {
         </Pressable>
         <Text style={styles.title}>Verify your ID</Text>
         <Text style={styles.subtitle}>
-          Full ID check for hosting events. You need liveness verification first, then government ID
-          plus a selfie.
+          {user?.livenessVerified
+            ? 'Government ID check to host events. You already completed liveness.'
+            : 'Government ID and liveness check to host events.'}
         </Text>
       </View>
 
       {statusMessage ? <Text style={styles.status}>{statusMessage}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {polling ? (
+      {polling || isStartingSession ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
@@ -182,7 +189,7 @@ export default function KycScreen() {
         />
       ) : null}
 
-      {!verificationUrl && !polling ? (
+      {!verificationUrl && !polling && !isStartingSession ? (
         <View style={[styles.actions, { paddingBottom: insets.bottom + spacing.lg }]}>
           <Button label="Try again" onPress={() => void startSession()} />
           {error ? (
