@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { verifyDiditSignatureSimple, verifyDiditSignatureV2 } from './didit-signature.util';
 
@@ -22,10 +22,26 @@ export interface DiditWebhookPayload {
 }
 
 @Injectable()
-export class DiditService {
+export class DiditService implements OnModuleInit {
   private readonly logger = new Logger(DiditService.name);
 
   constructor(private readonly config: ConfigService) {}
+
+  onModuleInit() {
+    if (this.isEnabled()) {
+      this.logger.log('Didit liveness verification is enabled');
+    } else {
+      this.logger.warn('Didit liveness verification is disabled (missing API key or liveness workflow)');
+    }
+
+    if (this.isKycEnabled()) {
+      this.logger.log('Didit ID KYC is enabled for event hosts');
+    } else if (this.isEnabled()) {
+      this.logger.warn(
+        'DIDIT_WORKFLOW_ID_KYC is not set — users cannot complete ID verification to host events',
+      );
+    }
+  }
 
   isEnabled(): boolean {
     return (

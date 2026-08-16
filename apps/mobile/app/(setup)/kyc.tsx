@@ -107,12 +107,17 @@ export default function KycScreen() {
         const result = await api.getVerificationStatus();
         if (result.data.idVerified) {
           await refreshMe();
-          setStatusMessage('ID verified! You can host events when they launch.');
+          setStatusMessage('ID verified! You can host events.');
           router.back();
           return;
         }
-        if (result.data.status === 'failed') {
-          setError(result.data.rejectionReason ?? 'ID verification failed. Please try again.');
+        const idStatus = result.data.idVerification?.status ?? result.data.status;
+        if (idStatus === 'failed') {
+          setError(
+            result.data.idVerification?.rejectionReason ??
+              result.data.rejectionReason ??
+              'ID verification failed. Please try again.',
+          );
           setStatusMessage('');
           setVerificationUrl(null);
           setPolling(false);

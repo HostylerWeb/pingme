@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   ForbiddenException,
   Injectable,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { VerificationService } from '../verification.service';
 
@@ -15,6 +16,13 @@ export class IdVerifiedGuard implements CanActivate {
     const userId = request.user?.id;
     if (!userId) {
       return false;
+    }
+
+    if (!this.verificationService.isKycEnforcementEnabled()) {
+      throw new ServiceUnavailableException({
+        code: 'KYC_NOT_CONFIGURED',
+        message: 'ID verification for events is not configured on this server',
+      });
     }
 
     const passed = await this.verificationService.hasPassedIdVerification(userId);

@@ -331,6 +331,12 @@ export const api = {
         verificationUrl: string | null;
         rejectionReason: string | null;
         sessionId: string | null;
+        idVerification: {
+          status: string | null;
+          verificationUrl: string | null;
+          rejectionReason: string | null;
+          sessionId: string | null;
+        };
       };
     }>('/verification/status'),
 

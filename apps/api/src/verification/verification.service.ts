@@ -35,6 +35,10 @@ export class VerificationService {
     return this.didit.isEnabled();
   }
 
+  isKycEnforcementEnabled(): boolean {
+    return this.didit.isKycEnabled();
+  }
+
   async hasPassedLiveness(userId: string): Promise<boolean> {
     if (!this.isEnforcementEnabled()) {
       return true;
@@ -82,6 +86,12 @@ export class VerificationService {
       verificationUrl: string | null;
       rejectionReason: string | null;
       sessionId: string | null;
+      idVerification: {
+        status: VerificationStatus | null;
+        verificationUrl: string | null;
+        rejectionReason: string | null;
+        sessionId: string | null;
+      };
     };
   }> {
     const [livenessVerified, idVerified] = await Promise.all([
@@ -89,36 +99,42 @@ export class VerificationService {
       this.hasPassedIdVerification(userId),
     ]);
 
-    const latest = await this.prisma.verification.findFirst({
-      where: {
-        userId,
-        type: VerificationType.liveness,
-        provider: VerificationProvider.didit,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [livenessLatest, idLatest] = await Promise.all([
+      this.prisma.verification.findFirst({
+        where: {
+          userId,
+          type: VerificationType.liveness,
+          provider: VerificationProvider.didit,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.verification.findFirst({
+        where: {
+          userId,
+          type: VerificationType.document,
+          provider: VerificationProvider.didit,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
-    let verificationUrl: string | null = null;
-    if (latest?.status === VerificationStatus.pending && latest.metadata) {
-      const metadata = latest.metadata as Record<string, unknown>;
-      verificationUrl = typeof metadata.url === 'string' ? metadata.url : null;
+    if (syncPending) {
+      if (
+        livenessLatest?.status === VerificationStatus.pending &&
+        livenessLatest.providerReference
+      ) {
+        await this.syncFromDidit(livenessLatest.providerReference, userId);
+        return this.getStatus(userId, false);
+      }
+
+      if (idLatest?.status === VerificationStatus.pending && idLatest.providerReference) {
+        await this.syncFromDidit(idLatest.providerReference, userId);
+        return this.getStatus(userId, false);
+      }
     }
 
-    let rejectionReason: string | null = null;
-    if (latest?.status === VerificationStatus.failed && latest.metadata) {
-      const metadata = latest.metadata as Record<string, unknown>;
-      rejectionReason =
-        typeof metadata.rejection_reason === 'string' ? metadata.rejection_reason : null;
-    }
-
-    if (
-      syncPending &&
-      latest?.status === VerificationStatus.pending &&
-      latest.providerReference
-    ) {
-      await this.syncFromDidit(latest.providerReference, userId);
-      return this.getStatus(userId, false);
-    }
+    const livenessDetails = this.extractVerificationDetails(livenessLatest);
+    const idDetails = this.extractVerificationDetails(idLatest);
 
     return {
       success: true,
@@ -127,11 +143,46 @@ export class VerificationService {
         idVerified,
         kycEnabled: this.didit.isKycEnabled(),
         enforcementEnabled: this.isEnforcementEnabled(),
-        status: latest?.status ?? null,
-        verificationUrl,
-        rejectionReason,
-        sessionId: latest?.providerReference ?? null,
+        status: livenessDetails.status,
+        verificationUrl: livenessDetails.verificationUrl,
+        rejectionReason: livenessDetails.rejectionReason,
+        sessionId: livenessDetails.sessionId,
+        idVerification: idDetails,
       },
+    };
+  }
+
+  private extractVerificationDetails(
+    latest: {
+      status: VerificationStatus;
+      providerReference: string | null;
+      metadata: Prisma.JsonValue | null;
+    } | null,
+  ): {
+    status: VerificationStatus | null;
+    verificationUrl: string | null;
+    rejectionReason: string | null;
+    sessionId: string | null;
+  } {
+    let verificationUrl: string | null = null;
+    let rejectionReason: string | null = null;
+
+    if (latest?.status === VerificationStatus.pending && latest.metadata) {
+      const metadata = latest.metadata as Record<string, unknown>;
+      verificationUrl = typeof metadata.url === 'string' ? metadata.url : null;
+    }
+
+    if (latest?.status === VerificationStatus.failed && latest.metadata) {
+      const metadata = latest.metadata as Record<string, unknown>;
+      rejectionReason =
+        typeof metadata.rejection_reason === 'string' ? metadata.rejection_reason : null;
+    }
+
+    return {
+      status: latest?.status ?? null,
+      verificationUrl,
+      rejectionReason,
+      sessionId: latest?.providerReference ?? null,
     };
   }
 
@@ -217,6 +268,32 @@ export class VerificationService {
       throw new ServiceUnavailableException('Full KYC workflow is not configured on this server');
     }
 
+    const existing = await this.prisma.verification.findFirst({
+      where: {
+        userId,
+        type: VerificationType.document,
+        provider: VerificationProvider.didit,
+        status: VerificationStatus.pending,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing?.metadata) {
+      const metadata = existing.metadata as Record<string, unknown>;
+      const url = typeof metadata.url === 'string' ? metadata.url : null;
+      if (url) {
+        return {
+          success: true,
+          data: {
+            verificationUrl: url,
+            sessionId: existing.providerReference,
+            status: existing.status,
+            resumed: true,
+          },
+        };
+      }
+    }
+
     const session = await this.didit.createSession(userId, email, 'kyc');
     const metadata = {
       session_id: session.session_id,
@@ -253,6 +330,7 @@ export class VerificationService {
         verificationUrl: session.url,
         sessionId: session.session_id,
         status: VerificationStatus.pending,
+        resumed: false,
       },
     };
   }
