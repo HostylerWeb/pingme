@@ -12,6 +12,7 @@ import { useAvatarPicker } from '../../src/hooks/use-avatar-picker';
 import { AvatarWithTheme } from '../../src/components/avatar-with-theme';
 import { PremiumCta } from '../../src/components/premium-cta';
 import { ProfileCompletenessCard } from '../../src/components/profile-completeness-card';
+import { ProfileStatusBadges } from '../../src/components/profile-status-badges';
 import type { ProfileCompletenessField } from '@pingme/shared';
 import { shareAppInvite } from '../../src/lib/invite';
 import { ActionSheet, AppHeader, BottomSheet, Button, GenderPicker, GenderReadOnly, Input, Screen } from '../../src/components/ui';
@@ -142,40 +143,6 @@ export default function ProfileScreen() {
       fontStyle: 'italic',
     },
     editBtn: { marginTop: spacing.lg, minWidth: 160 },
-    badges: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      justifyContent: 'center',
-      gap: spacing.sm,
-      marginTop: spacing.lg,
-    },
-    badge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      backgroundColor: colors.accentSoft,
-      paddingHorizontal: spacing.md,
-      paddingVertical: 6,
-      borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    badgePremium: {
-      backgroundColor: colors.premiumSurfaceMuted,
-      borderColor: colors.premiumSurfaceBorder,
-    },
-    badgeVerified: {
-      backgroundColor: colors.onlineSoft,
-      borderColor: colors.online,
-    },
-    badgeText: {
-      ...typography.labelSm,
-      color: colors.accent,
-      textTransform: 'none',
-      letterSpacing: 0,
-    },
-    badgeTextPremium: { color: colors.premiumOnSurface },
-    badgeTextVerified: { color: colors.online },
     cta: { marginBottom: spacing.md },
     sectionLabel: {
       ...typography.overline,
@@ -343,32 +310,11 @@ export default function ProfileScreen() {
 
           <Button label="Edit profile" variant="secondary" onPress={openEdit} style={styles.editBtn} />
 
-          <View style={styles.badges}>
-            {isPremium ? (
-              <View style={[styles.badge, styles.badgePremium]}>
-                <AppIcon name="premium-star" size={13} color={colors.premiumStart} />
-                <Text style={[styles.badgeText, styles.badgeTextPremium]}>Premium</Text>
-              </View>
-            ) : null}
-            {user?.emailVerified ? (
-              <View style={styles.badge}>
-                <AppIcon name="email" size={13} color={colors.accent} />
-                <Text style={styles.badgeText}>Email verified</Text>
-              </View>
-            ) : null}
-            {user?.livenessVerified ? (
-              <View style={[styles.badge, styles.badgeVerified]}>
-                <AppIcon name="verified" size={13} color={colors.online} />
-                <Text style={[styles.badgeText, styles.badgeTextVerified]}>Verified</Text>
-              </View>
-            ) : null}
-            {user?.idVerified ? (
-              <View style={styles.badge}>
-                <AppIcon name="document" size={13} color={colors.accent} />
-                <Text style={styles.badgeText}>ID verified</Text>
-              </View>
-            ) : null}
-          </View>
+          <ProfileStatusBadges
+            isPremium={isPremium}
+            livenessVerified={user?.livenessVerified}
+            idVerified={user?.idVerified}
+          />
         </View>
 
         <ProfileCompletenessCard

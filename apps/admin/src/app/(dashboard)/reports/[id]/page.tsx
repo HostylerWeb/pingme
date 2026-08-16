@@ -308,7 +308,7 @@ export default function ReportDetailPage() {
   }
 
   if (loading) return <LoadingBlock label="Loading report…" />;
-  if (!data) return <p className="text-red-400">{error || 'Report not found'}</p>;
+  if (!data) return <p className="text-error">{error || 'Report not found'}</p>;
 
   const { report, target, context } = data;
   const transcriptMessages =
@@ -338,7 +338,7 @@ export default function ReportDetailPage() {
         }
       />
 
-      {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="mb-4 text-sm text-error">{error}</p> : null}
 
       <Card className="mb-4 border-accent/30 bg-accent-soft/30">
         <p className="text-sm font-medium text-accent">{context.summary}</p>

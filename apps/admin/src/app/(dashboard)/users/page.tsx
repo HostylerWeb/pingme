@@ -90,7 +90,7 @@ export default function UsersPage() {
         <Button type="submit">Search</Button>
       </form>
 
-      {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="mb-4 text-sm text-error">{error}</p> : null}
       {loading ? <LoadingBlock /> : null}
 
       {!loading && data?.items.length === 0 ? (

@@ -14,11 +14,11 @@ export class GeocodingController {
   @Get('search')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Search places via Nominatim' })
-  async search(@Query('q') q?: string) {
+  async search(@Query('q') q?: string, @Query('country') country?: string) {
     if (!q?.trim()) {
       throw new BadRequestException('Query is required');
     }
-    const data = await this.geocoding.search(q.trim());
+    const data = await this.geocoding.search(q.trim(), country);
     return { success: true, data };
   }
 

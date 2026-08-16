@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomInset } from '../../src/hooks/use-tab-bar-insets';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { api } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
@@ -38,6 +39,7 @@ async function ensureCameraPermission(): Promise<boolean> {
 export default function LivenessScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = useBottomInset();
   const { colors } = useTheme();
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
@@ -183,7 +185,7 @@ export default function LivenessScreen() {
       ) : null}
 
       {!verificationUrl && !polling && !isStartingSession ? (
-        <View style={[styles.actions, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.actions, { paddingBottom: bottomInset + spacing.lg }]}>
           <Button label="Try again" onPress={() => void startSession()} />
           {error ? (
             <>

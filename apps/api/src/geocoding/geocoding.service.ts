@@ -6,6 +6,7 @@ export type GeocodingResult = {
   address: string;
   latitude: number;
   longitude: number;
+  countryCode?: string;
 };
 
 @Injectable()
@@ -15,13 +16,17 @@ export class GeocodingService {
 
   constructor(private readonly config: ConfigService) {}
 
-  async search(query: string): Promise<GeocodingResult[]> {
+  async search(query: string, countryCode?: string): Promise<GeocodingResult[]> {
     await this.throttle();
     const url = new URL('https://nominatim.openstreetmap.org/search');
     url.searchParams.set('q', query);
     url.searchParams.set('format', 'json');
     url.searchParams.set('limit', '8');
     url.searchParams.set('addressdetails', '1');
+    const normalizedCountry = countryCode?.trim().toLowerCase();
+    if (normalizedCountry && /^[a-z]{2}$/.test(normalizedCountry)) {
+      url.searchParams.set('countrycodes', normalizedCountry);
+    }
 
     const response = await fetch(url.toString(), {
       headers: { 'User-Agent': this.getUserAgent() },
@@ -69,6 +74,7 @@ export class GeocodingService {
       name?: string;
       lat?: string;
       lon?: string;
+      address?: { country_code?: string };
     };
 
     if (!result.display_name) {
@@ -80,6 +86,7 @@ export class GeocodingService {
       address: result.display_name,
       latitude: Number(result.lat ?? latitude),
       longitude: Number(result.lon ?? longitude),
+      countryCode: result.address?.country_code?.toLowerCase(),
     };
   }
 

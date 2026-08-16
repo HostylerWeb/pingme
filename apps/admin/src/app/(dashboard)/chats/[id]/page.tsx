@@ -56,7 +56,7 @@ export default function ChatViewerPage() {
         }
       />
 
-      {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="mb-4 text-sm text-error">{error}</p> : null}
 
       <Card>
         <p className="mb-4 text-sm text-amber-300">

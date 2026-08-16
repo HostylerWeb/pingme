@@ -2,7 +2,7 @@ import { icebreakerRadiusLabel } from '@pingme/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScrollBottomPadding } from '../../src/hooks/use-tab-bar-insets';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { api } from '../../src/lib/api';
 import { useRequiredDistanceConfig } from '../../src/hooks/use-app-config';
@@ -18,7 +18,7 @@ export default function MatchScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
+  const scrollBottomPadding = useScrollBottomPadding();
   const { ensureVerified, handleLivenessError } = useLivenessGate();
   const distanceConfig = useRequiredDistanceConfig();
   const icebreakerRadiusText = icebreakerRadiusLabel(distanceConfig.icebreaker.radiusMeters);
@@ -290,7 +290,7 @@ export default function MatchScreen() {
     <Screen padded={false} edges={[]}>
       <AppHeader title="Connection request" showBrand={false} onBack={goHome} centerTitle />
 
-      <View style={[styles.page, { paddingBottom: spacing.section + insets.bottom }]}>
+      <View style={[styles.page, { paddingBottom: scrollBottomPadding }]}>
         <View style={styles.hero}>
           <Text style={styles.overline}>Someone nearby</Text>
           <Text style={styles.heroTitle}>wants to connect</Text>

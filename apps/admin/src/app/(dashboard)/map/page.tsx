@@ -102,7 +102,7 @@ export default function MapPage() {
         description="Internal heatmap of active users (fuzzy locations only). Refreshes every 30s."
       />
 
-      {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="mb-4 text-sm text-error">{error}</p> : null}
 
       {data ? (
         <>

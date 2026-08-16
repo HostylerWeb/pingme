@@ -3,7 +3,7 @@ import { ACCOUNT_DELETION_GRACE_DAYS } from '@pingme/shared';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScrollBottomPadding } from '../src/hooks/use-tab-bar-insets';
 import { ApiError, api } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
 import { showToast } from '../src/stores/toast-store';
@@ -14,7 +14,7 @@ const DELETE_CONFIRMATION = 'DELETE';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const scrollBottomPadding = useScrollBottomPadding(spacing.xxl);
   const logout = useAuthStore((s) => s.logout);
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [password, setPassword] = useState('');
@@ -35,7 +35,7 @@ export default function DeleteAccountScreen() {
   const deletionScheduledAt = meData?.data?.deletionScheduledAt ?? null;
 
   const styles = useThemedStyles(({ colors }) => ({
-    content: { paddingHorizontal: spacing.container, paddingBottom: insets.bottom + spacing.xxl },
+    content: { paddingHorizontal: spacing.container },
     card: {
       backgroundColor: colors.surface,
       borderRadius: radius.xl,
@@ -120,7 +120,10 @@ export default function DeleteAccountScreen() {
         onBack={() => router.back()}
       />
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
+        keyboardShouldPersistTaps="handled"
+      >
         {deletionScheduledAt ? (
           <View style={styles.scheduled}>
             <Text style={styles.scheduledText}>

@@ -1,5 +1,4 @@
 import { formatEventDateRange, distanceLabel } from '@pingme/shared';
-import MapView, { Marker } from 'react-native-maps';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -29,7 +28,9 @@ import {
   Screen,
   SectionLabel,
 } from '../../src/components/ui';
+import { EventMapPreview } from '../../src/components/event-map';
 import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
+import { useScrollBottomPadding } from '../../src/hooks/use-tab-bar-insets';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 function RsvpPill({
@@ -76,6 +77,7 @@ export default function EventDetailScreen() {
   const [comment, setComment] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const scrollBottomPadding = useScrollBottomPadding(72);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['event', id],
@@ -135,7 +137,7 @@ export default function EventDetailScreen() {
   });
 
   const styles = useThemedStyles(({ colors }) => ({
-    content: { paddingHorizontal: spacing.container, paddingBottom: spacing.section },
+    content: { paddingHorizontal: spacing.container },
     hero: { height: 220, borderRadius: radius.xl, overflow: 'hidden', marginBottom: spacing.lg },
     heroImage: { width: '100%', height: '100%' },
     dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: spacing.md },
@@ -238,7 +240,7 @@ export default function EventDetailScreen() {
           )
         }
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}>
         {images.length > 0 ? (
           <>
             <ScrollView
@@ -275,19 +277,7 @@ export default function EventDetailScreen() {
         <Text style={styles.description}>{event.description}</Text>
 
         <View style={styles.map}>
-          <MapView
-            style={{ flex: 1 }}
-            initialRegion={{
-              latitude: event.latitude,
-              longitude: event.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-            scrollEnabled={false}
-            zoomEnabled={false}
-          >
-            <Marker coordinate={{ latitude: event.latitude, longitude: event.longitude }} />
-          </MapView>
+          <EventMapPreview latitude={event.latitude} longitude={event.longitude} />
         </View>
 
         <Card style={styles.hostCard} variant="flat">

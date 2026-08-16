@@ -22,6 +22,7 @@ export const NOTIFICATION_TYPES = {
 } as const;
 
 export const MAX_EVENT_IMAGES = 5;
+export const MAX_EVENT_GALLERY_IMAGES = 4;
 export const MAX_EVENT_TITLE_LENGTH = 120;
 export const MAX_EVENT_DESCRIPTION_LENGTH = 5000;
 export const MAX_EVENT_COMMENT_LENGTH = 500;

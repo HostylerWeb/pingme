@@ -27,28 +27,32 @@ function clampDay(year: number, monthIndex: number, day: number) {
   return Math.min(day, daysInMonth(year, monthIndex));
 }
 
-export function DateWheelPicker({
+function startOfDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+export function ScheduleDateWheelPicker({
   value,
   minimumDate,
   maximumDate,
   onChange,
-  yearOrder = 'desc',
 }: {
   value: Date;
   minimumDate: Date;
   maximumDate: Date;
   onChange: (date: Date) => void;
-  yearOrder?: 'asc' | 'desc';
 }) {
-  const minYear = minimumDate.getFullYear();
-  const maxYear = maximumDate.getFullYear();
+  const min = startOfDay(minimumDate);
+  const max = startOfDay(maximumDate);
+  const minYear = min.getFullYear();
+  const maxYear = max.getFullYear();
 
-  const years = useMemo(() => {
-    const count = maxYear - minYear + 1;
-    return yearOrder === 'asc'
-      ? Array.from({ length: count }, (_, index) => String(minYear + index))
-      : Array.from({ length: count }, (_, index) => String(maxYear - index));
-  }, [maxYear, minYear, yearOrder]);
+  const years = useMemo(
+    () => Array.from({ length: maxYear - minYear + 1 }, (_, index) => String(minYear + index)),
+    [maxYear, minYear],
+  );
 
   const [day, setDay] = useState(value.getDate());
   const [monthIndex, setMonthIndex] = useState(value.getMonth());
@@ -77,12 +81,12 @@ export function DateWheelPicker({
     const clampedDay = clampDay(nextYear, nextMonthIndex, nextDay);
     const next = new Date(nextYear, nextMonthIndex, clampedDay);
 
-    if (next < minimumDate) {
-      onChange(minimumDate);
+    if (next < min) {
+      onChange(min);
       return;
     }
-    if (next > maximumDate) {
-      onChange(maximumDate);
+    if (next > max) {
+      onChange(max);
       return;
     }
 

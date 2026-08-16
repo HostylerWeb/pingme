@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { spacing } from '../theme/spacing';
 
 /** Visible tab bar content height (icons + labels), excluding system nav inset. */
 export const TAB_BAR_CONTENT_HEIGHT = 56;
@@ -14,6 +15,11 @@ export function useBottomInset() {
   return Platform.OS === 'android' && insets.bottom < 20
     ? Math.max(insets.bottom, ANDROID_NAV_FALLBACK)
     : insets.bottom;
+}
+
+/** ScrollView / form bottom padding on stack screens (above system nav). */
+export function useScrollBottomPadding(extra: number = spacing.section) {
+  return useBottomInset() + extra;
 }
 
 export function useTabBarInsets() {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { getStoredSession } from '@/lib/api';
 import { Sidebar } from '@/components/sidebar';
+import { ThemeToggleCompact } from '@/components/theme-toggle';
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -45,9 +46,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
             </svg>
           </button>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-display text-base font-semibold text-foreground">PingMe Admin</p>
           </div>
+          <ThemeToggleCompact />
         </header>
 
         <main className="flex-1 overflow-auto p-4 sm:p-5 lg:p-6">{children}</main>

@@ -716,16 +716,22 @@ export const api = {
       },
     ),
 
-  geocodeSearch: (q: string) =>
-    apiFetch<{
+  geocodeSearch: (q: string, countryCode?: string) => {
+    const params = new URLSearchParams({ q });
+    if (countryCode) {
+      params.set('country', countryCode);
+    }
+    return apiFetch<{
       success: boolean;
       data: Array<{
         placeName: string;
         address: string;
         latitude: number;
         longitude: number;
+        countryCode?: string;
       }>;
-    }>(`/geocoding/search?q=${encodeURIComponent(q)}`),
+    }>(`/geocoding/search?${params.toString()}`);
+  },
 
   geocodeReverse: (lat: number, lng: number) =>
     apiFetch<{
@@ -735,6 +741,7 @@ export const api = {
         address: string;
         latitude: number;
         longitude: number;
+        countryCode?: string;
       } | null;
     }>(`/geocoding/reverse?lat=${lat}&lng=${lng}`),
 };

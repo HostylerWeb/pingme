@@ -134,7 +134,7 @@ export default function ContentPage() {
         />
       </div>
 
-      {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="mb-4 text-sm text-error">{error}</p> : null}
       {loading ? <LoadingBlock /> : null}
 
       {!loading && current?.items.length === 0 ? <EmptyState title="No content found" /> : null}

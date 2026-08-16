@@ -3,7 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useState } from 'react';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScrollBottomPadding } from '../src/hooks/use-tab-bar-insets';
 import { api } from '../src/lib/api';
 import { useRequiredDistanceConfig } from '../src/hooks/use-app-config';
 import { showToast } from '../src/stores/toast-store';
@@ -59,7 +59,7 @@ const NOTIFICATION_OPTIONS: Array<{
 export default function SettingsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const insets = useSafeAreaInsets();
+  const scrollBottomPadding = useScrollBottomPadding(spacing.xxl);
   const { colors } = useTheme();
   const distanceConfig = useRequiredDistanceConfig();
   const icebreakerRadiusMeters = distanceConfig.icebreaker.radiusMeters;
@@ -217,7 +217,7 @@ export default function SettingsScreen() {
           />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}>
           <DeletionScheduledBanner />
 
           <View style={{ marginBottom: spacing.lg }}>

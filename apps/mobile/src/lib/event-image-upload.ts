@@ -1,26 +1,17 @@
-import { api, uploadAvatarFile } from './api';
+import { api } from './api';
+import { uploadDirectMedia, uploadViaPresignedUrl } from './media-upload';
 
 export async function uploadEventImageFromUri(eventId: string, uri: string) {
   const fileName = uri.split('/').pop() ?? 'event.jpg';
-  const presign = await api.presignEventImage(eventId, fileName, 'image/jpeg');
+  const contentType = 'image/jpeg';
+  const presign = await api.presignEventImage(eventId, fileName, contentType);
   const { uploadUrl, key, publicUrl, directUpload } = presign.data;
 
   if (directUpload || !uploadUrl) {
-    await uploadAvatarFile(key, uri, fileName);
+    await uploadDirectMedia(key, uri, fileName, contentType);
     return publicUrl;
   }
 
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  const uploadResponse = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'image/jpeg' },
-    body: blob,
-  });
-
-  if (!uploadResponse.ok) {
-    throw new Error('Image upload failed');
-  }
-
+  await uploadViaPresignedUrl(uploadUrl, uri, contentType);
   return publicUrl;
 }

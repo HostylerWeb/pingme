@@ -113,7 +113,7 @@ export default function AdminsPage() {
         actions={<Button onClick={() => setOpen(true)}>Create admin</Button>}
       />
 
-      {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="mb-4 text-sm text-error">{error}</p> : null}
       {loading ? <LoadingBlock /> : null}
 
       {!loading && items.length === 0 ? <EmptyState title="No admin users" /> : null}

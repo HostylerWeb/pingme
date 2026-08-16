@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScrollBottomPadding } from '../../src/hooks/use-tab-bar-insets';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../src/lib/api';
 import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
@@ -42,6 +43,7 @@ export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scrollBottomPadding = useScrollBottomPadding(72);
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [reply, setReply] = useState('');
@@ -57,7 +59,6 @@ export default function PostDetailScreen() {
     container: { flex: 1, backgroundColor: colors.background },
     list: {
       paddingHorizontal: spacing.container,
-      paddingBottom: 100,
     },
     postCard: {
       marginTop: spacing.md,
@@ -339,7 +340,7 @@ export default function PostDetailScreen() {
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: scrollBottomPadding }]}
         ListHeaderComponent={
           <>
             <Card style={styles.postCard} variant="elevated">

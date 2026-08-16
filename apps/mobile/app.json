@@ -96,7 +96,14 @@
           }
         }
       ],
-      "@sentry/react-native"
+      "@sentry/react-native",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsVersion": "11.23.1"
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

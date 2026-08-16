@@ -1,7 +1,35 @@
 @import "tailwindcss";
 
-/* PingMe Warm Ink — admin uses mobile dark palette */
+/* PingMe Warm Ink — light default (matches mobile light theme) */
 :root {
+  --background: #faf9f6;
+  --surface: #ffffff;
+  --surface-muted: #f3f1ec;
+  --surface-elevated: #ffffff;
+  --foreground: #141414;
+  --ink-secondary: #5a5a5a;
+  --ink-tertiary: #8c8c8c;
+  --ink-muted: #b5b5b5;
+  --accent: #c94e35;
+  --accent-soft: #fbf0ed;
+  --accent-muted: #e8a99a;
+  --on-accent: #ffffff;
+  --online: #2f6b52;
+  --online-soft: #e6f2ec;
+  --error: #b3261e;
+  --error-container: #fceeee;
+  --warning: #7a6520;
+  --warning-soft: #f5edd9;
+  --premium: #b8860b;
+  --premium-soft: #f5edd9;
+  --border: rgba(20, 20, 20, 0.07);
+  --divider: #eceae4;
+  --overlay: rgba(20, 20, 20, 0.48);
+  --shadow: rgba(20, 20, 20, 0.1);
+}
+
+/* Warm Ink dark — matches mobile dark theme */
+.dark {
   --background: #121110;
   --surface: #1c1b18;
   --surface-muted: #262522;

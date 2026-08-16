@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useScrollBottomPadding } from '../src/hooks/use-tab-bar-insets';
 import { AppIcon } from '../src/components/ui/app-icon';
 import { PREMIUM_AVATAR_THEMES, PREMIUM_MEMBER_BENEFITS } from '@pingme/shared';
 import { api, SubscriptionInfo } from '../src/lib/api';
@@ -18,7 +18,7 @@ export default function PremiumScreen() {
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const user = useAuthStore((s) => s.user);
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
+  const scrollBottomPadding = useScrollBottomPadding(40);
   const currentAvatarTheme =
     (user?.profile as { avatarConfig?: { theme?: string } } | null | undefined)?.avatarConfig?.theme ?? null;
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -44,7 +44,7 @@ export default function PremiumScreen() {
   }, [checkoutParam, queryClient, refreshMe, router]);
 
   const styles = useThemedStyles(({ colors }) => ({
-    content: { padding: spacing.container, paddingBottom: insets.bottom + 40 },
+    content: { padding: spacing.container },
     hero: {
       alignItems: 'center',
       marginBottom: spacing.xxl,
@@ -329,7 +329,7 @@ export default function PremiumScreen() {
   return (
     <Screen padded={false} edges={[]}>
       <AppHeader title="Premium" showBrand={false} onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}>
         <View style={styles.hero}>
           <View style={styles.heroBadge}>
             <AppIcon name="premium-diamond" size={20} color={colors.premiumOnSurface} />

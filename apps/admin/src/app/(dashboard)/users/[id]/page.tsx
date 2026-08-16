@@ -62,6 +62,7 @@ interface UserDetail {
 const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'posts', label: 'Posts' },
+  { id: 'events', label: 'Events' },
   { id: 'reports', label: 'Reports' },
   { id: 'chats', label: 'Chats' },
   { id: 'matches', label: 'Matches' },
@@ -206,7 +207,7 @@ export default function UserDetailPage() {
   }
 
   if (loading && !data) return <LoadingBlock label="Loading user…" />;
-  if (!data) return <p className="text-red-400">{error || 'User not found'}</p>;
+  if (!data) return <p className="text-error">{error || 'User not found'}</p>;
 
   const { user } = data;
 
@@ -239,7 +240,7 @@ export default function UserDetailPage() {
         }
       />
 
-      {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="mb-4 text-sm text-error">{error}</p> : null}
 
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
@@ -411,6 +412,7 @@ export default function UserDetailPage() {
               <div><dt className="text-ink-tertiary">Last seen</dt><dd>{user.lastSeenAt ? formatDate(user.lastSeenAt) : '—'}</dd></div>
               <div><dt className="text-ink-tertiary">Available now</dt><dd>{user.isAvailable ? 'Yes' : 'No'}</dd></div>
               <div><dt className="text-ink-tertiary">Posts</dt><dd>{user.counts.wallPosts}</dd></div>
+              <div><dt className="text-ink-tertiary">Events hosted</dt><dd>{user.counts.events ?? 0}</dd></div>
               <div><dt className="text-ink-tertiary">Reports received</dt><dd>{user.counts.reportsReceived}</dd></div>
               <div><dt className="text-ink-tertiary">Devices</dt><dd>{user.counts.devices}</dd></div>
               <div><dt className="text-ink-tertiary">Matches</dt><dd>{(user.counts.matchesAsUserA ?? 0) + (user.counts.matchesAsUserB ?? 0)}</dd></div>
@@ -421,6 +423,7 @@ export default function UserDetailPage() {
       ) : null}
 
       {tab === 'posts' ? <UserPostsTab userId={params.id} /> : null}
+      {tab === 'events' ? <UserEventsTab userId={params.id} /> : null}
       {tab === 'reports' ? <UserReportsTab userId={params.id} /> : null}
       {tab === 'chats' ? <UserChatsTab userId={params.id} /> : null}
       {tab === 'matches' ? <UserMatchesTab userId={params.id} /> : null}
@@ -444,6 +447,102 @@ export default function UserDetailPage() {
       >
         <Textarea placeholder="Optional note for audit log" value={note} onChange={(e) => setNote(e.target.value)} rows={3} />
       </Modal>
+    </div>
+  );
+}
+
+function UserEventsTab({ userId }: { userId: string }) {
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState('');
+  const [data, setData] = useState<{
+    items: Array<{
+      id: string;
+      title: string;
+      status: string;
+      startsAt: string;
+      endsAt: string;
+      goingCount: number;
+      maybeCount: number;
+      commentCount: number;
+      createdAt: string;
+      placeName: string | null;
+      address: string | null;
+    }>;
+    total: number;
+    limit: number;
+    counts: {
+      active: number;
+      cancelled: number;
+      hidden: number;
+      deleted: number;
+      moderated: number;
+      total: number;
+    };
+  } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams({ page: String(page), limit: '20' });
+    if (status) params.set('status', status);
+    adminFetch<NonNullable<typeof data>>(`/admin/users/${userId}/events?${params}`).then(setData);
+  }, [userId, page, status]);
+
+  if (!data) return <LoadingBlock />;
+
+  const countCards = [
+    { label: 'Total', value: data.counts.total, filter: '' },
+    { label: 'Active', value: data.counts.active, filter: 'active' },
+    { label: 'Cancelled', value: data.counts.cancelled, filter: 'cancelled' },
+    { label: 'Hidden', value: data.counts.hidden, filter: 'hidden' },
+    { label: 'Deleted', value: data.counts.deleted, filter: 'deleted' },
+    { label: 'Moderated', value: data.counts.moderated, filter: 'moderated' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {countCards.map((card) => (
+          <button
+            key={card.label}
+            type="button"
+            onClick={() => {
+              setPage(1);
+              setStatus(card.filter);
+            }}
+            className={`rounded-xl border px-4 py-3 text-left transition ${
+              status === card.filter
+                ? 'border-accent bg-accent-soft'
+                : 'border-border bg-surface-muted hover:border-accent/40'
+            }`}
+          >
+            <p className="text-xs text-ink-tertiary">{card.label}</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">{card.value}</p>
+          </button>
+        ))}
+      </div>
+
+      <ActivityTable
+        data={data}
+        page={page}
+        onPageChange={setPage}
+        columns={['Event', 'Location', 'Starts', 'Ends', 'RSVP', 'Status', 'Created']}
+        renderRow={(event) => (
+          <TR key={event.id}>
+            <TD className="max-w-xs font-medium">{event.title}</TD>
+            <TD className="max-w-xs text-ink-secondary">
+              {event.placeName ?? event.address ?? '—'}
+            </TD>
+            <TD className="text-ink-secondary">{formatDate(event.startsAt)}</TD>
+            <TD className="text-ink-secondary">{formatDate(event.endsAt)}</TD>
+            <TD>
+              {event.goingCount} / {event.maybeCount}
+            </TD>
+            <TD>
+              <Badge>{event.status}</Badge>
+            </TD>
+            <TD className="text-ink-secondary">{formatDate(event.createdAt)}</TD>
+          </TR>
+        )}
+      />
     </div>
   );
 }
@@ -770,7 +869,7 @@ function DeviceForensicModal({
   return (
     <Modal open wide title="Device forensic details" onClose={onClose}>
       {loading ? <LoadingBlock label="Loading device details…" /> : null}
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="text-sm text-error">{error}</p> : null}
       {data ? (
         <div className="space-y-6 text-sm">
           <ForensicSection title="User identity">
@@ -1038,7 +1137,7 @@ function UserAuditTab({ userId }: { userId: string }) {
       });
   }, [userId, page]);
 
-  if (error) return <Card><p className="text-sm text-red-400">{error}</p></Card>;
+  if (error) return <Card><p className="text-sm text-error">{error}</p></Card>;
 
   return (
     <ActivityTable

@@ -2,7 +2,7 @@ import { usePathname, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTabBarInsets } from '../../hooks/use-tab-bar-insets';
+import { useBottomInset, useTabBarInsets } from '../../hooks/use-tab-bar-insets';
 import { navigateFromNotification } from '../../lib/notification-navigation';
 import { useIncomingBannerStore } from '../../stores/incoming-banner-store';
 import { ToastType, useToastStore } from '../../stores/toast-store';
@@ -29,11 +29,11 @@ function snackbarMeta(type: ToastType, colors: ReturnType<typeof useTheme>['colo
 
 export function ToastHost() {
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
+  const bottomInset = useBottomInset();
   const { contentBottom } = useTabBarInsets();
   const { colors, shadows } = useTheme();
   const { message, type, hide } = useToastStore();
-  const bottomOffset = isTabRoute(pathname) ? contentBottom : insets.bottom + spacing.lg;
+  const bottomOffset = isTabRoute(pathname) ? contentBottom : bottomInset + spacing.lg;
 
   const styles = useThemedStyles(({ colors }) => ({
     wrap: {

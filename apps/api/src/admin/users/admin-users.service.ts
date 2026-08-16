@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  EventStatus,
   Prisma,
   UserStatus,
   VerificationProvider,
@@ -124,6 +125,7 @@ export class AdminUsersService {
             blocksReceived: true,
             matchesAsUserA: true,
             matchesAsUserB: true,
+            events: true,
           },
         },
       },
@@ -447,6 +449,58 @@ export class AdminUsersService {
     ]);
 
     return { items, total, page, limit };
+  }
+
+  async getEvents(userId: string, page = 1, limit = 20, status?: EventStatus) {
+    await this.requireUser(userId);
+    const skip = (page - 1) * limit;
+    const whereBase: Prisma.EventWhereInput = { userId };
+    const where: Prisma.EventWhereInput = status ? { ...whereBase, status } : whereBase;
+
+    const [grouped, items, total] = await Promise.all([
+      this.prisma.event.groupBy({
+        by: ['status'],
+        where: whereBase,
+        _count: { _all: true },
+      }),
+      this.prisma.event.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          goingCount: true,
+          maybeCount: true,
+          commentCount: true,
+          createdAt: true,
+          placeName: true,
+          address: true,
+        },
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+
+    const counts = {
+      active: 0,
+      cancelled: 0,
+      hidden: 0,
+      deleted: 0,
+      moderated: 0,
+      total: 0,
+    };
+    for (const row of grouped) {
+      if (row.status in counts) {
+        counts[row.status as keyof typeof counts] = row._count._all;
+      }
+      counts.total += row._count._all;
+    }
+
+    return { items, total, page, limit, counts };
   }
 
   async getReportsReceived(userId: string, page = 1, limit = 20) {

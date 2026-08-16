@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import {
   AdminRole,
+  EventStatus,
   Prisma,
   UserStatus,
   VerificationStatus,
@@ -128,6 +129,22 @@ export class AdminUsersController {
     @Query('limit') limit?: string,
   ) {
     return this.users.getPosts(id, page ? Number(page) : 1, limit ? Number(limit) : 20);
+  }
+
+  @Get(':id/events')
+  @Roles(AdminRole.support, AdminRole.moderator, AdminRole.super_admin)
+  getEvents(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('status') status?: EventStatus,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.users.getEvents(
+      id,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
+      status,
+    );
   }
 
   @Get(':id/reports')

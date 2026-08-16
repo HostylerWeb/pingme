@@ -6,6 +6,7 @@ import { getStoredSession, loginAdmin } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
+import { ThemeToggleCompact } from '@/components/theme-toggle';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,7 +37,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <div className="absolute right-4 top-4">
+        <ThemeToggleCompact />
+      </div>
       <Card className="w-full max-w-md">
         <div className="mb-6 flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-accent" />

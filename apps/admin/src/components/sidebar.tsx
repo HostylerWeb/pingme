@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { clearSession, type AdminRole } from '@/lib/api';
 import { useAdminSession } from '@/hooks/use-admin-session';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const navItems: Array<{
   href: string;
@@ -81,7 +82,8 @@ export function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => voi
         })}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="space-y-1 border-t border-border p-3">
+        <ThemeToggle />
         <button
           type="button"
           onClick={() => {

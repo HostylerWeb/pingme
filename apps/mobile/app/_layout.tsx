@@ -7,6 +7,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import '../src/lib/background-location';
+import '../src/lib/mapbox';
 import { AppSocketProvider } from '../src/lib/app-socket';
 import { locationSetupStorage } from '../src/lib/location-setup-storage';
 import { notificationsSetupStorage } from '../src/lib/notifications-setup-storage';
