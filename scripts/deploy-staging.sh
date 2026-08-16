@@ -35,12 +35,15 @@ do
   fi
 done
 
-# Install systemd units (API + worker split)
+# Install systemd units (API + worker + admin)
 if [[ -f "$SITE_DIR/infrastructure/systemd/pingme-api.service" ]]; then
   cp "$SITE_DIR/infrastructure/systemd/pingme-api.service" /etc/systemd/system/pingme.service
   cp "$SITE_DIR/infrastructure/systemd/pingme-worker.service" /etc/systemd/system/pingme-worker.service
+  if [[ -f "$SITE_DIR/infrastructure/systemd/pingme-admin.service" ]]; then
+    cp "$SITE_DIR/infrastructure/systemd/pingme-admin.service" /etc/systemd/system/pingme-admin.service
+  fi
   systemctl daemon-reload
-  systemctl enable pingme-worker 2>/dev/null || true
+  systemctl enable pingme pingme-worker pingme-admin 2>/dev/null || true
 fi
 
 sudo -u hostyler pnpm install
