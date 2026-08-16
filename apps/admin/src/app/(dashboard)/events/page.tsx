@@ -55,6 +55,11 @@ export default function EventsPage() {
   const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
   const [withdrawalsEvent, setWithdrawalsEvent] = useState<{ id: string; title: string } | null>(null);
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
+  const [confirmAction, setConfirmAction] = useState<{
+    id: string;
+    title: string;
+    action: 'hide' | 'delete' | 'restore';
+  } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,6 +95,7 @@ export default function EventsPage() {
             : `/admin/events/${id}/restore`;
       const method = action === 'delete' ? 'DELETE' : 'PATCH';
       await adminFetch(path, { method });
+      setConfirmAction(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Action failed');
@@ -208,7 +214,9 @@ export default function EventsPage() {
                       <Button
                         variant="secondary"
                         disabled={actionId === event.id}
-                        onClick={() => moderate(event.id, 'hide')}
+                        onClick={() =>
+                          setConfirmAction({ id: event.id, title: event.title, action: 'hide' })
+                        }
                       >
                         Hide
                       </Button>
@@ -216,7 +224,9 @@ export default function EventsPage() {
                       <Button
                         variant="secondary"
                         disabled={actionId === event.id}
-                        onClick={() => moderate(event.id, 'restore')}
+                        onClick={() =>
+                          setConfirmAction({ id: event.id, title: event.title, action: 'restore' })
+                        }
                       >
                         Restore
                       </Button>
@@ -224,7 +234,9 @@ export default function EventsPage() {
                     <Button
                       variant="danger"
                       disabled={actionId === event.id}
-                      onClick={() => moderate(event.id, 'delete')}
+                      onClick={() =>
+                        setConfirmAction({ id: event.id, title: event.title, action: 'delete' })
+                      }
                     >
                       Delete
                     </Button>
@@ -241,6 +253,59 @@ export default function EventsPage() {
           />
         </>
       )}
+
+      <Modal
+        open={confirmAction !== null}
+        title={
+          confirmAction?.action === 'delete'
+            ? 'Delete event?'
+            : confirmAction?.action === 'hide'
+              ? 'Hide event?'
+              : 'Restore event?'
+        }
+        onClose={() => setConfirmAction(null)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmAction(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant={confirmAction?.action === 'restore' ? 'primary' : 'danger'}
+              disabled={actionId === confirmAction?.id}
+              onClick={() => {
+                if (confirmAction) {
+                  void moderate(confirmAction.id, confirmAction.action);
+                }
+              }}
+            >
+              {confirmAction?.action === 'delete'
+                ? 'Delete event'
+                : confirmAction?.action === 'hide'
+                  ? 'Hide event'
+                  : 'Restore event'}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          {confirmAction?.action === 'delete' ? (
+            <>
+              <strong className="text-foreground">{confirmAction.title}</strong> will be marked
+              deleted and removed from the mobile app. This cannot be undone from the admin panel.
+            </>
+          ) : confirmAction?.action === 'hide' ? (
+            <>
+              <strong className="text-foreground">{confirmAction.title}</strong> will be hidden from
+              the mobile app immediately. You can restore it later.
+            </>
+          ) : (
+            <>
+              <strong className="text-foreground">{confirmAction?.title}</strong> will be visible in
+              the mobile app again if it is still upcoming.
+            </>
+          )}
+        </p>
+      </Modal>
 
       <Modal
         open={withdrawalsOpen}

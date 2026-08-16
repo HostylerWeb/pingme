@@ -3,7 +3,7 @@ import {
   formatEventListDate,
   formatEventsDiscoveryRadius,
 } from '@pingme/shared';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   api,
   EventAttendingSummary,
@@ -286,6 +286,7 @@ function EventsTabBar({
 
 export default function EventsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const { contentBottom } = useTabBarInsets();
   const distanceConfig = useRequiredDistanceConfig();
@@ -308,6 +309,14 @@ export default function EventsScreen() {
       setAttendingFilter('all');
     }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void queryClient.invalidateQueries({ queryKey: ['events-nearby'] });
+      void queryClient.invalidateQueries({ queryKey: ['events-attending'] });
+      void queryClient.invalidateQueries({ queryKey: ['my-events'] });
+    }, [queryClient]),
+  );
 
   const { data: myEventsData, refetch: refetchMine, isRefetching: isRefetchingMine } = useQuery({
     queryKey: ['my-events'],
@@ -343,6 +352,7 @@ export default function EventsScreen() {
     getNextPageParam: (lastPage) =>
       lastPage.meta.hasMore ? lastPage.meta.page + 1 : undefined,
     enabled: Boolean(user) && tab === 'attending',
+    staleTime: 30_000,
   });
 
   const attendingEvents = useMemo(() => {
@@ -369,6 +379,7 @@ export default function EventsScreen() {
     getNextPageParam: (lastPage) =>
       lastPage.meta.hasMore ? lastPage.meta.page + 1 : undefined,
     enabled: hasLocation && tab === 'nearby',
+    staleTime: 30_000,
   });
 
   const events = data?.pages.flatMap((page) => page.data) ?? [];

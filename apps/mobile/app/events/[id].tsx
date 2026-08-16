@@ -1,7 +1,7 @@
 import { formatEventDateRange, distanceLabel, EVENT_RSVP_WITHDRAWAL_REASONS } from '@pingme/shared';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, EventComment, EventDetail } from '../../src/lib/api';
+import { removeEventFromCaches } from '../../src/lib/event-query-cache';
 import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useScrollBottomPadding } from '../../src/hooks/use-tab-bar-insets';
@@ -365,19 +366,26 @@ export default function EventDetailScreen() {
   const scrollBottomPadding = useScrollBottomPadding(96);
   const listRef = useRef<FlatList>(null);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isError, error, isFetched } = useQuery({
     queryKey: ['event', id],
     queryFn: () => api.getEvent(id!),
     enabled: Boolean(id),
+    retry: false,
+    staleTime: 0,
   });
+
+  useEffect(() => {
+    if (!id || !isError) return;
+    removeEventFromCaches(queryClient, id);
+  }, [id, isError, queryClient]);
 
   const { data: commentsData } = useQuery({
     queryKey: ['event-comments', id],
     queryFn: () => api.getEventComments(id!),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && !isError,
   });
 
-  const event = data?.data;
+  const event = isError ? undefined : data?.data;
   const comments = commentsData?.data ?? [];
   const threadedComments = useMemo(() => groupEventComments(comments), [comments]);
 
@@ -537,7 +545,7 @@ export default function EventDetailScreen() {
     },
   }));
 
-  if (isLoading) {
+  if (isLoading || (!isFetched && !isError)) {
     return (
       <Screen>
         <ActivityIndicator size="large" color={colors.accent} />
@@ -545,11 +553,20 @@ export default function EventDetailScreen() {
     );
   }
 
-  if (error || !event) {
+  if (isError || !event) {
     return (
       <Screen>
         <AppHeader title="Event" showBrand={false} onBack={() => router.back()} />
-        <EmptyState icon="alert-circle" title="Event not found" message="It may have ended or been removed." />
+        <EmptyState
+          icon="alert-circle"
+          title="Event not available"
+          message={
+            error instanceof Error
+              ? error.message
+              : 'This event may have ended, been removed, or is no longer available.'
+          }
+          action={<Button label="Go back" variant="ghost" onPress={() => router.back()} />}
+        />
       </Screen>
     );
   }
