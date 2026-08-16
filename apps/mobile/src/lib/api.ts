@@ -1,7 +1,27 @@
-import { handleAuthFailure } from './auth-session';
+import {
+  bumpAuthSessionEpoch,
+  getAuthSessionEpoch,
+  handleAuthFailure,
+  isSignOutInProgress,
+  isStaleAuthSession,
+  setSignOutInProgress,
+} from './auth-session';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from './auth-storage';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+
+const PUBLIC_AUTH_PATHS = new Set([
+  '/auth/login',
+  '/auth/register',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+]);
+
+function isPublicAuthPath(path: string) {
+  return PUBLIC_AUTH_PATHS.has(path);
+}
+
+export { setSignOutInProgress };
 
 export class ApiError extends Error {
   constructor(
@@ -29,9 +49,15 @@ function isAccessTokenExpired(token: string, skewSeconds = 30) {
 
 let refreshInFlight: Promise<string | null> | null = null;
 
-async function performRefreshAccessToken(): Promise<string | null> {
+export function resetAuthRequestState() {
+  refreshInFlight = null;
+}
+
+async function performRefreshAccessToken(epochAtStart: number): Promise<string | null> {
+  if (isStaleAuthSession(epochAtStart)) return null;
+
   const refreshToken = await getRefreshToken();
-  if (!refreshToken) return null;
+  if (!refreshToken || isStaleAuthSession(epochAtStart)) return null;
 
   try {
     const response = await fetch(`${API_URL}/auth/refresh`, {
@@ -41,7 +67,9 @@ async function performRefreshAccessToken(): Promise<string | null> {
     });
 
     if (response.status === 401 || response.status === 403) {
-      await clearTokens();
+      if (!isStaleAuthSession(epochAtStart) && !isSignOutInProgress()) {
+        await clearTokens();
+      }
       return null;
     }
 
@@ -50,6 +78,10 @@ async function performRefreshAccessToken(): Promise<string | null> {
     }
 
     const data = await response.json();
+    if (isStaleAuthSession(epochAtStart)) {
+      return null;
+    }
+
     await saveTokens(data.accessToken, data.refreshToken);
     return data.accessToken;
   } catch {
@@ -58,15 +90,25 @@ async function performRefreshAccessToken(): Promise<string | null> {
 }
 
 export async function refreshAccessToken(): Promise<string | null> {
+  const epochAtStart = getAuthSessionEpoch();
+
   if (refreshInFlight) {
-    return refreshInFlight;
+    const result = await refreshInFlight;
+    if (isStaleAuthSession(epochAtStart)) {
+      return null;
+    }
+    return result;
   }
 
-  refreshInFlight = performRefreshAccessToken().finally(() => {
+  refreshInFlight = performRefreshAccessToken(epochAtStart).finally(() => {
     refreshInFlight = null;
   });
 
-  return refreshInFlight;
+  const result = await refreshInFlight;
+  if (isStaleAuthSession(epochAtStart)) {
+    return null;
+  }
+  return result;
 }
 
 export async function ensureValidAccessToken() {
@@ -93,9 +135,15 @@ export async function apiFetch<T>(
   options: RequestInit = {},
   retry = true,
 ): Promise<T> {
-  let accessToken = await getAccessToken();
-  if (accessToken && isAccessTokenExpired(accessToken)) {
-    accessToken = await refreshAccessToken();
+  const epochAtStart = getAuthSessionEpoch();
+  const skipAuth = isPublicAuthPath(path);
+  let accessToken: string | null = null;
+
+  if (!skipAuth) {
+    accessToken = await getAccessToken();
+    if (accessToken && isAccessTokenExpired(accessToken)) {
+      accessToken = await refreshAccessToken();
+    }
   }
 
   const headers = new Headers(options.headers);
@@ -110,17 +158,32 @@ export async function apiFetch<T>(
     headers,
   });
 
+  const body = await response.json().catch(() => ({}));
+
   if (response.status === 401) {
-    if (retry) {
+    const staleSession = isStaleAuthSession(epochAtStart);
+    const signingOut = isSignOutInProgress();
+
+    if (retry && !signingOut && !staleSession && !skipAuth) {
       const newToken = await refreshAccessToken();
-      if (newToken) {
+      if (newToken && !isStaleAuthSession(epochAtStart)) {
         return apiFetch<T>(path, options, false);
       }
     }
-    await handleAuthFailure();
-  }
 
-  const body = await response.json().catch(() => ({}));
+    if (!signingOut && !staleSession) {
+      const hadSession = !!(await getAccessToken()) || !!(await getRefreshToken());
+      if (hadSession) {
+        await handleAuthFailure(epochAtStart);
+      }
+    }
+
+    throw new ApiError(
+      body?.error?.message ?? body?.message ?? 'Unauthorized',
+      401,
+      body?.error?.code ?? body?.code,
+    );
+  }
 
   if (!response.ok) {
     throw new ApiError(

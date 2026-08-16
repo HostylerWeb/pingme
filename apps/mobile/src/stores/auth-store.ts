@@ -1,5 +1,8 @@
 import { create } from 'zustand';
-import { api, AuthUser, ensureValidAccessToken, isAuthApiError } from '../lib/api';
+import { api, AuthUser, ensureValidAccessToken, isAuthApiError, resetAuthRequestState, setSignOutInProgress } from '../lib/api';
+import {
+  bumpAuthSessionEpoch,
+} from '../lib/auth-session';
 import {
   clearTokens,
   getAccessToken,
@@ -81,6 +84,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           ? { phone: identifier, password }
           : { email: identifier, password },
       );
+      bumpAuthSessionEpoch();
+      resetAuthRequestState();
       await saveTokens(result.accessToken, result.refreshToken);
       const user = result.user as AuthUser;
       await saveCachedUser(user);
@@ -95,6 +100,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try {
       const result = await api.register(input);
+      bumpAuthSessionEpoch();
+      resetAuthRequestState();
       await saveTokens(result.accessToken, result.refreshToken);
       const user = result.user as AuthUser;
       await saveCachedUser(user);
@@ -106,24 +113,37 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    try {
-      await stopBackgroundLocation();
-    } catch {
-      // ignore
-    }
-    try {
-      await unregisterPushNotifications();
-    } catch {
-      // ignore
-    }
-
+    bumpAuthSessionEpoch();
+    resetAuthRequestState();
+    setSignOutInProgress(true);
     const refreshToken = (await getRefreshToken()) ?? undefined;
+
     try {
-      await api.logout(refreshToken);
-    } finally {
+      try {
+        await stopBackgroundLocation();
+      } catch {
+        // ignore
+      }
+      try {
+        await unregisterPushNotifications();
+      } catch {
+        // ignore
+      }
+
+      await queryClient.cancelQueries();
       queryClient.clear();
+
+      try {
+        if (refreshToken) {
+          await api.logout(refreshToken);
+        }
+      } catch {
+        // Server logout is best-effort once local session is ending.
+      }
+    } finally {
       await clearTokens();
       set({ user: null });
+      setSignOutInProgress(false);
     }
   },
 
