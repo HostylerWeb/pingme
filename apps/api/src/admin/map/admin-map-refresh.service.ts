@@ -30,6 +30,10 @@ export class AdminMapRefreshService implements OnModuleInit, OnModuleDestroy {
     this.worker = new Worker(
       'admin-map-refresh',
       async () => {
+        if (!(await this.adminMap.isMapBeingWatched())) {
+          return;
+        }
+
         const snapshot = await this.adminMap.refreshHeatmapCache();
         this.logger.debug(
           `Admin map refreshed: online=${snapshot.totalActive} clusters=${snapshot.cells.length}`,
@@ -37,13 +41,6 @@ export class AdminMapRefreshService implements OnModuleInit, OnModuleDestroy {
       },
       { connection: this.connection },
     );
-
-    void this.adminMap.refreshHeatmapCache().catch((error) => {
-      this.logger.error(
-        'Initial admin map refresh failed',
-        error instanceof Error ? error.stack : String(error),
-      );
-    });
 
     void this.queue.add(
       'tick',
@@ -55,7 +52,9 @@ export class AdminMapRefreshService implements OnModuleInit, OnModuleDestroy {
       },
     );
 
-    this.logger.log(`Admin map refresh worker started (every ${ADMIN_MAP_REFRESH_INTERVAL_MS / 1000}s)`);
+    this.logger.log(
+      `Admin map refresh worker started (every ${ADMIN_MAP_REFRESH_INTERVAL_MS / 1000}s, only while map page is open)`,
+    );
   }
 
   async onModuleDestroy() {

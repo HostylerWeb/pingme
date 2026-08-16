@@ -36,7 +36,10 @@ export default function MapPage() {
       adminFetch<HeatmapResponse>('/admin/map/heatmap').then(setData).catch(() => {});
     }, 60000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      void adminFetch('/admin/map/unwatch', { method: 'POST' }).catch(() => undefined);
+    };
   }, []);
 
   const topClusters = useMemo(() => (data?.cells ?? []).slice(0, 12), [data?.cells]);

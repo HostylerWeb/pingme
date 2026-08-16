@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { AdminRole } from '@pingme/db';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../decorators/roles.decorator';
@@ -16,5 +16,10 @@ export class AdminMapController {
   @Get('heatmap')
   getHeatmap() {
     return this.mapService.getHeatmap();
+  }
+
+  @Post('unwatch')
+  unwatch() {
+    return this.mapService.stopWatching();
   }
 }

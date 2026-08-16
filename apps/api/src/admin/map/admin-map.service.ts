@@ -6,11 +6,12 @@ import { RedisService } from '../../redis/redis.module';
 import {
   ADMIN_MAP_CACHE_KEY,
   ADMIN_MAP_CACHE_TTL_SECONDS,
+  ADMIN_MAP_WATCHING_KEY,
+  ADMIN_MAP_WATCHING_TTL_SECONDS,
   CLUSTER_CELL_SIZE_DEGREES,
   CLUSTER_RADIUS_METERS,
   type AdminHeatmapCell,
   type AdminHeatmapResponse,
-  emptyAdminHeatmap,
 } from './admin-map.constants';
 
 type OnlineUser = {
@@ -27,14 +28,34 @@ export class AdminMapService {
     private readonly redis: RedisService,
   ) {}
 
-  /** Read-only: serves precomputed heatmap from Redis (never queries Postgres). */
+  /** Read-only when cached; cold-bootstrap once when the map page opens with an empty cache. */
   async getHeatmap(): Promise<AdminHeatmapResponse> {
+    await this.touchWatching();
+
     const cached = await this.redis.client.get(ADMIN_MAP_CACHE_KEY);
-    if (!cached) {
-      return emptyAdminHeatmap();
+    if (cached) {
+      return JSON.parse(cached) as AdminHeatmapResponse;
     }
 
-    return JSON.parse(cached) as AdminHeatmapResponse;
+    return this.refreshHeatmapCache();
+  }
+
+  /** Extend the "someone is viewing the map" heartbeat (called on each poll). */
+  async touchWatching(): Promise<void> {
+    await this.redis.client.set(
+      ADMIN_MAP_WATCHING_KEY,
+      '1',
+      'EX',
+      ADMIN_MAP_WATCHING_TTL_SECONDS,
+    );
+  }
+
+  async stopWatching(): Promise<void> {
+    await this.redis.client.del(ADMIN_MAP_WATCHING_KEY);
+  }
+
+  async isMapBeingWatched(): Promise<boolean> {
+    return (await this.redis.client.exists(ADMIN_MAP_WATCHING_KEY)) === 1;
   }
 
   /** Worker-only: rebuild heatmap from Postgres and write to Redis. */
