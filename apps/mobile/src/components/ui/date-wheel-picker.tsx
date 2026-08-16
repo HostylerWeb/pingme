@@ -67,25 +67,33 @@ export function DateWheelPicker({
     },
   }));
 
+  const valueDay = value.getDate();
+  const valueMonth = value.getMonth();
+  const valueYear = value.getFullYear();
+
   useEffect(() => {
-    setDay(value.getDate());
-    setMonthIndex(value.getMonth());
-    setYear(value.getFullYear());
-  }, [value]);
+    setDay((current) => (current === valueDay ? current : valueDay));
+    setMonthIndex((current) => (current === valueMonth ? current : valueMonth));
+    setYear((current) => (current === valueYear ? current : valueYear));
+  }, [valueDay, valueMonth, valueYear]);
 
   const emitChange = (nextDay: number, nextMonthIndex: number, nextYear: number) => {
     const clampedDay = clampDay(nextYear, nextMonthIndex, nextDay);
-    const next = new Date(nextYear, nextMonthIndex, clampedDay);
+    let next = new Date(nextYear, nextMonthIndex, clampedDay);
 
     if (next < minimumDate) {
-      onChange(minimumDate);
-      return;
-    }
-    if (next > maximumDate) {
-      onChange(maximumDate);
-      return;
+      next = minimumDate;
+    } else if (next > maximumDate) {
+      next = maximumDate;
     }
 
+    const resolvedDay = next.getDate();
+    const resolvedMonth = next.getMonth();
+    const resolvedYear = next.getFullYear();
+
+    setDay(resolvedDay);
+    setMonthIndex(resolvedMonth);
+    setYear(resolvedYear);
     onChange(next);
   };
 

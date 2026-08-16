@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native';
-import { AppIcon, type AppIconName } from './ui/app-icon';
+import { AppIcon } from './ui/app-icon';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../theme';
 
 type ProfileStatusBadgesProps = {
@@ -10,11 +10,8 @@ type ProfileStatusBadgesProps = {
 
 type Segment = {
   key: string;
-  icon: AppIconName;
   label: string;
   a11y: string;
-  iconColor: string;
-  textColor: string;
 };
 
 /**
@@ -40,7 +37,7 @@ export function ProfileStatusBadges({
       alignSelf: 'center',
       borderRadius: radius.full,
       borderWidth: 1,
-      borderColor: colors.border,
+      borderColor: colors.onlineSoft,
       backgroundColor: colors.surfaceMuted,
       overflow: 'hidden',
     },
@@ -54,13 +51,14 @@ export function ProfileStatusBadges({
     divider: {
       width: 1,
       alignSelf: 'stretch',
-      backgroundColor: colors.border,
+      backgroundColor: colors.onlineSoft,
     },
     label: {
       ...typography.caption,
       fontSize: 11,
       lineHeight: 14,
       letterSpacing: 0,
+      color: colors.online,
     },
   }));
 
@@ -69,31 +67,22 @@ export function ProfileStatusBadges({
   if (isPremium) {
     segments.push({
       key: 'premium',
-      icon: 'premium-star',
       label: 'Premium',
       a11y: 'Premium member',
-      iconColor: colors.premiumStart,
-      textColor: colors.premiumOnSurface,
     });
   }
   if (livenessVerified) {
     segments.push({
       key: 'face',
-      icon: 'verified',
       label: 'Face',
       a11y: 'Face verified — liveness check passed',
-      iconColor: colors.online,
-      textColor: colors.online,
     });
   }
   if (idVerified) {
     segments.push({
       key: 'id',
-      icon: 'document',
       label: 'ID',
       a11y: 'Government ID verified — can host events',
-      iconColor: colors.inkSecondary,
-      textColor: colors.inkSecondary,
     });
   }
 
@@ -108,8 +97,8 @@ export function ProfileStatusBadges({
           <View key={segment.key} style={{ flexDirection: 'row', alignItems: 'center' }}>
             {index > 0 ? <View style={styles.divider} /> : null}
             <View style={styles.segment} accessibilityLabel={segment.a11y}>
-              <AppIcon name={segment.icon} size={11} color={segment.iconColor} />
-              <Text style={[styles.label, { color: segment.textColor }]}>{segment.label}</Text>
+              <AppIcon name="verified" size={11} color={colors.online} />
+              <Text style={styles.label}>{segment.label}</Text>
             </View>
           </View>
         ))}

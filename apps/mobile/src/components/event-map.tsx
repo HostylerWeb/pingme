@@ -1,7 +1,14 @@
 import { Camera, MapView, PointAnnotation, StyleURL } from '@rnmapbox/maps';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
+import { ensureMapboxConfigured } from '../lib/mapbox';
 import { useTheme } from '../theme';
+
+function useMapboxSetup() {
+  useEffect(() => {
+    ensureMapboxConfigured();
+  }, []);
+}
 
 type EventMapProps = {
   latitude: number;
@@ -27,6 +34,7 @@ function MapMarker() {
 
 export function EventMapPreview({ latitude, longitude, style }: EventMapProps) {
   const { isDark } = useTheme();
+  useMapboxSetup();
 
   return (
     <MapView
@@ -61,6 +69,7 @@ export function EventMapPicker({
   onCoordinateChange: (coords: { latitude: number; longitude: number }) => void;
 }) {
   const { isDark } = useTheme();
+  useMapboxSetup();
   const cameraRef = useRef<React.ComponentRef<typeof Camera>>(null);
   const skipIdleRef = useRef(false);
 

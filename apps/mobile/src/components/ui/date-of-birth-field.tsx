@@ -1,10 +1,11 @@
 import { MIN_AGE_YEARS } from '@pingme/shared';
-import { AppIcon } from './app-icon';
 import { useMemo, useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { radius, spacing, typography, useTheme } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
+import { AppIcon } from './app-icon';
 import { DateWheelPicker } from './date-wheel-picker';
+import { PickerSheet } from './picker-sheet';
 
 function formatDisplayDate(date: Date) {
   const day = String(date.getDate()).padStart(2, '0');
@@ -84,36 +85,6 @@ export function DateOfBirthField({
     placeholder: {
       color: colors.inkMuted,
     },
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: colors.overlay,
-      justifyContent: 'flex-end',
-    },
-    modalSheet: {
-      backgroundColor: colors.surface,
-      borderTopLeftRadius: radius.xl,
-      borderTopRightRadius: radius.xl,
-      paddingBottom: spacing.xl,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-    },
-    modalTitle: {
-      ...typography.bodySemiBold,
-      color: colors.ink,
-      fontSize: 16,
-    },
-    modalAction: {
-      ...typography.bodySemiBold,
-      color: colors.accent,
-      fontSize: 16,
-    },
   }));
 
   const displayValue = parsed ? formatDisplayDate(parsed) : '';
@@ -138,32 +109,22 @@ export function DateOfBirthField({
         <AppIcon name="calendar" size={20} color={colors.inkTertiary} />
       </Pressable>
 
-      <Modal visible={showPicker} transparent animationType="slide" onRequestClose={() => setShowPicker(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setShowPicker(false)}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Pressable onPress={() => setShowPicker(false)}>
-                <Text style={[styles.modalAction, { color: colors.inkSecondary }]}>Cancel</Text>
-              </Pressable>
-              <Text style={styles.modalTitle}>Date of birth</Text>
-              <Pressable
-                onPress={() => {
-                  commitDate(selectedDate);
-                  setShowPicker(false);
-                }}
-              >
-                <Text style={styles.modalAction}>Done</Text>
-              </Pressable>
-            </View>
-            <DateWheelPicker
-              value={selectedDate}
-              minimumDate={minimumDate}
-              maximumDate={maximumDate}
-              onChange={setSelectedDate}
-            />
-          </View>
-        </Pressable>
-      </Modal>
+      <PickerSheet
+        visible={showPicker}
+        title="Date of birth"
+        onClose={() => setShowPicker(false)}
+        onDone={() => {
+          commitDate(selectedDate);
+          setShowPicker(false);
+        }}
+      >
+        <DateWheelPicker
+          value={selectedDate}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
+          onChange={setSelectedDate}
+        />
+      </PickerSheet>
     </View>
   );
 }

@@ -1,6 +1,6 @@
-import { api, ApiError } from './api';
+import { api } from './api';
 
-function arrayBufferToBase64(buffer: ArrayBuffer) {
+export function arrayBufferToBase64(buffer: ArrayBuffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
   const chunkSize = 0x8000;
@@ -8,6 +8,12 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
+}
+
+export async function readUriAsBase64(uri: string) {
+  const fileResponse = await fetch(uri);
+  const arrayBuffer = await fileResponse.arrayBuffer();
+  return arrayBufferToBase64(arrayBuffer);
 }
 
 export async function uploadViaPresignedUrl(uploadUrl: string, uri: string, contentType: string) {
@@ -25,10 +31,7 @@ export async function uploadViaPresignedUrl(uploadUrl: string, uri: string, cont
 }
 
 export async function uploadDirectBase64(key: string, uri: string, contentType: string) {
-  const fileResponse = await fetch(uri);
-  const arrayBuffer = await fileResponse.arrayBuffer();
-  const data = arrayBufferToBase64(arrayBuffer);
-
+  const data = await readUriAsBase64(uri);
   await api.uploadAvatarBase64({
     key,
     contentType,
@@ -36,42 +39,12 @@ export async function uploadDirectBase64(key: string, uri: string, contentType: 
   });
 }
 
-/** Direct server upload — base64 first to avoid RN FormData issues on new architecture. */
+/** Direct server upload via base64 (RN new architecture does not support multipart FormData). */
 export async function uploadDirectMedia(
   key: string,
   uri: string,
-  fileName: string,
+  _fileName: string,
   contentType = 'image/jpeg',
 ) {
-  try {
-    await uploadDirectBase64(key, uri, contentType);
-    return;
-  } catch {
-    // Fall back to multipart for older clients.
-  }
-
-  const accessToken = await import('./auth-storage').then((m) => m.getAccessToken());
-  const formData = new FormData();
-  formData.append('key', key);
-  formData.append('file', {
-    uri,
-    name: fileName,
-    type: contentType,
-  } as unknown as Blob);
-
-  const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
-  const response = await fetch(`${API_URL}/media/upload`, {
-    method: 'POST',
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    body: formData,
-  });
-
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new ApiError(
-      body?.error?.message ?? body?.message ?? 'Upload failed',
-      response.status,
-      body?.error?.code ?? body?.code,
-    );
-  }
+  await uploadDirectBase64(key, uri, contentType);
 }

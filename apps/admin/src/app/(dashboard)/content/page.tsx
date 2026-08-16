@@ -106,14 +106,14 @@ export default function ContentPage() {
         <div className="flex rounded-lg border border-border p-1">
           <button
             type="button"
-            className={`rounded-md px-3 py-1.5 text-sm ${tab === 'posts' ? 'bg-accent text-foreground' : 'text-ink-secondary'}`}
+            className={`rounded-md px-3 py-1.5 text-sm ${tab === 'posts' ? 'bg-accent text-on-accent' : 'text-ink-secondary'}`}
             onClick={() => { setTab('posts'); setPage(1); }}
           >
             Posts
           </button>
           <button
             type="button"
-            className={`rounded-md px-3 py-1.5 text-sm ${tab === 'replies' ? 'bg-accent text-foreground' : 'text-ink-secondary'}`}
+            className={`rounded-md px-3 py-1.5 text-sm ${tab === 'replies' ? 'bg-accent text-on-accent' : 'text-ink-secondary'}`}
             onClick={() => { setTab('replies'); setPage(1); }}
           >
             Replies

@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,6 +13,14 @@ import { MAX_EVENT_GALLERY_IMAGES, MAX_EVENT_IMAGES } from '@pingme/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { EventScheduleFields } from '../../../src/components/event-datetime-field';
 import { EventMapPicker } from '../../../src/components/event-map';
+import {
+  createEmptyGallerySlots,
+  EventGallerySlots,
+  gallerySlotsFromRemote,
+  localUrisFromGallerySlots,
+  remoteIdsMarkedForRemoval,
+  type EventGallerySlot,
+} from '../../../src/components/event-gallery-slots';
 import { api } from '../../../src/lib/api';
 import { uploadEventImageFromUri } from '../../../src/lib/event-image-upload';
 import { useScrollBottomPadding } from '../../../src/hooks/use-tab-bar-insets';
@@ -63,7 +71,8 @@ export default function EditEventScreen() {
     Array<{ id: string; url: string; isCover: boolean; sortOrder: number }>
   >([]);
   const [newPosterUri, setNewPosterUri] = useState<string | null>(null);
-  const [newGalleryUris, setNewGalleryUris] = useState<string[]>([]);
+  const [gallerySlots, setGallerySlots] = useState<EventGallerySlot[]>(createEmptyGallerySlots());
+  const initialGalleryRemoteIdsRef = useRef<string[]>([]);
   const [searching, setSearching] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const scrollBottomPadding = useScrollBottomPadding();
@@ -135,6 +144,10 @@ export default function EditEventScreen() {
     setAllowMessages(event.allowMessages);
     setCenter({ latitude: event.latitude, longitude: event.longitude });
     setExistingImages(event.images);
+    const cover = event.images.find((img) => img.isCover) ?? event.images[0] ?? null;
+    const gallery = event.images.filter((img) => img.id !== cover?.id);
+    initialGalleryRemoteIdsRef.current = gallery.map((img) => img.id);
+    setGallerySlots(gallerySlotsFromRemote(gallery));
     setInitialized(true);
     void (async () => {
       try {
@@ -186,14 +199,10 @@ export default function EditEventScreen() {
   };
 
   const existingCover = existingImages.find((img) => img.isCover) ?? existingImages[0] ?? null;
-  const existingGallery = existingImages.filter((img) => img.id !== existingCover?.id);
   const posterPreview = newPosterUri ?? existingCover?.url ?? null;
-  const totalImageCount =
-    existingImages.length + (newPosterUri ? 1 : 0) + newGalleryUris.length;
-  const gallerySlotsLeft = Math.max(
-    0,
-    MAX_EVENT_IMAGES - existingImages.length - (newPosterUri ? 1 : 0),
-  );
+  const newGalleryUris = localUrisFromGallerySlots(gallerySlots);
+  const filledGalleryCount = gallerySlots.filter((slot) => slot.kind !== 'empty').length;
+  const totalImageCount = (posterPreview ? 1 : 0) + filledGalleryCount;
 
   const pickPoster = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -203,22 +212,6 @@ export default function EditEventScreen() {
     });
     if (!result.canceled && result.assets[0]) {
       setNewPosterUri(result.assets[0].uri);
-    }
-  };
-
-  const pickGallery = async () => {
-    const remaining = Math.min(MAX_EVENT_GALLERY_IMAGES, gallerySlotsLeft);
-    if (remaining <= 0) return;
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      selectionLimit: remaining - newGalleryUris.length,
-      quality: 0.8,
-    });
-    if (!result.canceled) {
-      setNewGalleryUris((prev) =>
-        [...prev, ...result.assets.map((a) => a.uri)].slice(0, remaining),
-      );
     }
   };
 
@@ -237,8 +230,16 @@ export default function EditEventScreen() {
         allowMessages,
       });
 
+      const removedGalleryIds = remoteIdsMarkedForRemoval(
+        gallerySlots,
+        initialGalleryRemoteIdsRef.current,
+      );
+      for (const imageId of removedGalleryIds) {
+        await api.deleteEventImage(id!, imageId);
+      }
+
       const uploads: Array<{ uri: string; isCover: boolean; sortOrder: number }> = [];
-      const baseSort = existingImages.length;
+      const remainingCount = existingImages.length - removedGalleryIds.length;
 
       if (newPosterUri) {
         uploads.push({ uri: newPosterUri, isCover: true, sortOrder: 0 });
@@ -248,7 +249,7 @@ export default function EditEventScreen() {
         uploads.push({
           uri,
           isCover: !newPosterUri && !existingCover && index === 0,
-          sortOrder: baseSort + (newPosterUri ? index + 1 : index),
+          sortOrder: remainingCount + (newPosterUri ? index + 1 : index),
         });
       });
 
@@ -431,20 +432,8 @@ export default function EditEventScreen() {
         </View>
 
         <SectionLabel>{`Gallery (optional, up to ${MAX_EVENT_GALLERY_IMAGES})`}</SectionLabel>
-        <View style={styles.imagesRow}>
-          {existingGallery.map((img) => (
-            <Image key={img.id} source={{ uri: img.url }} style={styles.thumb} />
-          ))}
-          {newGalleryUris.map((uri) => (
-            <Image key={uri} source={{ uri }} style={styles.thumb} />
-          ))}
-          {gallerySlotsLeft > newGalleryUris.length ? (
-            <Button label="Add gallery photos" variant="secondary" size="sm" onPress={() => void pickGallery()} />
-          ) : null}
-        </View>
-        {newGalleryUris.length > 0 ? (
-          <Button label="Clear new gallery photos" variant="secondary" size="sm" onPress={() => setNewGalleryUris([])} />
-        ) : null}
+        <Text style={styles.hint}>Tap a slot to add a photo. Tap a photo to remove it.</Text>
+        <EventGallerySlots slots={gallerySlots} onChange={setGallerySlots} />
 
         <View style={styles.toggleRow}>
           <View style={{ flex: 1 }}>

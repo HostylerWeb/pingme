@@ -1,11 +1,14 @@
 import Mapbox from '@rnmapbox/maps';
 
-const accessToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
+let configured = false;
 
-if (accessToken) {
-  Mapbox.setAccessToken(accessToken);
+export function ensureMapboxConfigured() {
+  if (configured) return;
+
+  const accessToken = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN;
+  if (accessToken) {
+    Mapbox.setAccessToken(accessToken);
+  }
+  Mapbox.setTelemetryEnabled(false);
+  configured = true;
 }
-
-Mapbox.setTelemetryEnabled(false);
-
-export { Mapbox };

@@ -13,6 +13,12 @@ import {
 import { MAX_EVENT_GALLERY_IMAGES } from '@pingme/shared';
 import { EventScheduleFields } from '../../src/components/event-datetime-field';
 import { EventMapPicker } from '../../src/components/event-map';
+import {
+  createEmptyGallerySlots,
+  EventGallerySlots,
+  localUrisFromGallerySlots,
+  type EventGallerySlot,
+} from '../../src/components/event-gallery-slots';
 import { api } from '../../src/lib/api';
 import { uploadEventImageFromUri } from '../../src/lib/event-image-upload';
 import { useScrollBottomPadding } from '../../src/hooks/use-tab-bar-insets';
@@ -64,7 +70,7 @@ export default function CreateEventScreen() {
   const [resolvingLocation, setResolvingLocation] = useState(false);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [posterUri, setPosterUri] = useState<string | null>(null);
-  const [galleryUris, setGalleryUris] = useState<string[]>([]);
+  const [gallerySlots, setGallerySlots] = useState<EventGallerySlot[]>(createEmptyGallerySlots());
   const [submitting, setSubmitting] = useState(false);
   const [searching, setSearching] = useState(false);
   const scrollBottomPadding = useScrollBottomPadding();
@@ -191,22 +197,9 @@ export default function CreateEventScreen() {
     }
   };
 
-  const pickGallery = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      selectionLimit: MAX_EVENT_GALLERY_IMAGES - galleryUris.length,
-      quality: 0.8,
-    });
-    if (!result.canceled) {
-      setGalleryUris((prev) =>
-        [...prev, ...result.assets.map((a) => a.uri)].slice(0, MAX_EVENT_GALLERY_IMAGES),
-      );
-    }
-  };
-
   const buildImageUploads = () => {
     const uploads: Array<{ uri: string; isCover: boolean; sortOrder: number }> = [];
+    const galleryUris = localUrisFromGallerySlots(gallerySlots);
     if (posterUri) {
       uploads.push({ uri: posterUri, isCover: true, sortOrder: 0 });
     }
@@ -373,17 +366,8 @@ export default function CreateEventScreen() {
         </View>
 
         <SectionLabel>{`Gallery (optional, up to ${MAX_EVENT_GALLERY_IMAGES})`}</SectionLabel>
-        <View style={styles.imagesRow}>
-          {galleryUris.map((uri) => (
-            <Image key={uri} source={{ uri }} style={styles.thumb} />
-          ))}
-          {galleryUris.length < MAX_EVENT_GALLERY_IMAGES ? (
-            <Button label="Add gallery photos" variant="secondary" size="sm" onPress={() => void pickGallery()} />
-          ) : null}
-        </View>
-        {galleryUris.length > 0 ? (
-          <Button label="Clear gallery" variant="secondary" size="sm" onPress={() => setGalleryUris([])} />
-        ) : null}
+        <Text style={styles.dateHint}>Tap a slot to add a photo. Tap a photo to remove it.</Text>
+        <EventGallerySlots slots={gallerySlots} onChange={setGallerySlots} />
 
         <View style={styles.toggleRow}>
           <View style={{ flex: 1 }}>

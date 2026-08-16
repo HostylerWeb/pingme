@@ -72,7 +72,7 @@ export default function DashboardPage() {
         actions={
           showModeration ? (
             <>
-              <Link href="/reports" className="rounded-lg bg-accent px-4 py-2 text-sm text-foreground hover:bg-accent/90">
+              <Link href="/reports" className="rounded-lg bg-accent px-4 py-2 text-sm text-on-accent hover:bg-accent/90">
                 View reports
               </Link>
               <Link href="/content" className="rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:bg-surface-muted">

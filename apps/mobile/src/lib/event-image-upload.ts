@@ -1,5 +1,5 @@
 import { api } from './api';
-import { uploadDirectMedia, uploadViaPresignedUrl } from './media-upload';
+import { readUriAsBase64, uploadViaPresignedUrl } from './media-upload';
 
 export async function uploadEventImageFromUri(eventId: string, uri: string) {
   const fileName = uri.split('/').pop() ?? 'event.jpg';
@@ -8,7 +8,8 @@ export async function uploadEventImageFromUri(eventId: string, uri: string) {
   const { uploadUrl, key, publicUrl, directUpload } = presign.data;
 
   if (directUpload || !uploadUrl) {
-    await uploadDirectMedia(key, uri, fileName, contentType);
+    const data = await readUriAsBase64(uri);
+    await api.uploadEventImageBase64(eventId, { key, contentType, data });
     return publicUrl;
   }
 

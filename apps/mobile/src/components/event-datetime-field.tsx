@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { radius, spacing, typography, useThemedStyles } from '../theme';
-import { BottomSheet, Button } from './ui';
+import { PickerSheet } from './ui/picker-sheet';
 import { DateWheelPicker } from './ui/date-wheel-picker';
 import { TimeWheelPicker } from './ui/time-wheel-picker';
 
@@ -237,10 +237,11 @@ export function EventScheduleFields({
         />
       </View>
 
-      <BottomSheet
+      <PickerSheet
         visible={activePicker !== null}
-        title={sheetMeta?.title}
+        title={sheetMeta?.title ?? 'Pick date'}
         onClose={closePicker}
+        onDone={commitPicker}
       >
         {sheetMeta?.mode === 'date' ? (
           <DateWheelPicker
@@ -253,8 +254,7 @@ export function EventScheduleFields({
         ) : sheetMeta?.mode === 'time' ? (
           <TimeWheelPicker value={draft} onChange={setDraft} />
         ) : null}
-        <Button label="Done" onPress={commitPicker} style={{ marginTop: spacing.lg }} />
-      </BottomSheet>
+      </PickerSheet>
     </>
   );
 }

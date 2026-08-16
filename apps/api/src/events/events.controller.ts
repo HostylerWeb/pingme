@@ -15,6 +15,7 @@ import {
   CreateEventCommentSchema,
   CreateEventSchema,
   EventImageConfirmSchema,
+  MediaUploadBase64Schema,
   EventRsvpSchema,
   MessageEventHostSchema,
   UpdateEventSchema,
@@ -24,6 +25,7 @@ import {
   CreateEventCommentInput,
   MessageEventHostInput,
   EventImageConfirmInput,
+  MediaUploadBase64Input,
 } from '@pingme/shared';
 import { User } from '@pingme/db';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -102,6 +104,20 @@ export class EventsController {
     return this.eventsService.presignImage(user.id, id, body.fileName, body.contentType);
   }
 
+  @Post(':id/images/upload-base64')
+  @ApiOperation({ summary: 'Upload event image as base64 (fallback when R2 is not configured)' })
+  uploadImageBase64(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(MediaUploadBase64Schema)) dto: MediaUploadBase64Input,
+  ) {
+    const buffer = Buffer.from(dto.data, 'base64');
+    return this.eventsService.uploadImageDirect(user.id, id, dto.key, {
+      buffer,
+      mimetype: dto.contentType,
+    });
+  }
+
   @Post(':id/images')
   @ApiOperation({ summary: 'Add images to event' })
   addImages(
@@ -110,6 +126,16 @@ export class EventsController {
     @Body(new ZodValidationPipe(EventImageConfirmSchema)) dto: EventImageConfirmInput,
   ) {
     return this.eventsService.addImages(user.id, id, dto);
+  }
+
+  @Delete(':id/images/:imageId')
+  @ApiOperation({ summary: 'Remove an event image' })
+  removeImage(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+  ) {
+    return this.eventsService.removeImage(user.id, id, imageId);
   }
 
   @Post(':id/rsvp')

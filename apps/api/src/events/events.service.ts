@@ -28,6 +28,7 @@ import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
 import { BlocksService } from '../common/services/blocks.service';
 import { R2Service } from '../common/services/r2.service';
+import { assertSafeEventObjectKey } from '../common/utils/upload-key.util';
 import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsNearbyPushService } from './events-nearby-push.service';
@@ -422,6 +423,41 @@ export class EventsService {
         publicUrl: this.r2.getPublicUrl(key),
       },
     };
+  }
+
+  async uploadImageDirect(
+    userId: string,
+    eventId: string,
+    key: string,
+    file: { buffer: Buffer; mimetype: string },
+  ) {
+    if (this.r2.isConfigured()) {
+      throw new BadRequestException('Direct upload is only used when R2 is not configured');
+    }
+
+    await this.getHostEvent(userId, eventId);
+    const safeKey = assertSafeEventObjectKey(eventId, key);
+
+    if (!file.mimetype.startsWith('image/')) {
+      throw new BadRequestException('File must be an image');
+    }
+
+    const publicUrl = await this.r2.saveLocalFile(safeKey, file.buffer);
+    return { success: true, data: { publicUrl, key: safeKey } };
+  }
+
+  async removeImage(userId: string, eventId: string, imageId: string) {
+    await this.getHostEvent(userId, eventId);
+
+    const image = await this.prisma.eventImage.findFirst({
+      where: { id: imageId, eventId },
+    });
+    if (!image) {
+      throw new NotFoundException('Image not found');
+    }
+
+    await this.prisma.eventImage.delete({ where: { id: imageId } });
+    return { success: true, data: { removed: true } };
   }
 
   async upsertRsvp(userId: string, eventId: string, dto: EventRsvpInput) {

@@ -48,12 +48,15 @@ export function TimeWheelPicker({
     },
   }));
 
+  const valueHour = value.getHours();
+  const valueMinute = value.getMinutes();
+
   useEffect(() => {
     const next = from24Hour(value);
-    setHour12(next.hour12);
-    setMinute(next.minute);
-    setPeriod(next.period);
-  }, [value]);
+    setHour12((current) => (current === next.hour12 ? current : next.hour12));
+    setMinute((current) => (current === next.minute ? current : next.minute));
+    setPeriod((current) => (current === next.period ? current : next.period));
+  }, [valueHour, valueMinute]);
 
   const emitChange = (nextHour12: number, nextMinute: number, nextPeriod: Period) => {
     const { hours, minutes } = to24Hour(nextHour12, nextMinute, nextPeriod);

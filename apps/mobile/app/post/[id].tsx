@@ -18,6 +18,7 @@ import { api, ApiError } from '../../src/lib/api';
 import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { REPORT_SHEET_FOOTER, REPORT_SUBMITTED_MESSAGE } from '../../src/lib/report-copy';
+import { formatWallPostTime } from '../../src/lib/format-post-time';
 import { showToast } from '../../src/stores/toast-store';
 import {
   ActionSheet,
@@ -72,6 +73,7 @@ export default function PostDetailScreen() {
       marginBottom: spacing.lg,
     },
     postMeta: { flex: 1, gap: 4 },
+    postTime: { ...typography.caption, color: colors.inkTertiary },
     author: {
       ...typography.headlineMd,
       color: colors.ink,
@@ -357,6 +359,7 @@ export default function PostDetailScreen() {
                     isPremium={post.author.isPremium}
                     isVerified={!post.author.isYou && post.author.livenessVerified}
                   />
+                  <Text style={styles.postTime}>{formatWallPostTime(post.createdAt)}</Text>
                   <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
                 </View>
               </View>

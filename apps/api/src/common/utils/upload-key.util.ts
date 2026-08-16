@@ -47,3 +47,48 @@ export function assertSafeAvatarObjectKey(userId: string, key: string): string {
 
   return normalized;
 }
+
+/**
+ * Validates an event image object key so it cannot escape events/<eventId>/.
+ * Returns the normalized posix key.
+ */
+export function assertSafeEventObjectKey(eventId: string, key: string): string {
+  if (!eventId || typeof eventId !== 'string') {
+    throw new BadRequestException('Invalid upload key');
+  }
+  if (!key || typeof key !== 'string') {
+    throw new BadRequestException('Invalid upload key');
+  }
+  if (key.includes('\0')) {
+    throw new BadRequestException('Invalid upload key');
+  }
+  if (key.startsWith('/') || /^[A-Za-z]:[\\/]/.test(key)) {
+    throw new BadRequestException('Invalid upload key');
+  }
+  if (key.split(/[/\\]/).some((segment) => segment === '..')) {
+    throw new BadRequestException('Invalid upload key');
+  }
+
+  const normalized = pathPosix.normalize(key.replace(/\\/g, '/'));
+  if (normalized !== key.replace(/\\/g, '/') && normalized.includes('..')) {
+    throw new BadRequestException('Invalid upload key');
+  }
+  if (normalized.startsWith('..') || normalized.includes('/../')) {
+    throw new BadRequestException('Invalid upload key');
+  }
+
+  const prefix = `events/${eventId}/`;
+  if (!normalized.startsWith(prefix)) {
+    throw new BadRequestException('Invalid upload key');
+  }
+
+  const rest = normalized.slice(prefix.length);
+  if (!rest || rest.includes('/') || rest.includes('\\')) {
+    throw new BadRequestException('Invalid upload key');
+  }
+  if (!SAFE_BASENAME.test(basename(rest))) {
+    throw new BadRequestException('Invalid upload key');
+  }
+
+  return normalized;
+}

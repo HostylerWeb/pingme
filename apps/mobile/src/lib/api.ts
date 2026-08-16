@@ -673,6 +673,15 @@ export const api = {
       body: JSON.stringify({ fileName, contentType }),
     }),
 
+  uploadEventImageBase64: (
+    eventId: string,
+    payload: { key: string; contentType: string; data: string },
+  ) =>
+    apiFetch(`/events/${eventId}/images/upload-base64`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   addEventImages: (
     eventId: string,
     images: Array<{ url: string; isCover?: boolean; sortOrder?: number }>,
@@ -680,6 +689,11 @@ export const api = {
     apiFetch(`/events/${eventId}/images`, {
       method: 'POST',
       body: JSON.stringify({ images }),
+    }),
+
+  deleteEventImage: (eventId: string, imageId: string) =>
+    apiFetch(`/events/${eventId}/images/${imageId}`, {
+      method: 'DELETE',
     }),
 
   rsvpEvent: (eventId: string, status: 'going' | 'maybe') =>

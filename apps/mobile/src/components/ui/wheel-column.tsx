@@ -26,6 +26,9 @@ export function WheelColumn({
   width: number | `${number}%`;
 }) {
   const listRef = useRef<FlatList<string>>(null);
+  const selectedIndexRef = useRef(selectedIndex);
+  selectedIndexRef.current = selectedIndex;
+
   const styles = useThemedStyles(({ colors }) => ({
     column: { width, height: WHEEL_PICKER_HEIGHT },
     item: {
@@ -57,22 +60,32 @@ export function WheelColumn({
 
   useEffect(() => {
     if (selectedIndex < 0) return;
-    listRef.current?.scrollToOffset({
-      offset: selectedIndex * WHEEL_ITEM_HEIGHT,
-      animated: false,
-    });
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToOffset({
+        offset: selectedIndex * WHEEL_ITEM_HEIGHT,
+        animated: false,
+      });
+    }, 0);
+    return () => clearTimeout(timer);
   }, [selectedIndex, items.length]);
 
   const onScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const index = Math.round(event.nativeEvent.contentOffset.y / WHEEL_ITEM_HEIGHT);
     const clamped = Math.max(0, Math.min(index, items.length - 1));
-    if (clamped !== selectedIndex) {
+    const targetOffset = clamped * WHEEL_ITEM_HEIGHT;
+    const currentOffset = event.nativeEvent.contentOffset.y;
+
+    if (clamped !== selectedIndexRef.current) {
       onSelect(clamped);
+      return;
     }
-    listRef.current?.scrollToOffset({
-      offset: clamped * WHEEL_ITEM_HEIGHT,
-      animated: true,
-    });
+
+    if (Math.abs(currentOffset - targetOffset) > 1) {
+      listRef.current?.scrollToOffset({
+        offset: targetOffset,
+        animated: false,
+      });
+    }
   };
 
   const renderItem = ({ item, index }: ListRenderItemInfo<string>) => (
@@ -91,7 +104,9 @@ export function WheelColumn({
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         snapToInterval={WHEEL_ITEM_HEIGHT}
+        snapToAlignment="start"
         decelerationRate="fast"
+        scrollEventThrottle={16}
         getItemLayout={(_, index) => ({
           length: WHEEL_ITEM_HEIGHT,
           offset: WHEEL_ITEM_HEIGHT * index,
@@ -100,7 +115,6 @@ export function WheelColumn({
         contentContainerStyle={{
           paddingVertical: WHEEL_ITEM_HEIGHT * 2,
         }}
-        nestedScrollEnabled
         onScrollEndDrag={onScrollEnd}
         onMomentumScrollEnd={onScrollEnd}
       />

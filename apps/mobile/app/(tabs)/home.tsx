@@ -25,6 +25,7 @@ import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-
 import { DeletionScheduledBanner } from '../../src/components/deletion-scheduled-banner';
 import { NearbyRadiusPicker, wallRadiusRangeLabelFromConfig } from '../../src/components/nearby-radius-picker';
 import { showToast } from '../../src/stores/toast-store';
+import { formatWallPostTime } from '../../src/lib/format-post-time';
 import {
   AppHeader,
   ActionSheet,
@@ -73,6 +74,7 @@ function PostRow({
     postPressed: { opacity: 0.92 },
     postTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
     postMeta: { flex: 1, gap: 6 },
+    postTime: { ...typography.caption, color: colors.inkTertiary },
     postContent: {
       ...typography.bodyLg,
       color: colors.ink,
@@ -108,6 +110,7 @@ function PostRow({
             isPremium={post.author.isPremium}
             isVerified={!post.author.isYou && post.author.livenessVerified}
           />
+          <Text style={styles.postTime}>{formatWallPostTime(post.createdAt)}</Text>
           <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
         </View>
       </View>

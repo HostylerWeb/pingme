@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useBottomInset } from '../../hooks/use-tab-bar-insets';
 import { radius, spacing, typography } from '../../theme';
 import { useThemedStyles } from '../../theme/use-themed-styles';
@@ -60,8 +60,13 @@ export function PickerSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(event) => event.stopPropagation()}>
+      <View style={styles.backdrop}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityLabel="Close picker"
+        />
+        <View style={styles.sheet}>
           <View style={styles.header}>
             <Pressable onPress={onClose} hitSlop={8}>
               <Text style={[styles.action, styles.actionMuted]}>Cancel</Text>
@@ -72,8 +77,8 @@ export function PickerSheet({
             </Pressable>
           </View>
           <View style={styles.body}>{children}</View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
