@@ -31,6 +31,8 @@ export interface UpdateAdminUserInput {
 export interface UpdateVerificationFlagsInput {
   emailVerified?: boolean;
   phoneVerified?: boolean;
+  livenessVerified?: boolean;
+  idVerified?: boolean;
 }
 
 @Injectable()
@@ -139,6 +141,12 @@ export class AdminUsersService {
         v.status === VerificationStatus.passed &&
         (!v.expiresAt || v.expiresAt > new Date()),
     );
+    const idVerified = user.verifications.some(
+      (v) =>
+        v.type === VerificationType.document &&
+        v.status === VerificationStatus.passed &&
+        (!v.expiresAt || v.expiresAt > new Date()),
+    );
 
     return {
       user: {
@@ -149,6 +157,7 @@ export class AdminUsersService {
         emailVerified: user.emailVerified,
         phoneVerified: user.phoneVerified,
         livenessVerified,
+        idVerified,
         requiresAdminReview: user.requiresAdminReview,
         isAvailable: user.isAvailable,
         createdAt: user.createdAt,
@@ -221,7 +230,23 @@ export class AdminUsersService {
   async updateVerificationFlags(id: string, input: UpdateVerificationFlagsInput) {
     await this.requireUser(id);
 
-    return this.prisma.user.update({
+    if (input.livenessVerified !== undefined) {
+      if (input.livenessVerified) {
+        await this.setVerificationStatus(id, VerificationType.liveness, VerificationStatus.passed);
+      } else {
+        await this.resetVerification(id, VerificationType.liveness);
+      }
+    }
+
+    if (input.idVerified !== undefined) {
+      if (input.idVerified) {
+        await this.setVerificationStatus(id, VerificationType.document, VerificationStatus.passed);
+      } else {
+        await this.resetVerification(id, VerificationType.document);
+      }
+    }
+
+    const user = await this.prisma.user.update({
       where: { id },
       data: {
         ...(input.emailVerified !== undefined ? { emailVerified: input.emailVerified } : {}),
@@ -229,6 +254,13 @@ export class AdminUsersService {
       },
       select: { id: true, emailVerified: true, phoneVerified: true },
     });
+
+    const [livenessVerified, idVerified] = await Promise.all([
+      this.hasPassedVerification(id, VerificationType.liveness),
+      this.hasPassedVerification(id, VerificationType.document),
+    ]);
+
+    return { ...user, livenessVerified, idVerified };
   }
 
   async resendEmailVerification(id: string) {
@@ -243,12 +275,16 @@ export class AdminUsersService {
 
   async resetLiveness(id: string) {
     await this.requireUser(id);
+    return this.resetVerification(id, VerificationType.liveness);
+  }
 
+  private async resetVerification(id: string, type: VerificationType) {
     await this.prisma.verification.deleteMany({
-      where: { userId: id, type: VerificationType.liveness },
+      where: { userId: id, type },
     });
 
-    return { success: true, message: 'Liveness verification reset — user must re-verify' };
+    const label = type === VerificationType.liveness ? 'Liveness' : 'ID';
+    return { success: true, message: `${label} verification reset — user must re-verify` };
   }
 
   async startKyc(id: string) {
@@ -266,6 +302,32 @@ export class AdminUsersService {
   }
 
   async setLivenessStatus(id: string, status: VerificationStatus) {
+    await this.requireUser(id);
+    return this.setVerificationStatus(id, VerificationType.liveness, status);
+  }
+
+  async setDocumentStatus(id: string, status: VerificationStatus) {
+    await this.requireUser(id);
+    return this.setVerificationStatus(id, VerificationType.document, status);
+  }
+
+  private async hasPassedVerification(userId: string, type: VerificationType) {
+    const passed = await this.prisma.verification.findFirst({
+      where: {
+        userId,
+        type,
+        status: VerificationStatus.passed,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+    });
+    return !!passed;
+  }
+
+  private async setVerificationStatus(
+    id: string,
+    type: VerificationType,
+    status: VerificationStatus,
+  ) {
     const user = await this.requireUser(id);
 
     if (!['passed', 'failed', 'pending', 'expired'].includes(status)) {
@@ -273,7 +335,7 @@ export class AdminUsersService {
     }
 
     const latest = await this.prisma.verification.findFirst({
-      where: { userId: id, type: VerificationType.liveness },
+      where: { userId: id, type },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -284,6 +346,13 @@ export class AdminUsersService {
           status,
           verifiedAt: status === VerificationStatus.passed ? new Date() : null,
           expiresAt: status === VerificationStatus.passed ? null : latest.expiresAt,
+          metadata: {
+            ...(typeof latest.metadata === 'object' && latest.metadata !== null
+              ? (latest.metadata as Record<string, unknown>)
+              : {}),
+            adminOverride: true,
+            adminOverrideAt: new Date().toISOString(),
+          },
         },
       });
     }
@@ -291,11 +360,11 @@ export class AdminUsersService {
     return this.prisma.verification.create({
       data: {
         userId: user.id,
-        type: VerificationType.liveness,
+        type,
         provider: VerificationProvider.didit,
         status,
         verifiedAt: status === VerificationStatus.passed ? new Date() : null,
-        metadata: { adminOverride: true },
+        metadata: { adminOverride: true, adminOverrideAt: new Date().toISOString() },
       },
     });
   }

@@ -26,6 +26,7 @@ interface UserDetail {
     emailVerified: boolean;
     phoneVerified: boolean;
     livenessVerified: boolean;
+    idVerified: boolean;
     isAvailable: boolean;
     createdAt: string;
     lastSeenAt: string | null;
@@ -150,7 +151,10 @@ export default function UserDetailPage() {
     }
   }
 
-  async function toggleFlag(field: 'emailVerified' | 'phoneVerified', value: boolean) {
+  async function toggleFlag(
+    field: 'emailVerified' | 'phoneVerified' | 'livenessVerified' | 'idVerified',
+    value: boolean,
+  ) {
     setSaving(true);
     try {
       await adminFetch(`/admin/users/${params.id}/verification-flags`, {
@@ -215,6 +219,9 @@ export default function UserDetailPage() {
           <>
             <Badge color={user.livenessVerified ? 'green' : 'yellow'}>
               Liveness {user.livenessVerified ? 'passed' : 'not passed'}
+            </Badge>
+            <Badge color={user.idVerified ? 'green' : 'yellow'}>
+              ID {user.idVerified ? 'passed' : 'not passed'}
             </Badge>
             {user.status !== 'suspended' ? (
               <Button variant="danger" disabled={saving} onClick={() => setStatusModal('suspended')}>
@@ -326,29 +333,56 @@ export default function UserDetailPage() {
                 </div>
               </div>
 
+              <div className="flex items-center justify-between rounded-lg bg-surface-muted p-3">
+                <div>
+                  <p className="text-foreground">Liveness verified (Didit)</p>
+                  <Badge color={user.livenessVerified ? 'green' : 'zinc'}>
+                    {user.livenessVerified ? 'passed' : 'not passed'}
+                  </Badge>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-ink-secondary">
+                  <input
+                    type="checkbox"
+                    checked={user.livenessVerified}
+                    disabled={saving}
+                    onChange={(e) => void toggleFlag('livenessVerified', e.target.checked)}
+                  />
+                  Verified
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-surface-muted p-3">
+                <div>
+                  <p className="text-foreground">ID verified (Didit)</p>
+                  <Badge color={user.idVerified ? 'green' : 'zinc'}>
+                    {user.idVerified ? 'passed' : 'not passed'}
+                  </Badge>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-ink-secondary">
+                  <input
+                    type="checkbox"
+                    checked={user.idVerified}
+                    disabled={saving}
+                    onChange={(e) => void toggleFlag('idVerified', e.target.checked)}
+                  />
+                  Verified
+                </label>
+              </div>
+
               <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-foreground">Liveness (Didit)</p>
+                <p className="text-foreground">Didit actions</p>
                 <p className="mt-1 text-ink-secondary">
-                  Current: {user.livenessVerified ? 'Passed' : 'Not passed'}
+                  Use checkboxes above for manual pass/fail. Actions below start real Didit flows or clear flags.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button variant="secondary" disabled={saving} onClick={() => verificationAction('/verification/reset-liveness')}>
-                    Force re-verify
+                    Force liveness re-verify
                   </Button>
                   <Button variant="secondary" disabled={saving} onClick={() => verificationAction('/verification/start-kyc')}>
-                    Start full KYC
+                    Start ID / KYC session
                   </Button>
                   <Button variant="secondary" disabled={saving} onClick={() => verificationAction('/verification/clear-review')}>
                     Clear review flag
-                  </Button>
-                  <Button disabled={saving} onClick={() => verificationAction('/verification/liveness', 'PATCH', { status: 'passed' })}>
-                    Mark passed
-                  </Button>
-                  <Button variant="danger" disabled={saving} onClick={() => verificationAction('/verification/liveness', 'PATCH', { status: 'failed' })}>
-                    Mark failed
-                  </Button>
-                  <Button variant="secondary" disabled={saving} onClick={() => verificationAction('/verification/liveness', 'PATCH', { status: 'expired' })}>
-                    Mark expired
                   </Button>
                 </div>
               </div>

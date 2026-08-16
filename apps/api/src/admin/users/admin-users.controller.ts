@@ -80,6 +80,14 @@ class UpdateVerificationFlagsDto {
   @IsOptional()
   @IsBoolean()
   phoneVerified?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  livenessVerified?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  idVerified?: boolean;
 }
 
 class SetLivenessStatusDto {
@@ -342,6 +350,26 @@ export class AdminUsersController {
     await this.adminAudit.log({
       adminUserId: admin.id,
       action: 'user.set_liveness_status',
+      entityType: 'user',
+      entityId: id,
+      metadata: { status: dto.status },
+    });
+
+    return result;
+  }
+
+  @Patch(':id/verification/id')
+  @Roles(AdminRole.moderator, AdminRole.super_admin)
+  async setDocumentStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetLivenessStatusDto,
+    @CurrentAdmin() admin: { id: string },
+  ): Promise<unknown> {
+    const result = await this.users.setDocumentStatus(id, dto.status);
+
+    await this.adminAudit.log({
+      adminUserId: admin.id,
+      action: 'user.set_id_verification_status',
       entityType: 'user',
       entityId: id,
       metadata: { status: dto.status },
