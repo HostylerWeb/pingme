@@ -46,10 +46,46 @@ export class SmsService {
     return body.status === 'approved';
   }
 
-  async sendOtp(to: string, code: string) {
+  async sendText(to: string, body: string) {
     const accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID');
     const authToken = this.config.get<string>('TWILIO_AUTH_TOKEN');
     const from = this.config.get<string>('TWILIO_PHONE_NUMBER');
+
+    if (!accountSid || !authToken || !from) {
+      if (this.config.get('NODE_ENV') === 'development') {
+        this.logger.log(`[DEV] SMS to ${to}: ${body}`);
+      } else {
+        this.logger.warn(`SMS not configured; message to ${to} skipped`);
+      }
+      return;
+    }
+
+    const response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          To: to,
+          From: from,
+          Body: body,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      this.logger.error(`Twilio SMS failed: ${response.status} ${text}`);
+      throw new Error('Failed to send SMS');
+    }
+  }
+
+  async sendOtp(to: string, code: string) {
+    const accountSid = this.config.get<string>('TWILIO_ACCOUNT_SID');
+    const authToken = this.config.get<string>('TWILIO_AUTH_TOKEN');
     const verifyServiceSid = this.config.get<string>('TWILIO_VERIFY_SERVICE_SID');
 
     if (!accountSid || !authToken) {
@@ -76,31 +112,6 @@ export class SmsService {
       return;
     }
 
-    if (!from) {
-      this.logger.log(`[DEV] SMS OTP to ${to}: ${code}`);
-      return;
-    }
-
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          To: to,
-          From: from,
-          Body: `Your PingMe code is ${code}`,
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const text = await response.text();
-      this.logger.error(`Twilio SMS failed: ${response.status} ${text}`);
-      throw new Error('Failed to send SMS');
-    }
+    await this.sendText(to, `Your PingMe code is ${code}`);
   }
 }

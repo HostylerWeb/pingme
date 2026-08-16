@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { AuthProvider, OtpType, User, UserStatus } from '@pingme/db';
+import { AuthProvider, OtpType, Prisma, User, UserStatus } from '@pingme/db';
 import * as bcrypt from 'bcrypt';
 import { MIN_AGE_YEARS, SignUpInput, LoginInput, ForgotPasswordInput, ResetPasswordInput, VerifyOtpInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
@@ -163,35 +163,55 @@ export class AuthService {
 
   async refresh(refreshToken: string, meta: { ipAddress?: string; userAgent?: string } = {}) {
     const tokenHash = hashToken(refreshToken);
-    const stored = await this.prisma.refreshToken.findFirst({
-      where: {
-        tokenHash,
-        revokedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      include: {
-        user: { include: { profile: true, settings: true } },
-      },
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const stored = await tx.refreshToken.findUnique({
+        where: { tokenHash },
+        include: {
+          user: { include: { profile: true, settings: true } },
+        },
+      });
+
+      if (!stored || stored.user.deletedAt) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      if (stored.revokedAt != null) {
+        await tx.refreshToken.updateMany({
+          where: { userId: stored.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        throw new UnauthorizedException('Session revoked — log in again');
+      }
+
+      if (stored.expiresAt <= new Date()) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      const revoked = await tx.refreshToken.updateMany({
+        where: { id: stored.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      if (revoked.count === 0) {
+        await tx.refreshToken.updateMany({
+          where: { userId: stored.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        throw new UnauthorizedException('Session revoked — log in again');
+      }
+
+      const tokens = await this.issueTokens(stored.user, tx);
+      return { user: stored.user, tokens };
     });
-
-    if (!stored || stored.user.deletedAt) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
-
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
-    });
-
-    const tokens = await this.issueTokens(stored.user);
 
     await this.securityEvents.log({
-      userId: stored.user.id,
+      userId: result.user.id,
       action: 'auth.refresh',
       ...meta,
     });
 
-    return { user: await this.enrichAuthUser(stored.user), ...tokens };
+    return { user: await this.enrichAuthUser(result.user), ...result.tokens };
   }
 
   async logout(userId: string, refreshToken: string | undefined, meta: { ipAddress?: string; userAgent?: string }) {
@@ -307,6 +327,11 @@ export class AuthService {
       console.log(`[DEV] Password reset token for ${user.email ?? user.phone}: ${token}`);
     } else if (user.email) {
       await this.emailService.sendPasswordReset(user.email, token);
+    } else if (user.phone) {
+      await this.smsService.sendText(
+        user.phone,
+        `Your PingMe password reset code: ${token}. It expires in 1 hour.`,
+      );
     }
 
     return { success: true, message: 'If the account exists, a reset link was sent' };
@@ -314,15 +339,11 @@ export class AuthService {
 
   async resetPassword(dto: ResetPasswordInput) {
     const tokenHash = hashToken(dto.token);
-    const stored = await this.prisma.passwordResetToken.findFirst({
-      where: {
-        tokenHash,
-        usedAt: null,
-        expiresAt: { gt: new Date() },
-      },
+    const stored = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
     });
 
-    if (!stored) {
+    if (!stored || stored.usedAt || stored.expiresAt <= new Date()) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
@@ -346,7 +367,10 @@ export class AuthService {
     return { success: true };
   }
 
-  private async issueTokens(user: User): Promise<AuthTokens> {
+  private async issueTokens(
+    user: User,
+    db: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<AuthTokens> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -357,7 +381,7 @@ export class AuthService {
     const refreshToken = generateRefreshToken();
     const refreshDays = Number(this.config.get('JWT_REFRESH_DAYS', 30));
 
-    await this.prisma.refreshToken.create({
+    await db.refreshToken.create({
       data: {
         userId: user.id,
         tokenHash: hashToken(refreshToken),
@@ -395,13 +419,33 @@ export class AuthService {
       where: {
         userId,
         type,
-        codeHash,
         usedAt: null,
         expiresAt: { gt: new Date() },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!otp) {
+      throw new BadRequestException('Invalid or expired code');
+    }
+
+    if (otp.attemptCount >= 5) {
+      await this.prisma.otpCode.update({
+        where: { id: otp.id },
+        data: { usedAt: new Date() },
+      });
+      throw new BadRequestException('Too many attempts');
+    }
+
+    if (otp.codeHash !== codeHash) {
+      const nextAttempts = otp.attemptCount + 1;
+      await this.prisma.otpCode.update({
+        where: { id: otp.id },
+        data: {
+          attemptCount: nextAttempts,
+          ...(nextAttempts >= 5 ? { usedAt: new Date() } : {}),
+        },
+      });
       throw new BadRequestException('Invalid or expired code');
     }
 

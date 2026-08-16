@@ -435,13 +435,26 @@ Do one Part at a time. Each Part has three fixes (1 → 2 → 3). Numbers below 
 
 ---
 
-#### Part 3 — Auth hardening + backups *(next)*
+#### Part 3 — Auth hardening + backups
 
 | Step | Fix | Audit # | Status |
 |------|-----|---------|--------|
-| 1 | Atomic refresh rotation + reuse detection + unique `token_hash` indexes | #9, #10 | Pending |
-| 2 | OTP attempt lockout + throttle send/reset + phone forgot-password via SMS | #14, #15 | Pending |
-| 3 | Daily `pg_dump` backups + Redis AOF/volume | #6, #33 | Pending |
+| 1 | Atomic refresh rotation + reuse detection + unique `token_hash` indexes | #9, #10 | Done |
+| 2 | OTP attempt lockout + throttle send/reset + phone forgot-password via SMS | #14, #15 | Done |
+| 3 | Daily `pg_dump` backups + Redis AOF/volume | #6, #33 | Done |
+
+**Ops notes (Part 3):**
+
+- Migration `20260816060000_auth_token_unique_otp_attempts` adds unique `token_hash` on refresh/password-reset, `attempt_count` on OTP.
+- Redis AOF: compose sets `--appendonly yes` + volume (`pingme_redis_data` / `redis_data`). After pull, recreate Redis once if the old container had no volume: `docker compose -f docker-compose.prod.yml up -d redis`.
+- Postgres backups (scripts only — enable cron on VPS when ready):
+
+```cron
+0 3 * * * BACKUP_DIR=/var/backups/pingme /var/www/sites/pingme/scripts/backup-postgres.sh >> /var/log/pingme-backup.log 2>&1
+```
+
+- Restore: `CONFIRM=1 ./scripts/restore-postgres.sh /var/backups/pingme/pingme-YYYYMMDD-HHMMSS.sql.gz`
+- Later upgrade: off-VPS S3 (or object storage) copy of dumps; local 14-day retention is enough for this Part.
 
 ---
 

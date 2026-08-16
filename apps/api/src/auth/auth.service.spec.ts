@@ -13,7 +13,7 @@ import { VerificationService } from '../verification/verification.service';
 describe('AuthService', () => {
   let service: AuthService;
 
-  const prisma = {
+  const prisma: any = {
     user: {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
@@ -23,6 +23,7 @@ describe('AuthService', () => {
     refreshToken: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -35,15 +36,21 @@ describe('AuthService', () => {
     passwordResetToken: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
-    $transaction: jest.fn(),
+    $transaction: jest.fn((fn: (tx: any) => Promise<unknown>) => fn(prisma)),
   };
 
   const audit = { log: jest.fn() };
   const securityEvents = { log: jest.fn() };
-  const emailService = { sendOtp: jest.fn() };
-  const smsService = { sendOtp: jest.fn(), verifyOtp: jest.fn(), usesTwilioVerify: jest.fn().mockReturnValue(false) };
+  const emailService = { sendOtp: jest.fn(), sendPasswordReset: jest.fn() };
+  const smsService = {
+    sendOtp: jest.fn(),
+    sendText: jest.fn(),
+    verifyOtp: jest.fn(),
+    usesTwilioVerify: jest.fn().mockReturnValue(false),
+  };
   const verification = { hasPassedLiveness: jest.fn().mockResolvedValue(false) };
   const jwtService = { signAsync: jest.fn().mockResolvedValue('access-token') };
   const config = {
@@ -161,5 +168,66 @@ describe('AuthService', () => {
 
     expect(result.verified).toBe(true);
     expect(smsService.verifyOtp).toHaveBeenCalledWith('+15551234567', '123456');
+  });
+
+  it('revokes all sessions when a refresh token is reused', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: 'rt-1',
+      userId: 'user-1',
+      tokenHash: 'hash',
+      revokedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+      user: {
+        id: 'user-1',
+        deletedAt: null,
+        email: 'user@example.com',
+        phone: null,
+        profile: {},
+        settings: {},
+      },
+    });
+    prisma.refreshToken.updateMany.mockResolvedValue({ count: 2 });
+
+    await expect(service.refresh('stolen-refresh-token', {})).rejects.toThrow(
+      'Session revoked — log in again',
+    );
+
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('rotates a valid refresh token atomically', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValue({
+      id: 'rt-1',
+      userId: 'user-1',
+      tokenHash: 'hash',
+      revokedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      user: {
+        id: 'user-1',
+        deletedAt: null,
+        email: 'user@example.com',
+        phone: null,
+        profile: {},
+        settings: {},
+      },
+    });
+    prisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+    prisma.refreshToken.create.mockResolvedValue({});
+    verification.hasPassedLiveness.mockResolvedValue(false);
+
+    const result = await service.refresh('valid-refresh-token', {});
+
+    expect(result.accessToken).toBe('access-token');
+    expect(result.refreshToken).toBeDefined();
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { id: 'rt-1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(securityEvents.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'auth.refresh', userId: 'user-1' }),
+    );
   });
 });

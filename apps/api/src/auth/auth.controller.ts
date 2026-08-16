@@ -66,6 +66,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('verify-email/send')
   @ApiOperation({ summary: 'Send email verification code' })
   sendEmailOtp(@CurrentUser() user: User) {
@@ -74,6 +75,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('verify-email')
   @ApiOperation({ summary: 'Verify email with OTP' })
   verifyEmail(@CurrentUser() user: User, @Body(new ZodValidationPipe(VerifyOtpSchema)) dto: VerifyOtpInput) {
@@ -82,6 +84,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('verify-phone/send')
   @ApiOperation({ summary: 'Send phone verification code' })
   sendPhoneOtp(@CurrentUser() user: User) {
@@ -90,6 +93,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('verify-phone')
   @ApiOperation({ summary: 'Verify phone with OTP' })
   verifyPhone(@CurrentUser() user: User, @Body(new ZodValidationPipe(VerifyOtpSchema)) dto: VerifyOtpInput) {
@@ -105,6 +109,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('reset-password')
   @ApiOperation({ summary: 'Reset password with token' })
   resetPassword(@Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordInput) {
