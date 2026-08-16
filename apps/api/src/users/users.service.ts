@@ -35,12 +35,13 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const [livenessVerified, subscription] = await Promise.all([
+    const [livenessVerified, idVerified, subscription] = await Promise.all([
       this.verification.hasPassedLiveness(userId),
+      this.verification.hasPassedIdVerification(userId),
       this.subscriptions.getSubscriptionView(userId),
     ]);
     const { passwordHash: _passwordHash, ...safe } = user;
-    return { ...safe, livenessVerified, subscription };
+    return { ...safe, livenessVerified, idVerified, subscription };
   }
 
   async updateProfile(

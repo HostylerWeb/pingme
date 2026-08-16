@@ -61,11 +61,20 @@ export function getNotificationHref(payload: NotificationNavigationPayload): Hre
   if (payload.type === 'chat.message' && payload.chatId) {
     return `/chat/${payload.chatId}`;
   }
+  if (payload.type === 'match.request' && payload.chatId) {
+    return `/chat/${payload.chatId}`;
+  }
   if (
     (payload.type === 'icebreaker.match' || payload.type === 'match.request') &&
     payload.matchId
   ) {
     return `/match/${payload.matchId}`;
+  }
+  if (payload.type === 'verification.passed') {
+    return '/(tabs)/profile';
+  }
+  if (payload.type === 'moderation.action') {
+    return '/settings';
   }
   if (payload.type === 'icebreaker.interest' || payload.type === 'icebreaker.nearby') {
     return '/(tabs)/icebreaker';

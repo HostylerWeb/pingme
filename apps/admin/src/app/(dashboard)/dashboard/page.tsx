@@ -17,6 +17,12 @@ interface DashboardStats {
   totalUsers: number;
   suspendedUsers: number;
   activePresence: number;
+  signups24h: number;
+  icebreakerSessions24h: number;
+  mutualMatches24h: number;
+  activeChats24h: number;
+  matchRate: number;
+  icebreakerToChatRate: number;
   recentReports: Array<{
     id: string;
     reason: string;
@@ -115,6 +121,26 @@ export default function DashboardPage() {
               <CardValue className="text-xl">
                 {stats.openReports + stats.reviewingReports === 0 ? 'Clear' : 'Needs attention'}
               </CardValue>
+            </Card>
+            <Card>
+              <CardTitle>Signups (24h)</CardTitle>
+              <CardValue>{stats.signups24h}</CardValue>
+            </Card>
+            <Card>
+              <CardTitle>Icebreaker sessions (24h)</CardTitle>
+              <CardValue>{stats.icebreakerSessions24h}</CardValue>
+            </Card>
+            <Card>
+              <CardTitle>Mutual matches (24h)</CardTitle>
+              <CardValue>{stats.mutualMatches24h}</CardValue>
+            </Card>
+            <Card>
+              <CardTitle>Match rate (24h)</CardTitle>
+              <CardValue>{stats.matchRate}%</CardValue>
+            </Card>
+            <Card>
+              <CardTitle>Icebreaker → chat</CardTitle>
+              <CardValue>{stats.icebreakerToChatRate}%</CardValue>
             </Card>
           </div>
 

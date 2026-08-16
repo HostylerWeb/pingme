@@ -490,7 +490,15 @@ export class AuthService {
   }
 
   private async enrichAuthUser(user: User & { profile?: unknown; settings?: unknown }) {
-    const livenessVerified = await this.verification.hasPassedLiveness(user.id);
-    return { ...this.sanitizeUser(user), livenessVerified };
+    const [livenessVerified, idVerified] = await Promise.all([
+      this.verification.hasPassedLiveness(user.id),
+      this.verification.hasPassedIdVerification(user.id),
+    ]);
+    return {
+      ...this.sanitizeUser(user),
+      livenessVerified,
+      idVerified,
+      requiresAdminReview: user.requiresAdminReview,
+    };
   }
 }

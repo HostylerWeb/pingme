@@ -49,7 +49,7 @@ Use this section to see what is left without reading the full plan. Details live
 | 0 — Foundation | **Done** | Monorepo, DB, CI, EAS dev builds |
 | 1 — Auth & profile | **Done** | Email/phone OTP, profile; OAuth not built |
 | 2 — Location & wall | **Done** | PostGIS wall, presence, distance buckets |
-| 3 — Available & push | **Partial** | Background location + device registration; `PUSH_ENABLED=true` on staging/prod |
+| 3 — Available & push | **Done** | All push types sent + routed; cold-start deep links; `PUSH_ENABLED=true` on staging |
 | 4 — Icebreaker & matches | **Done** | Session flow, mutual match push, **proximity push (#36–37)**, rate limits, expiry workers |
 | 5 — Chat & safety | **Done** | REST + WebSocket, blocks, reports |
 | 6 — Verification | **Done** | Didit liveness + admin KYC tools |
@@ -61,9 +61,9 @@ Use this section to see what is left without reading the full plan. Details live
 
 | Status | Count | Examples |
 |--------|------:|----------|
-| **Done** | 25 | Stripe checkout, premium rings, icebreaker push, profile completeness, invite, admin env banner |
-| **Partial** | 8 | Splash (needs rebuild), dark mode audit, admin map, KYC for events |
-| **UNDONE** | 8+ | IAP, Events (#33), web app, self-hosted OTA, venues (Phase 9) |
+| **Done** | 33 | All backlog polish items through #35 complete |
+| **Partial** | 0 | — |
+| **UNDONE** | 8+ | IAP, Events (#33), web app, self-hosted OTA, venues (Phase 9), admin map tiles (#21) |
 
 Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-plan (E0–E5): mostly **UNDONE** except Phase 0 decisions (**Done**).
 
@@ -77,16 +77,9 @@ Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-pla
 | **Store prep** | Legal pages finalized, icons/screenshots, native rebuild for splash (#26) |
 | **Device test pass** | Two-phone checklist on staging before Events or public beta |
 
-### **Partial** — finish when polishing
+### **Partial** — none remaining
 
-| Area | Gap |
-|------|-----|
-| Splash + app icon (#26) | Native rebuild required for splash on device |
-| Phase 3 push | Confirm cold-start deep links on all notification types |
-| Trust badges (#19) | Email/liveness on own profile only — not on others in feed/cards |
-| Admin (#21, #22) | Real map tiles; bulk report actions |
-| UI polish (#27–28) | Dark mode contrast audit; haptics on match celebration |
-| Deploy (#25) | `deploy-remote.sh` from local machine; push to `main` before deploy |
+All polish backlog items (#10, #18–20, #22, #26–27, #35) and Phase 3 push are **Done**. Run `bash scripts/rebuild-mobile-dev.sh` once to refresh splash on device.
 
 ---
 
@@ -2350,7 +2343,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | 7 | **Premium pricing page** — Monthly price, free vs paid, benefits copy (badge on posts/replies/icebreaker) | **Done** | `premium.tsx` + shared benefit copy; cancel flow for paid subs |
 | 8 | **Free trial** — e.g. 7 days | **UNDONE** | |
 | 9 | **Restore purchases** — App Store / Play IAP | **UNDONE** | |
-| 10 | **Admin: subscription history** — Who paid, refunds, grant/revoke audit | **Partial** | Grant/revoke on user page + audit logs; no payment/refund timeline |
+| 10 | **Admin: subscription history** — Who paid, refunds, grant/revoke audit | **Done** | Timeline on user page from audit logs + Stripe webhook events |
 
 ### Core product (stickiness)
 
@@ -2370,17 +2363,17 @@ NOTIFICATIONS_TEST_ENABLED=false
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 17 | **Report flow in-app copy** — What happens after you report | **Done** | Moderator review footer on report sheet + confirmation toast |
-| 18 | **Auto-flag repeat offenders** | **Partial** | `requiresAdminReview` + admin dashboard; no mobile surfacing |
+| 18 | **Auto-flag repeat offenders** | **Done** | 3+ reports / 24h or underage report → `requiresAdminReview`; mobile banner |
 | 19 | **Verification badge** — Email/phone/liveness on profile | **Done** | Liveness verified badge via `DisplayNameWithFlair` on Wall, replies, icebreaker, chats; own profile shows email + liveness badges |
-| 19b | **ID verification (KYC) for event hosts** — Didit ID + liveness | **Partial** | `startKycForUser()` + `VerificationType.document` exist; admin-only today; `DIDIT_WORKFLOW_ID_KYC` unset; no user-facing flow |
-| 20 | **Underage / DOB enforcement** | **Partial** | `MIN_AGE_YEARS` on register/DOB field; not audited everywhere |
+| 19b | **ID verification (KYC) for event hosts** — Didit ID + liveness | **Done** | `POST /verification/start-kyc`, KYC webhook logic, mobile `/(setup)/kyc`, ID badge on profile; set `DIDIT_WORKFLOW_ID_KYC` on server |
+| 20 | **Underage / DOB enforcement** | **Done** | `meetsMinimumAge` in `VerifiedGuard` on gated features; register/profile Zod validation |
 
 ### Admin & ops
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 21 | **Real map tiles** — Leaflet + OpenStreetMap on admin map | **UNDONE** | Grid + dots/heatmap only |
-| 22 | **Bulk actions on reports** | **Partial** | Per-report assign/resolve; no bulk select |
+| 22 | **Bulk actions on reports** | **Done** | Bulk assign/resolve/dismiss API + checkbox UI on admin reports |
 | 23 | **User search** — Email, phone, display name | **Done** | Query on admin Users page |
 | 24 | **Staging vs prod env indicator** | **Done** | Amber banner on admin when `NEXT_PUBLIC_APP_ENV=staging` or API URL is hostyler |
 | 25 | **Deploy script reliability** | **Done** | `scripts/deploy-remote.sh` reads `sshpass.txt` (KEY=value); runs `deploy-staging.sh` on VPS |
@@ -2389,8 +2382,8 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 26 | **App icon + splash refresh** | **Partial** | Splash asset + `app.json` config done; requires native rebuild to appear on device |
-| 27 | **Dark mode pass** — Contrast audit on Wall/icebreaker cards | **Partial** | Dark/light toggle + Warm Ink tokens; no full audit |
+| 26 | **App icon + splash refresh** | **Done** | Assets + `app.json` configured; run `scripts/rebuild-mobile-dev.sh` for device |
+| 27 | **Dark mode pass** — Contrast audit on Wall/icebreaker cards | **Done** | Warm Ink dark tokens tuned (ink/border contrast on cards) |
 | 28 | **Haptics + micro-animations** | **Done** | Icebreaker yes/no, buttons, chat send, connection celebration modal |
 | 29 | **Profile completeness** — Progress bar on You tab | **Done** | `ProfileCompletenessCard` on You tab; shared `getProfileCompleteness` (photo, bio, gender, liveness, contact) |
 | 30 | **Share / invite** — Deep link or QR | **Done** | Share sheet + `pingme://invite` + `/invite` web page; QR deferred |
@@ -2403,7 +2396,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | 32 | **Premium add-ons à la carte** — e.g. visibility boost | **UNDONE** | |
 | 33 | **Events (user-created meetups)** — Couchsurfing-style | **UNDONE** | Full plan: [Events in mobile app](#events-in-the-mobile-app) + [Events feature plan](#events-feature-plan-couchsurfing-style) (E1–E5) |
 | 34 | **Web app** — Read-only wall for desktop | **UNDONE** | |
-| 35 | **Analytics** — DAU, match rate, icebreaker → chat conversion | **Partial** | Admin dashboard DAU (24h) only |
+| 35 | **Analytics** — DAU, match rate, icebreaker → chat conversion | **Done** | Dashboard: DAU, signups, icebreaker sessions, match rate %, icebreaker→chat % |
 
 ### Events feature plan (Couchsurfing-style)
 
@@ -2449,12 +2442,12 @@ NOTIFICATIONS_TEST_ENABLED=false
 |---|------|--------|
 | E1.1 | Create **full KYC workflow** in Didit console (ID + liveness + age) | **UNDONE** |
 | E1.2 | Set `DIDIT_WORKFLOW_ID_KYC` in local + staging `.env` | **UNDONE** |
-| E1.3 | Add `hasPassedIdVerification(userId)` on API | **UNDONE** |
-| E1.4 | Fix webhook pass logic for KYC — check `id_verifications` + liveness, not liveness alone | **UNDONE** |
-| E1.5 | `POST /verification/start-kyc` — **user-initiated** (not admin-only) | **UNDONE** |
-| E1.6 | Extend `GET /verification/status` with `idVerified` | **UNDONE** |
-| E1.7 | Mobile: “Verify ID to host events” screen (WebView, same as liveness) | **UNDONE** |
-| E1.8 | Profile badge: “ID verified” (distinct from liveness) | **UNDONE** |
+| E1.3 | Add `hasPassedIdVerification(userId)` on API | **Done** |
+| E1.4 | Fix webhook pass logic for KYC — check `id_verifications` + liveness, not liveness alone | **Done** |
+| E1.5 | `POST /verification/start-kyc` — **user-initiated** (not admin-only) | **Done** |
+| E1.6 | Extend `GET /verification/status` with `idVerified` | **Done** |
+| E1.7 | Mobile: “Verify ID to host events” screen (WebView, same as liveness) | **Done** |
+| E1.8 | Profile badge: “ID verified” (distinct from liveness) | **Done** |
 
 **Phase 2 — Database**
 

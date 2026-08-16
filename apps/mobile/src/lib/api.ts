@@ -309,11 +309,23 @@ export const api = {
       };
     }>('/verification/start', { method: 'POST' }),
 
+  startKycVerification: () =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        verificationUrl: string;
+        sessionId: string;
+        status: string;
+      };
+    }>('/verification/start-kyc', { method: 'POST' }),
+
   getVerificationStatus: () =>
     apiFetch<{
       success: boolean;
       data: {
         livenessVerified: boolean;
+        idVerified: boolean;
+        kycEnabled: boolean;
         enforcementEnabled: boolean;
         status: string | null;
         verificationUrl: string | null;
@@ -667,6 +679,8 @@ export interface AuthUser {
   emailVerified: boolean;
   phoneVerified: boolean;
   livenessVerified?: boolean;
+  idVerified?: boolean;
+  requiresAdminReview?: boolean;
   deletionScheduledAt?: string | null;
   profile?: {
     displayName: string;

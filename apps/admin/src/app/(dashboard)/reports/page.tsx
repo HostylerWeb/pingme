@@ -40,6 +40,8 @@ export default function ReportsPage() {
   const [data, setData] = useState<ReportsResponse | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,6 +84,46 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function toggleSelected(id: string) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
+  }
+
+  async function bulkAssign() {
+    if (!selectedIds.length) return;
+    setBulkLoading(true);
+    try {
+      await adminFetch('/admin/reports/bulk/assign', {
+        method: 'POST',
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      setSelectedIds([]);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk assign failed');
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
+  async function bulkResolve(status: 'resolved' | 'dismissed') {
+    if (!selectedIds.length) return;
+    setBulkLoading(true);
+    try {
+      await adminFetch('/admin/reports/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify({ ids: selectedIds, status }),
+      });
+      setSelectedIds([]);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk update failed');
+    } finally {
+      setBulkLoading(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -111,6 +153,19 @@ export default function ReportsPage() {
           Assigned to me
         </label>
         <Button variant="secondary" onClick={() => load()}>Refresh</Button>
+        {selectedIds.length > 0 ? (
+          <>
+            <Button variant="secondary" disabled={bulkLoading} onClick={() => void bulkAssign()}>
+              Assign selected ({selectedIds.length})
+            </Button>
+            <Button variant="secondary" disabled={bulkLoading} onClick={() => void bulkResolve('resolved')}>
+              Resolve selected
+            </Button>
+            <Button variant="secondary" disabled={bulkLoading} onClick={() => void bulkResolve('dismissed')}>
+              Dismiss selected
+            </Button>
+          </>
+        ) : null}
       </div>
 
       {error ? <p className="mb-4 text-sm text-red-400">{error}</p> : null}
@@ -125,6 +180,7 @@ export default function ReportsPage() {
           <Table>
             <THead>
               <TR>
+                <TH />
                 <TH>Report</TH>
                 <TH>Target</TH>
                 <TH>Status</TH>
@@ -136,6 +192,14 @@ export default function ReportsPage() {
             <TBody>
               {data.items.map((report) => (
                 <TR key={report.id}>
+                  <TD>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(report.id)}
+                      onChange={() => toggleSelected(report.id)}
+                      aria-label={`Select report ${report.id}`}
+                    />
+                  </TD>
                   <TD>
                     <p className="font-medium text-foreground">{report.reason}</p>
                     <p className="text-xs text-ink-tertiary">

@@ -32,6 +32,7 @@ import { useAppFonts } from '../src/hooks/use-app-fonts';
 import { Button, IncomingBannerHost, ToastHost } from '../src/components/ui';
 import { AppErrorBoundary } from '../src/components/app-error-boundary';
 import { AppLocationPingBridge } from '../src/components/app-location-ping-bridge';
+import { AccountReviewBanner } from '../src/components/account-review-banner';
 import { OfflineBanner } from '../src/components/offline-banner';
 import { ThemeProvider, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
@@ -77,6 +78,14 @@ function ConfigBootstrap({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+function AccountReviewGate() {
+  const user = useAuthStore((s) => s.user);
+  if (!user?.requiresAdminReview) {
+    return null;
+  }
+  return <AccountReviewBanner />;
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -250,6 +259,7 @@ function RootLayoutContent() {
           <AppSocketProvider>
             <AuthGate>
               <AppLocationPingBridge />
+              <AccountReviewGate />
               <IncomingBannerHost />
               <ToastHost />
               <Stack screenOptions={{ headerShown: false }}>

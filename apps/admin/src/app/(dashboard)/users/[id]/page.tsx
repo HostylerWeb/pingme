@@ -291,6 +291,8 @@ export default function UserDetailPage() {
             </div>
           </Card>
 
+          <SubscriptionHistoryCard userId={user.id} />
+
           <Card>
             <h2 className="font-medium text-foreground">Verification controls</h2>
             <div className="mt-4 space-y-4 text-sm">
@@ -532,6 +534,36 @@ function UserMatchesTab({ userId }: { userId: string }) {
         </TR>
       )}
     />
+  );
+}
+
+function SubscriptionHistoryCard({ userId }: { userId: string }) {
+  const [events, setEvents] = useState<Array<{ id: string; action: string; createdAt: string }>>([]);
+
+  useEffect(() => {
+    adminFetch<{
+      events: Array<{ id: string; action: string; createdAt: string }>;
+    }>(`/admin/users/${userId}/subscription/history`)
+      .then((data) => setEvents(data.events))
+      .catch(() => setEvents([]));
+  }, [userId]);
+
+  return (
+    <Card>
+      <h2 className="font-medium text-foreground">Subscription history</h2>
+      {events.length === 0 ? (
+        <p className="mt-3 text-sm text-ink-tertiary">No subscription events logged yet.</p>
+      ) : (
+        <div className="mt-3 space-y-2">
+          {events.map((event) => (
+            <div key={event.id} className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm">
+              <span className="text-foreground">{event.action.replace('subscription.', '')}</span>
+              <span className="text-ink-secondary">{formatDate(event.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 

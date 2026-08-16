@@ -358,6 +358,12 @@ export default function ProfileScreen() {
                 <Text style={[styles.badgeText, styles.badgeTextVerified]}>Verified</Text>
               </View>
             ) : null}
+            {user?.idVerified ? (
+              <View style={styles.badge}>
+                <AppIcon name="document" size={13} color={colors.accent} />
+                <Text style={styles.badgeText}>ID verified</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -377,6 +383,13 @@ export default function ProfileScreen() {
           <Button
             label="Complete liveness check"
             onPress={() => router.push('/(setup)/liveness')}
+            style={styles.cta}
+          />
+        ) : !user?.idVerified ? (
+          <Button
+            label="Verify ID to host events"
+            variant="secondary"
+            onPress={() => router.push('/(setup)/kyc')}
             style={styles.cta}
           />
         ) : null}

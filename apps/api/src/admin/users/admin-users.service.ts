@@ -11,8 +11,10 @@ import {
   VerificationStatus,
   VerificationType,
 } from '@pingme/db';
+import { NOTIFICATION_TYPES } from '@pingme/shared';
 import { AuthService } from '../../auth/auth.service';
 import { AppConfigService } from '../../config/app-config.service';
+import { NotificationService } from '../../notifications/notification.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { VerificationService } from '../../verification/verification.service';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
@@ -39,6 +41,7 @@ export class AdminUsersService {
     private readonly appConfig: AppConfigService,
     private readonly verificationService: VerificationService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async list(params: { q?: string; status?: UserStatus; page?: number; limit?: number }) {
@@ -317,7 +320,47 @@ export class AdminUsersService {
       data,
     });
 
+    if (status === UserStatus.suspended) {
+      await this.notifications.sendToUser(id, {
+        type: NOTIFICATION_TYPES.MODERATION_ACTION,
+        title: 'Account suspended',
+        body: note?.trim()
+          ? note.trim()
+          : 'Your PingMe account was suspended. Contact support if you think this is a mistake.',
+        data: {
+          type: NOTIFICATION_TYPES.MODERATION_ACTION,
+          action: 'suspended',
+        },
+      });
+    }
+
     return { user: updated, note };
+  }
+
+  async getSubscriptionHistory(userId: string) {
+    await this.requireUser(userId);
+
+    const [subscription, events] = await Promise.all([
+      this.prisma.subscription.findUnique({ where: { userId } }),
+      this.prisma.auditLog.findMany({
+        where: {
+          userId,
+          action: { startsWith: 'subscription.' },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
+
+    return {
+      subscription,
+      events: events.map((event) => ({
+        id: event.id,
+        action: event.action,
+        createdAt: event.createdAt,
+        metadata: event.metadata,
+      })),
+    };
   }
 
   async getPosts(userId: string, page = 1, limit = 20) {

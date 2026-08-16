@@ -29,6 +29,14 @@ export class VerificationController {
     return this.verificationService.getStatus(user.id);
   }
 
+  @Post('start-kyc')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Start Didit full ID KYC session (for event hosting)' })
+  startKyc(@CurrentUser() user: User) {
+    return this.verificationService.startKyc(user.id, user.email);
+  }
+
   @Post('webhook')
   @Public()
   @ApiOperation({ summary: 'Didit webhook (signature verified)' })

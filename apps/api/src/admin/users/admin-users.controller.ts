@@ -350,6 +350,12 @@ export class AdminUsersController {
     return result;
   }
 
+  @Get(':id/subscription/history')
+  @Roles(AdminRole.moderator, AdminRole.super_admin)
+  getSubscriptionHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.users.getSubscriptionHistory(id);
+  }
+
   @Post(':id/subscription/grant-premium')
   @Roles(AdminRole.moderator, AdminRole.super_admin)
   async grantPremium(

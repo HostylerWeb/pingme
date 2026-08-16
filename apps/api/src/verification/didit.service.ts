@@ -193,6 +193,26 @@ export class DiditService {
     );
   }
 
+  isKycApproved(decision: Record<string, unknown> | null | undefined): boolean {
+    if (!decision) return false;
+
+    const idVerifications = decision.id_verifications;
+    const hasApprovedId =
+      Array.isArray(idVerifications) &&
+      idVerifications.some(
+        (item) =>
+          item &&
+          typeof item === 'object' &&
+          (item as { status?: string }).status === 'Approved',
+      );
+
+    if (!hasApprovedId) {
+      return false;
+    }
+
+    return this.isLivenessApproved(decision);
+  }
+
   extractRejectionReason(payload: DiditWebhookPayload): string | null {
     const decision = payload.decision;
     if (!decision || typeof decision !== 'object') {

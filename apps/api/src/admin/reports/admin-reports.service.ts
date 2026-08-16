@@ -114,6 +114,57 @@ export class AdminReportsService {
     });
   }
 
+  async bulkAssign(ids: string[], adminUserId: string) {
+    const uniqueIds = [...new Set(ids)];
+    if (!uniqueIds.length) {
+      return { updated: 0 };
+    }
+
+    const [openUpdated, reviewingUpdated] = await Promise.all([
+      this.prisma.report.updateMany({
+        where: { id: { in: uniqueIds }, status: 'open' },
+        data: {
+          assignedToAdminId: adminUserId,
+          status: 'reviewing',
+        },
+      }),
+      this.prisma.report.updateMany({
+        where: { id: { in: uniqueIds }, status: 'reviewing' },
+        data: { assignedToAdminId: adminUserId },
+      }),
+    ]);
+
+    return { updated: openUpdated.count + reviewingUpdated.count };
+  }
+
+  async bulkUpdate(
+    ids: string[],
+    data: {
+      status: ReportStatus;
+      resolutionNote?: string;
+      resolvedBy: string;
+    },
+  ) {
+    const uniqueIds = [...new Set(ids)];
+    if (!uniqueIds.length) {
+      return { updated: 0 };
+    }
+
+    const isResolved = data.status === 'resolved' || data.status === 'dismissed';
+
+    const result = await this.prisma.report.updateMany({
+      where: { id: { in: uniqueIds } },
+      data: {
+        status: data.status,
+        resolutionNote: data.resolutionNote,
+        resolvedBy: isResolved ? data.resolvedBy : null,
+        resolvedAt: isResolved ? new Date() : null,
+      },
+    });
+
+    return { updated: result.count };
+  }
+
   private mapReport(report: {
     id: string;
     targetType: string;

@@ -12,7 +12,9 @@ import {
   VerificationType,
   Prisma,
 } from '@pingme/db';
+import { NOTIFICATION_TYPES } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
+import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { DiditService, DiditWebhookPayload } from './didit.service';
@@ -26,6 +28,7 @@ export class VerificationService {
     private readonly didit: DiditService,
     private readonly audit: AuditService,
     private readonly redis: RedisService,
+    private readonly notifications: NotificationService,
   ) {}
 
   isEnforcementEnabled(): boolean {
@@ -50,10 +53,30 @@ export class VerificationService {
     return !!passed;
   }
 
+  async hasPassedIdVerification(userId: string): Promise<boolean> {
+    if (!this.didit.isKycEnabled()) {
+      return false;
+    }
+
+    const passed = await this.prisma.verification.findFirst({
+      where: {
+        userId,
+        type: VerificationType.document,
+        status: VerificationStatus.passed,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+      orderBy: { verifiedAt: 'desc' },
+    });
+
+    return !!passed;
+  }
+
   async getStatus(userId: string, syncPending = true): Promise<{
     success: true;
     data: {
       livenessVerified: boolean;
+      idVerified: boolean;
+      kycEnabled: boolean;
       enforcementEnabled: boolean;
       status: VerificationStatus | null;
       verificationUrl: string | null;
@@ -61,7 +84,10 @@ export class VerificationService {
       sessionId: string | null;
     };
   }> {
-    const livenessVerified = await this.hasPassedLiveness(userId);
+    const [livenessVerified, idVerified] = await Promise.all([
+      this.hasPassedLiveness(userId),
+      this.hasPassedIdVerification(userId),
+    ]);
 
     const latest = await this.prisma.verification.findFirst({
       where: {
@@ -98,6 +124,8 @@ export class VerificationService {
       success: true,
       data: {
         livenessVerified,
+        idVerified,
+        kycEnabled: this.didit.isKycEnabled(),
         enforcementEnabled: this.isEnforcementEnabled(),
         status: latest?.status ?? null,
         verificationUrl,
@@ -105,6 +133,10 @@ export class VerificationService {
         sessionId: latest?.providerReference ?? null,
       },
     };
+  }
+
+  async startKyc(userId: string, email?: string | null) {
+    return this.startKycForUser(userId, email);
   }
 
   async start(userId: string, email?: string | null) {
@@ -260,7 +292,6 @@ export class VerificationService {
       verification = await this.prisma.verification.findFirst({
         where: {
           userId: vendorData,
-          type: VerificationType.liveness,
           provider: VerificationProvider.didit,
         },
         orderBy: { createdAt: 'desc' },
@@ -305,18 +336,21 @@ export class VerificationService {
     const localStatus = this.didit.mapStatusToLocal(payload.status);
     if (!localStatus) return;
 
+    const existing = await this.prisma.verification.findUnique({ where: { id: verificationId } });
     const decision = payload.decision ?? null;
-    const livenessApproved = this.didit.isLivenessApproved(decision ?? { status: payload.status });
+    const isKyc = existing?.type === VerificationType.document;
+    const approved = isKyc
+      ? this.didit.isKycApproved(decision ?? { status: payload.status })
+      : this.didit.isLivenessApproved(decision ?? { status: payload.status });
 
     let finalStatus = localStatus;
-    if (localStatus === 'passed' && !livenessApproved) {
+    if (localStatus === 'passed' && !approved) {
       finalStatus = 'failed';
     }
-    if (localStatus === 'pending' && livenessApproved) {
+    if (localStatus === 'pending' && approved) {
       finalStatus = 'passed';
     }
 
-    const existing = await this.prisma.verification.findUnique({ where: { id: verificationId } });
     const rejectionReason =
       finalStatus === 'failed' ? this.didit.extractRejectionReason(payload) : null;
 
@@ -351,10 +385,22 @@ export class VerificationService {
     if (finalStatus === 'passed' && existing?.status !== VerificationStatus.passed) {
       await this.audit.log({
         userId,
-        action: 'verification.passed',
+        action: isKyc ? 'verification.kyc_passed' : 'verification.passed',
         entityType: 'verification',
         entityId: updated.id,
-        metadata: { provider: 'didit', sessionId },
+        metadata: { provider: 'didit', sessionId, type: updated.type },
+      });
+
+      await this.notifications.sendToUser(userId, {
+        type: NOTIFICATION_TYPES.VERIFICATION_PASSED,
+        title: isKyc ? 'ID verified' : "You're verified",
+        body: isKyc
+          ? 'Your ID check passed. You can host events when they launch.'
+          : 'Liveness check complete — you can post, chat, and break the ice.',
+        data: {
+          type: NOTIFICATION_TYPES.VERIFICATION_PASSED,
+          verificationType: isKyc ? 'kyc' : 'liveness',
+        },
       });
     }
 

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { MatchStatus } from '@pingme/db';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -19,6 +20,10 @@ export class AdminDashboardService {
       suspendedUsers,
       activePresence,
       recentReports,
+      icebreakerSessions24h,
+      mutualMatches24h,
+      activeChats24h,
+      signups24h,
     ] = await Promise.all([
       this.prisma.user.count({
         where: {
@@ -44,7 +49,27 @@ export class AdminDashboardService {
           reportedUser: { include: { profile: { select: { displayName: true } } } },
         },
       }),
+      this.prisma.icebreakerSession.count({ where: { createdAt: { gte: since24h } } }),
+      this.prisma.match.count({
+        where: {
+          createdAt: { gte: since24h },
+          status: MatchStatus.active,
+          userAAcceptedAt: { not: null },
+          userBAcceptedAt: { not: null },
+        },
+      }),
+      this.prisma.chat.count({
+        where: { createdAt: { gte: since24h } },
+      }),
+      this.prisma.user.count({ where: { createdAt: { gte: since24h }, deletedAt: null } }),
     ]);
+
+    const icebreakerToChatRate =
+      icebreakerSessions24h > 0
+        ? Math.round((activeChats24h / icebreakerSessions24h) * 100)
+        : 0;
+    const matchRate =
+      dau > 0 ? Math.round((mutualMatches24h / dau) * 100) : 0;
 
     return {
       dau,
@@ -54,6 +79,12 @@ export class AdminDashboardService {
       totalUsers,
       suspendedUsers,
       activePresence,
+      signups24h,
+      icebreakerSessions24h,
+      mutualMatches24h,
+      activeChats24h,
+      matchRate,
+      icebreakerToChatRate,
       recentReports: recentReports.map((r) => ({
         id: r.id,
         reason: r.reason,

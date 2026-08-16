@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AdminRole, ReportReason, ReportStatus } from '@pingme/db';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { Public } from '../../common/decorators/public.decorator';
 import { AdminAuditService } from '../admin-audit.service';
 import { CurrentAdmin } from '../decorators/current-admin.decorator';
@@ -22,6 +22,21 @@ import { RolesGuard } from '../guards/roles.guard';
 import { AdminReportsService } from './admin-reports.service';
 
 class UpdateReportDto {
+  @IsEnum(ReportStatus)
+  status!: ReportStatus;
+
+  @IsOptional()
+  @IsString()
+  resolutionNote?: string;
+}
+
+class BulkReportIdsDto {
+  @IsArray()
+  @IsUUID('4', { each: true })
+  ids!: string[];
+}
+
+class BulkUpdateReportsDto extends BulkReportIdsDto {
   @IsEnum(ReportStatus)
   status!: ReportStatus;
 
@@ -76,6 +91,46 @@ export class AdminReportsController {
     res!.setHeader('Content-Type', 'text/csv');
     res!.setHeader('Content-Disposition', 'attachment; filename=reports.csv');
     res!.send(header + rows);
+  }
+
+  @Post('bulk/assign')
+  async bulkAssign(
+    @Body() dto: BulkReportIdsDto,
+    @CurrentAdmin() admin: { id: string },
+  ) {
+    const result = await this.reports.bulkAssign(dto.ids, admin.id);
+
+    await this.adminAudit.log({
+      adminUserId: admin.id,
+      action: 'report.bulk_assign',
+      entityType: 'report',
+      entityId: dto.ids[0] ?? 'bulk',
+      metadata: { ids: dto.ids, updated: result.updated },
+    });
+
+    return result;
+  }
+
+  @Patch('bulk')
+  async bulkUpdate(
+    @Body() dto: BulkUpdateReportsDto,
+    @CurrentAdmin() admin: { id: string },
+  ) {
+    const result = await this.reports.bulkUpdate(dto.ids, {
+      status: dto.status,
+      resolutionNote: dto.resolutionNote,
+      resolvedBy: admin.id,
+    });
+
+    await this.adminAudit.log({
+      adminUserId: admin.id,
+      action: 'report.bulk_update',
+      entityType: 'report',
+      entityId: dto.ids[0] ?? 'bulk',
+      metadata: { ids: dto.ids, status: dto.status, updated: result.updated },
+    });
+
+    return result;
   }
 
   @Get(':id')

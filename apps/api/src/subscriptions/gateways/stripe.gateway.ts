@@ -11,6 +11,7 @@ import {
   SubscriptionStatus,
 } from '@pingme/db';
 import Stripe from 'stripe';
+import { AuditService } from '../../audit/audit.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CheckoutSessionResult, PaymentGateway } from '../payment-gateway.interface';
 
@@ -32,6 +33,7 @@ export class StripeGateway implements PaymentGateway {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
   ) {
     const secretKey = this.config.get<string>('STRIPE_SECRET_KEY');
     this.stripe = secretKey ? new Stripe(secretKey) : null;
@@ -167,6 +169,21 @@ export class StripeGateway implements PaymentGateway {
       default:
         break;
     }
+
+    const userId = this.extractUserIdFromEvent(event);
+    if (userId) {
+      await this.audit.log({
+        userId,
+        action: `subscription.stripe.${event.type}`,
+        entityType: 'subscription',
+        metadata: { stripeEventId: event.id },
+      });
+    }
+  }
+
+  private extractUserIdFromEvent(event: Stripe.Event): string | null {
+    const object = event.data.object as { metadata?: { userId?: string }; client_reference_id?: string };
+    return object.metadata?.userId ?? object.client_reference_id ?? null;
   }
 
   private async handleCheckoutCompleted(session: Stripe.Checkout.Session) {

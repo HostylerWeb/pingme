@@ -28,6 +28,10 @@ export const MAX_MESSAGE_LENGTH = 2000;
 
 export const MIN_AGE_YEARS = 18;
 
+/** Reports against a user in this window that trigger admin review. */
+export const REPORT_AUTO_FLAG_THRESHOLD = 3;
+export const REPORT_AUTO_FLAG_WINDOW_HOURS = 24;
+
 /** Days after scheduling before an account is permanently deleted. */
 export const ACCOUNT_DELETION_GRACE_DAYS = 14;
 
