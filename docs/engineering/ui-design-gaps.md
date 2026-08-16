@@ -189,8 +189,8 @@ Use Stitch Premium screen as layout reference but only these features:
 | Mobile app routes | `apps/mobile/app/` |
 | Distance buckets | `packages/shared/src/geo.ts` |
 | Premium themes | `packages/shared/src/constants.ts` |
-| Device test checklist | `docs/device-test-checklist.md` |
-| Product / phase plan | `development.md` |
+| Device test checklist | [`docs/testing/device-test-checklist.md`](../testing/device-test-checklist.md) |
+| Product / phase plan | [`docs/product/development.md`](../product/development.md) |
 
 ---
 

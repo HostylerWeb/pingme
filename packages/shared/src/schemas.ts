@@ -19,6 +19,13 @@ const strongPasswordSchema = passwordSchema.regex(
   'Password must include upper and lower case letters and a number',
 );
 
+/** Trim + lowercase so login/register/reset cannot create case-variant duplicates. */
+const normalizedEmailSchema = z
+  .string()
+  .trim()
+  .email()
+  .transform((email) => email.toLowerCase());
+
 const dateOfBirthSchema = z.coerce.date().refine((date) => {
   const today = new Date();
   const minBirthDate = new Date(
@@ -31,7 +38,7 @@ const dateOfBirthSchema = z.coerce.date().refine((date) => {
 
 export const SignUpSchema = z
   .object({
-    email: z.string().email().optional(),
+    email: normalizedEmailSchema.optional(),
     phone: z
       .string()
       .regex(/^\+[1-9]\d{6,14}$/, 'Phone must be in E.164 format')
@@ -41,6 +48,7 @@ export const SignUpSchema = z
     gender: genderSchema,
     displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
   })
+  .strict()
   .refine((data) => data.email || data.phone, {
     message: 'Either email or phone is required',
     path: ['email'],
@@ -48,56 +56,66 @@ export const SignUpSchema = z
 
 export const LoginSchema = z
   .object({
-    email: z.string().email().optional(),
+    email: normalizedEmailSchema.optional(),
     phone: z
       .string()
       .regex(/^\+[1-9]\d{6,14}$/)
       .optional(),
     password: passwordSchema,
   })
+  .strict()
   .refine((data) => data.email || data.phone, {
     message: 'Either email or phone is required',
     path: ['email'],
   });
 
-export const UpdateProfileSchema = z.object({
-  displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
-  bio: z.string().max(MAX_BIO_LENGTH).optional(),
-  avatarType: z.nativeEnum(AvatarType).optional(),
-  dateOfBirth: dateOfBirthSchema.optional(),
-  gender: genderSchema.optional(),
-  avatarTheme: z.enum(['aurora', 'sunset', 'midnight', 'forest']).optional(),
-});
+export const UpdateProfileSchema = z
+  .object({
+    displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
+    bio: z.string().max(MAX_BIO_LENGTH).optional(),
+    avatarType: z.nativeEnum(AvatarType).optional(),
+    dateOfBirth: dateOfBirthSchema.optional(),
+    gender: genderSchema.optional(),
+    avatarTheme: z.enum(['aurora', 'sunset', 'midnight', 'forest']).optional(),
+  })
+  .strict();
 
-export const UpdateSettingsSchema = z.object({
-  radiusMeters: z.number().int().min(1).max(100_000).optional(),
-  quietMode: z.boolean().optional(),
-  showDistanceBucket: z.boolean().optional(),
-  allowPushReplies: z.boolean().optional(),
-  allowPushChat: z.boolean().optional(),
-  allowPushIcebreaker: z.boolean().optional(),
-  showReadReceipts: z.boolean().optional(),
-  language: z.string().min(2).max(10).optional(),
-});
+export const UpdateSettingsSchema = z
+  .object({
+    radiusMeters: z.number().int().min(1).max(100_000).optional(),
+    quietMode: z.boolean().optional(),
+    showDistanceBucket: z.boolean().optional(),
+    allowPushReplies: z.boolean().optional(),
+    allowPushChat: z.boolean().optional(),
+    allowPushIcebreaker: z.boolean().optional(),
+    showReadReceipts: z.boolean().optional(),
+    language: z.string().min(2).max(10).optional(),
+  })
+  .strict();
 
-export const VerifyOtpSchema = z.object({
-  code: z.string().length(6, 'Code must be 6 digits'),
-});
+export const VerifyOtpSchema = z
+  .object({
+    code: z.string().length(6, 'Code must be 6 digits'),
+  })
+  .strict();
 
 export const ForgotPasswordSchema = z
   .object({
-    email: z.string().email().optional(),
+    email: normalizedEmailSchema.optional(),
     phone: z.string().regex(/^\+[1-9]\d{6,14}$/).optional(),
   })
+  .strict()
   .refine((data) => data.email || data.phone, {
     message: 'Either email or phone is required',
     path: ['email'],
   });
 
-export const ResetPasswordSchema = z.object({
-  token: z.string().min(1),
-  password: strongPasswordSchema,
-});
+export const ResetPasswordSchema = z
+  .object({
+    token: z.string().min(1),
+    password: strongPasswordSchema,
+  })
+  .strict();
 
 export type SignUpInput = z.infer<typeof SignUpSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;

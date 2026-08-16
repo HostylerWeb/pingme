@@ -29,7 +29,7 @@ describe('cors.util', () => {
   it('rejects unknown origins in production', (done) => {
     const delegate = createCorsOriginDelegate(['https://admin.test'], 'production');
     delegate('https://evil.test', (err, allow) => {
-      expect(err).toBeInstanceOf(Error);
+      expect(err).toBeNull();
       expect(allow).toBe(false);
       done();
     });

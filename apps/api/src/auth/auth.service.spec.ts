@@ -93,6 +93,45 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('normalizes email casing on register', async () => {
+    prisma.user.findFirst.mockResolvedValue(null);
+    prisma.user.create.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      phone: null,
+      profile: {},
+      settings: {},
+    });
+    prisma.user.findUnique.mockResolvedValue({ id: 'user-1', email: 'user@example.com' });
+    prisma.refreshToken.create.mockResolvedValue({});
+    prisma.otpCode.updateMany.mockResolvedValue({});
+    prisma.otpCode.create.mockResolvedValue({});
+    emailService.sendOtp.mockResolvedValue(undefined);
+
+    await service.register(
+      {
+        email: 'User@Example.com',
+        password: 'Password123!',
+        dateOfBirth: new Date('1995-01-01'),
+        gender: 'male',
+      },
+      {},
+    );
+
+    expect(prisma.user.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: expect.arrayContaining([{ email: 'user@example.com' }]),
+        }),
+      }),
+    );
+    expect(prisma.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ email: 'user@example.com' }),
+      }),
+    );
+  });
+
   it('rejects underage users', async () => {
     prisma.user.findFirst.mockResolvedValue(null);
 

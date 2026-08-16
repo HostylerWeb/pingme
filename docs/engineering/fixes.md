@@ -248,7 +248,7 @@ API_URL=https://pingme.hostyler.cloud/v1 k6 run scripts/load-test/k6-health.js
 - **What to do:**
   1. Scrub password hash, anonymize display name/avatar/bio, remove push devices, clear Redis `geo:available`
   2. Filter `users.deleted_at` / `status != deleted` in wall, icebreaker nearby, presence
-  3. Add scheduled anonymize job (e.g. 30 days) per `development.md`
+  3. Add scheduled anonymize job (e.g. 30 days) per `docs/product/development.md`
   4. Wire mobile Settings → Delete account → `DELETE /users/me` with confirm dialog
 
 #### 4. No privacy policy / terms in the app
@@ -392,7 +392,7 @@ API_URL=https://pingme.hostyler.cloud/v1 k6 run scripts/load-test/k6-health.js
 | Account deletion UI | Play requirement | Wire API (#3) |
 | EAS production profile | Avoid shipping staging API | Separate `EXPO_PUBLIC_*` for production; bump version past `0.0.1` |
 | Managed Postgres/Redis | Single-host failure domain | After soft launch / growth |
-| Pen test / security review | Location + dating = high risk | External or internal OWASP pass before open launch |
+| Pen test / security review | Location + dating = high risk | Follow [`docs/testing/pentest.md`](../testing/pentest.md); external or internal OWASP pass before open launch |
 | Real payments (Stripe etc.) | Monetization | Replace `none`/`demo` when ready |
 
 ---
@@ -474,8 +474,29 @@ Do one Part at a time. Each Part has three fixes (1 → 2 → 3). Numbers below 
 - Seed refuses `NODE_ENV=production` unless `ALLOW_SEED=1`; use `SEED_USER_PASSWORD` / `SEED_ADMIN_PASSWORD`. Local defaults only — rotate on shared staging.
 - Shared BullMQ Redis connection via `BullmqRedisService`; Socket.IO pub/sub stays separate.
 
-**Still deferred (not in Parts):** pen test, managed Postgres/Redis, real Stripe/EAS production store submission.
+**Still deferred (not in Parts):** managed Postgres/Redis, real Stripe/EAS production store submission.
+
+#### Part 5 — Pentest report remediations (2026-08-16)
+
+| Step | Fix | PT ID | Status |
+|------|-----|-------|--------|
+| 1 | Email normalize (Zod + AuthService) + migration soft-delete duplicates / `lower(email)` unique | PT-13 | Done |
+| 2 | Wall create response strips lat/lng | PT-06 | Done |
+| 3 | `app.disable('x-powered-by')` + production HSTS/CSP helmet | PT-07 | Done |
+| 4 | CORS reject with `callback(null, false)` (no OPTIONS 500) | PT-08 | Done |
+| 5 | Forgot-password fire-and-forget delivery + always hash token | PT-14 | Done |
+| 6 | Auth/profile/settings Zod `.strict()` | PT-09 | Done |
+| 7 | Seed requires `SEED_*_PASSWORD` on shared/prod hosts | PT-11 | Done |
+| — | Swagger / manual webhook / health metric / wall clamp | PT-01–04 | Done earlier; **deploy** |
+
+**Ops notes (Part 5):**
+
+- Migration `20260816080000_normalize_user_emails` — run on staging/prod before relying on case-insensitive login.
+- Staging soft-launch gate remains **pending redeploy + retest** (`docs/testing/pentest-report-2026-08-16.md`).
+- Rotate live staging admin password (seed guard does not rewrite existing hashes).
 
 After **Part 1–2:** reasonable for **closed testing**.  
 After **Part 1–3:** closer to **public soft launch**.  
-**A+** still needs managed DB, legal polish, pen test, and real payments if monetizing.
+After **Part 1–5 + staging retest:** soft-launch security gate can pass.  
+**A+** still needs managed DB, legal polish, external pen test, and real payments if monetizing.
+

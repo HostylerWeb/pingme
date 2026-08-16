@@ -12,8 +12,22 @@ async function main() {
     throw new Error('Refusing to seed in production without ALLOW_SEED=1');
   }
 
+  const isSharedHost =
+    process.env.NODE_ENV === 'production' || process.env.ALLOW_SEED === '1';
+
+  if (isSharedHost && !process.env.SEED_ADMIN_PASSWORD) {
+    throw new Error('SEED_ADMIN_PASSWORD is required when seeding shared/production hosts');
+  }
+  if (isSharedHost && !process.env.SEED_USER_PASSWORD) {
+    throw new Error('SEED_USER_PASSWORD is required when seeding shared/production hosts');
+  }
+
   const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'Password123!';
   const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'AdminPass123!';
+
+  if (ADMIN_PASSWORD === 'AdminPass123!' && isSharedHost) {
+    throw new Error('Refuse default AdminPass123! on shared hosts — set SEED_ADMIN_PASSWORD');
+  }
 
   const passwordHash = await bcrypt.hash(PASSWORD, 12);
   const adminPasswordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);

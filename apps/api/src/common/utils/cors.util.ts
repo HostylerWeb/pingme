@@ -38,6 +38,7 @@ export function createCorsOriginDelegate(allowedOrigins: string[], nodeEnv: stri
       return;
     }
 
-    callback(new Error(`Origin ${origin} is not allowed by CORS`), false);
+    // Reject without throwing — an Error here makes OPTIONS preflight return 500.
+    callback(null, false);
   };
 }

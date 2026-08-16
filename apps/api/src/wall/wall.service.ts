@@ -177,7 +177,23 @@ export class WallService {
       metadata: { accuracy: dto.accuracy },
     });
 
-    return { success: true, data: post };
+    return {
+      success: true,
+      data: {
+        id: post.id,
+        content: post.content,
+        showPhoto: post.showPhoto,
+        status: post.status,
+        replyCount: post.replyCount,
+        createdAt: post.createdAt,
+        expiresAt: post.expiresAt,
+        distanceBucket: 'nearby',
+        author: {
+          id: userId,
+          isYou: true,
+        },
+      },
+    };
   }
 
   async getPost(userId: string, postId: string) {

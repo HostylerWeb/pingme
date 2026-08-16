@@ -21,7 +21,18 @@ async function bootstrap() {
   const uploadsDir = config.get<string>('UPLOADS_DIR', 'uploads');
 
   app.enableShutdownHooks();
-  app.use(helmet());
+  app.disable('x-powered-by');
+  app.use(
+    helmet({
+      // API is JSON; CSP mainly matters for admin HTML / accidental doc hosts.
+      contentSecurityPolicy: nodeEnv === 'production',
+      crossOriginEmbedderPolicy: false,
+      hsts:
+        nodeEnv === 'production'
+          ? { maxAge: 31536000, includeSubDomains: true, preload: false }
+          : false,
+    }),
+  );
 
   const redisAdapter = new RedisIoAdapter(app, config);
   await redisAdapter.connectToRedis();
@@ -80,7 +91,9 @@ async function bootstrap() {
       void redisAdapter.close();
     });
     console.log(`API running on http://localhost:${port}/v1 (RUN_MODE=${runMode})`);
-    console.log(`Swagger docs at http://localhost:${port}/docs`);
+    if (nodeEnv !== 'production') {
+      console.log(`Swagger docs at http://localhost:${port}/docs`);
+    }
   } else {
     await app.init();
     console.log(`Worker mode active — HTTP API disabled (RUN_MODE=${runMode})`);

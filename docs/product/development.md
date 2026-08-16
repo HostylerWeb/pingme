@@ -139,10 +139,12 @@ PingMe/
 │   ├── docker/                 # docker-compose.dev.yml
 │   └── scripts/                # deploy, seed, backup
 ├── docs/
-│   ├── PRODUCT_STRATEGY.md
-│   └── development.md          # this file
+│   ├── getting-started/        # howtorun.md
+│   ├── product/                # PRODUCT_STRATEGY.md, development.md (this file)
+│   ├── engineering/            # fixes.md, ui-design-gaps.md
+│   ├── testing/                # device-test-checklist.md
+│   └── spikes/                 # technical spikes
 ├── .github/workflows/
-├── development.md
 └── package.json                # Turborepo or pnpm workspaces
 ```
 
@@ -1605,7 +1607,7 @@ Mobile app                    NestJS API                    didit.me
 
 ---
 
-*Update this document as decisions change. Link to `docs/PRODUCT_STRATEGY.md` for market context.*
+*Update this document as decisions change. Link to [`PRODUCT_STRATEGY.md`](./PRODUCT_STRATEGY.md) for market context.*
 
 > **Note:** `PRODUCT_STRATEGY.md` still mentions venue-first launch and full KYC in places. This dev plan uses **radius-first (250m)** and **liveness verification** per latest decisions. Update strategy doc when ready.
 
@@ -1661,7 +1663,7 @@ Mobile app                    NestJS API                    didit.me
 9. **Admin roles** — `support` can view users/chats but **not** reports (moderator+ only). Sidebar and dashboard respect this.
 10. **Premium without payments** — Use admin **Grant premium** to test avatar themes and read receipts until checkout exists.
 11. **Phase 8 commit on staging** — After deploy, run migration `20260814120000_add_subscriptions_phase8` and smoke test with `./scripts/staging-smoke.sh`.
-12. **Two-phone testing** — See `docs/device-test-checklist.md` before calling beta “ready”.
+12. **Two-phone testing** — See [`docs/testing/device-test-checklist.md`](../testing/device-test-checklist.md) before calling beta “ready”.
 
 ### Do now / near future (before frontend polish & beta)
 
@@ -1671,7 +1673,7 @@ Priority order for the next sprint:
 |---|------|-----|
 | 1 | **Deploy to staging** | Pull `main`, migrate, rebuild API + admin, restart services |
 | 2 | **Staging env** | `PUSH_ENABLED=true`, `DIDIT_*` (liveness + KYC workflow when ready), `CORS_ORIGINS`, strong JWT secrets, `PAYMENT_PROVIDER=none` |
-| 3 | **Smoke + device tests** | `./scripts/staging-smoke.sh` + `docs/device-test-checklist.md` on two physical phones |
+| 3 | **Smoke + device tests** | `./scripts/staging-smoke.sh` + `docs/testing/device-test-checklist.md` on two physical phones |
 | 4 | **Events Phase 0** | ✅ Locked — see Events feature plan (E0.1–E0.8) |
 | 5 | **Events Phase 1 (KYC)** | Didit KYC workflow + user-facing ID verification for event hosts |
 | 6 | **Legal pages** | Privacy policy + terms of service (required for store submission) |

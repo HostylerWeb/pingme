@@ -252,7 +252,7 @@ For day-to-day local dev (API + Metro + USB install), expo.dev is mostly in the 
 
 ---
 
-See [development.md](./development.md) for the full product roadmap and phased plan.
+See [development.md](../product/development.md) for the full product roadmap and phased plan.
 
 ---
 

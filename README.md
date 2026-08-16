@@ -75,8 +75,12 @@ packages/
   config/    Shared TS + ESLint config
   shared/    Types, Zod schemas, constants
   db/        Prisma schema + migrations
-docs/        Product strategy
-development.md  Full development plan
+docs/
+  getting-started/  How to run locally / staging
+  product/          Strategy + development plan
+  engineering/      Audit fixes + UI gaps
+  testing/          Device test checklist
+  spikes/           Technical spike notes
 ```
 
 ## Test users (after seed)
@@ -94,4 +98,4 @@ development.md  Full development plan
 | `pnpm db:migrate` | Run Prisma migrations |
 | `pnpm db:seed` | Seed 10 test users |
 
-See [development.md](./development.md) for the full phased plan.
+See [docs/getting-started/howtorun.md](./docs/getting-started/howtorun.md) for a fuller runbook and [docs/product/development.md](./docs/product/development.md) for the phased plan.

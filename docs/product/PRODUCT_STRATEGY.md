@@ -438,7 +438,7 @@ apps/mobile/          # Expo React Native
 packages/api/         # NestJS backend
 packages/shared/      # Shared types, validation
 packages/db/          # Migrations, schema
-docs/                 # This file and specs
+docs/                 # Specs (see docs/product/, docs/engineering/, …)
 ```
 
 ### Step 4 — Seed the first room (Week 10–11)

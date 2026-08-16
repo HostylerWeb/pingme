@@ -51,13 +51,14 @@ export class AuthService {
       throw new BadRequestException('Either email or phone is required');
     }
 
+    const email = this.normalizeEmail(dto.email);
     const dateOfBirth = dto.dateOfBirth;
     this.assertMinimumAge(dateOfBirth);
 
     const existing = await this.prisma.user.findFirst({
       where: {
         OR: [
-          dto.email ? { email: dto.email } : undefined,
+          email ? { email } : undefined,
           dto.phone ? { phone: dto.phone } : undefined,
         ].filter(Boolean) as { email?: string; phone?: string }[],
       },
@@ -70,11 +71,11 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const displayName =
       dto.displayName?.trim() ||
-      (dto.email ? dto.email.split('@')[0] : `user_${dto.phone?.slice(-4)}`);
+      (email ? email.split('@')[0] : `user_${dto.phone?.slice(-4)}`);
 
     const user = await this.prisma.user.create({
       data: {
-        email: dto.email,
+        email,
         phone: dto.phone,
         passwordHash,
         authProvider: dto.phone ? AuthProvider.phone : AuthProvider.email,
@@ -106,7 +107,7 @@ export class AuthService {
 
     const tokens = await this.issueTokens(user);
 
-    if (dto.email) {
+    if (email) {
       await this.sendEmailOtp(user.id);
     }
     if (dto.phone) {
@@ -121,8 +122,9 @@ export class AuthService {
       throw new BadRequestException('Either email or phone is required');
     }
 
+    const email = this.normalizeEmail(dto.email);
     const user = await this.prisma.user.findFirst({
-      where: dto.email ? { email: dto.email } : { phone: dto.phone },
+      where: email ? { email } : { phone: dto.phone },
       include: { profile: true, settings: true },
     });
 
@@ -304,16 +306,23 @@ export class AuthService {
       throw new BadRequestException('Either email or phone is required');
     }
 
+    const email = this.normalizeEmail(dto.email);
     const user = await this.prisma.user.findFirst({
-      where: dto.email ? { email: dto.email } : { phone: dto.phone },
+      where: email ? { email } : { phone: dto.phone },
     });
 
-    if (!user) {
-      return { success: true, message: 'If the account exists, a reset link was sent' };
-    }
+    const generic = {
+      success: true as const,
+      message: 'If the account exists, a reset link was sent',
+    };
 
+    // Always hash a token so missing vs existing accounts share similar CPU cost.
     const token = generateResetToken();
     const tokenHash = hashToken(token);
+
+    if (!user || user.deletedAt) {
+      return generic;
+    }
 
     await this.prisma.passwordResetToken.create({
       data: {
@@ -326,15 +335,18 @@ export class AuthService {
     if (this.config.get('NODE_ENV') === 'development') {
       console.log(`[DEV] Password reset token for ${user.email ?? user.phone}: ${token}`);
     } else if (user.email) {
-      await this.emailService.sendPasswordReset(user.email, token);
+      // Do not await delivery — avoids cold-path timing oracle vs missing accounts.
+      void this.emailService.sendPasswordReset(user.email, token).catch(() => undefined);
     } else if (user.phone) {
-      await this.smsService.sendText(
-        user.phone,
-        `Your PingMe password reset code: ${token}. It expires in 1 hour.`,
-      );
+      void this.smsService
+        .sendText(
+          user.phone,
+          `Your PingMe password reset code: ${token}. It expires in 1 hour.`,
+        )
+        .catch(() => undefined);
     }
 
-    return { success: true, message: 'If the account exists, a reset link was sent' };
+    return generic;
   }
 
   async resetPassword(dto: ResetPasswordInput) {
@@ -465,6 +477,11 @@ export class AuthService {
     if (dateOfBirth > minBirthDate) {
       throw new BadRequestException(`You must be at least ${MIN_AGE_YEARS} years old`);
     }
+  }
+
+  private normalizeEmail(email?: string | null): string | undefined {
+    if (!email) return undefined;
+    return email.trim().toLowerCase();
   }
 
   private sanitizeUser(user: User & { profile?: unknown; settings?: unknown }) {
