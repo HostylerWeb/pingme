@@ -14,6 +14,11 @@ const passwordSchema = z
   .min(8, 'Password must be at least 8 characters')
   .max(128, 'Password must be at most 128 characters');
 
+const strongPasswordSchema = passwordSchema.regex(
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/,
+  'Password must include upper and lower case letters and a number',
+);
+
 const dateOfBirthSchema = z.coerce.date().refine((date) => {
   const today = new Date();
   const minBirthDate = new Date(
@@ -31,7 +36,7 @@ export const SignUpSchema = z
       .string()
       .regex(/^\+[1-9]\d{6,14}$/, 'Phone must be in E.164 format')
       .optional(),
-    password: passwordSchema,
+    password: strongPasswordSchema,
     dateOfBirth: dateOfBirthSchema,
     gender: genderSchema,
     displayName: z.string().min(1).max(MAX_DISPLAY_NAME_LENGTH).optional(),
@@ -91,7 +96,7 @@ export const ForgotPasswordSchema = z
 
 export const ResetPasswordSchema = z.object({
   token: z.string().min(1),
-  password: passwordSchema,
+  password: strongPasswordSchema,
 });
 
 export type SignUpInput = z.infer<typeof SignUpSchema>;

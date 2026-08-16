@@ -220,17 +220,34 @@ export class MatchesService {
     }
 
     const expiresAt = new Date(Date.now() + MATCH_EXPIRY_MINUTES * 60 * 1000);
-    const match = await this.prisma.match.create({
-      data: {
-        userAId,
-        userBId,
-        source: MatchSource.wall_reply,
-        sourceReferenceId: reply.id,
-        expiresAt,
-        userAAcceptedAt: userId === userAId ? new Date() : undefined,
-        userBAcceptedAt: userId === userBId ? new Date() : undefined,
-      },
-    });
+    let match;
+    try {
+      match = await this.prisma.match.create({
+        data: {
+          userAId,
+          userBId,
+          source: MatchSource.wall_reply,
+          sourceReferenceId: reply.id,
+          expiresAt,
+          userAAcceptedAt: userId === userAId ? new Date() : undefined,
+          userBAcceptedAt: userId === userBId ? new Date() : undefined,
+        },
+      });
+    } catch (error) {
+      if (isPrismaUniqueConflict(error)) {
+        const raced = await this.prisma.match.findFirst({
+          where: {
+            userAId,
+            userBId,
+            status: { in: [MatchStatus.pending, MatchStatus.active] },
+          },
+        });
+        if (raced) {
+          return { success: true, data: this.serializeMatch(raced, userId, true) };
+        }
+      }
+      throw error;
+    }
 
     await this.audit.log({
       userId,
@@ -390,4 +407,13 @@ export class MatchesService {
 
 function orderUserIds(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
+}
+
+function isPrismaUniqueConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'P2002'
+  );
 }

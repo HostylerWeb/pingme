@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   FlatList,
   Pressable,
@@ -107,12 +107,15 @@ export default function ChatsScreen() {
     mode: 'stop',
   });
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['chats'],
-    queryFn: () => api.getChats(),
-    refetchInterval: chatsRefetchInterval,
-    refetchIntervalInBackground: false,
-  });
+  const { data, isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: ['chats'],
+      queryFn: ({ pageParam }) => api.getChats(pageParam, 20),
+      initialPageParam: undefined as string | undefined,
+      getNextPageParam: (lastPage) => lastPage.meta.nextCursor ?? undefined,
+      refetchInterval: chatsRefetchInterval,
+      refetchIntervalInBackground: false,
+    });
 
   useFocusEffect(
     useCallback(() => {
@@ -120,7 +123,10 @@ export default function ChatsScreen() {
     }, [refetch]),
   );
 
-  const chats = data?.data ?? [];
+  const chats = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data],
+  );
 
   return (
     <Screen padded={false} edges={[]}>
@@ -142,6 +148,12 @@ export default function ChatsScreen() {
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.accent} />}
           contentContainerStyle={[styles.list, { paddingBottom: contentBottom }]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              void fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.4}
           ListEmptyComponent={
             <EmptyState
               icon="chat-bubbles"

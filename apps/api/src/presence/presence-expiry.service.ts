@@ -1,11 +1,10 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PRESENCE_TTL_SECONDS } from '@pingme/shared';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { shouldRunWorkers } from '../common/utils/run-mode';
 import { PrismaService } from '../prisma/prisma.service';
-import { RedisService } from '../redis/redis.module';
+import { BullmqRedisService, RedisService } from '../redis/redis.module';
 
 const GEO_AVAILABLE_KEY = 'geo:available';
 
@@ -17,7 +16,7 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
   private worker!: Worker;
 
   constructor(
-    private readonly config: ConfigService,
+    private readonly bullmqRedis: BullmqRedisService,
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
   ) {}
@@ -28,8 +27,7 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const redisUrl = this.config.get<string>('REDIS_URL', 'redis://localhost:6381');
-    this.connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+    this.connection = this.bullmqRedis.connection;
 
     this.queue = new Queue('presence-expiry', { connection: this.connection });
 
@@ -57,7 +55,6 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     await this.worker?.close();
     await this.queue?.close();
-    await this.connection?.quit();
   }
 
   async expireStaleSessions() {
@@ -85,6 +82,8 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
       data: {
         isActive: false,
         endedAt: new Date(),
+        latitude: null,
+        longitude: null,
       },
     });
 

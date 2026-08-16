@@ -458,13 +458,21 @@ Do one Part at a time. Each Part has three fixes (1 → 2 → 3). Numbers below 
 
 ---
 
-#### Part 4 — Remaining hardening *(after Part 3)*
+#### Part 4 — Remaining hardening
 
 | Step | Fix | Audit # | Status |
 |------|-----|---------|--------|
-| 1 | WS disconnect deleted/suspended users + admin login throttle (+ CSP / no long-lived localStorage JWT later) | #13, #18 | Pending |
-| 2 | Medium items #21–#26, #28, #32, #34, #35 (rate-limit Lua, shutdown hooks, helmet, webhook stubs, WS max length, health leak, match unique, Didit allowlist, error boundary) | #21–26, #28, #32, #34, #35 | Pending |
-| 3 | Remaining medium / polish (#27, #29–#31, #36–#38) + update this file statuses | rest | Pending |
+| 1 | WS disconnect deleted/suspended users + admin login throttle (+ CSP / no long-lived localStorage JWT later) | #13, #18 | Done |
+| 2 | Medium items #21–#26, #28, #32, #34, #35 (rate-limit Lua, shutdown hooks, helmet, webhook stubs, WS max length, health leak, match unique, Didit allowlist, error boundary) | #21–26, #28, #32, #34, #35 | Done |
+| 3 | Remaining medium / polish (#27, #29–#31, #36–#38) + update this file statuses | rest | Done |
+
+**Ops notes (Part 4):**
+
+- Migration `20260816070000_matches_active_pair_unique` adds partial unique index on active/pending match pairs (rematch after declined/expired still allowed).
+- Admin CSP headers ship in Next config; **httpOnly cookie admin session still deferred** (JWT remains in `localStorage` for now).
+- Presence go-unavailable / expiry clears precise `latitude`/`longitude` (keeps fuzzy).
+- Seed refuses `NODE_ENV=production` unless `ALLOW_SEED=1`; use `SEED_USER_PASSWORD` / `SEED_ADMIN_PASSWORD`. Local defaults only — rotate on shared staging.
+- Shared BullMQ Redis connection via `BullmqRedisService`; Socket.IO pub/sub stays separate.
 
 **Still deferred (not in Parts):** pen test, managed Postgres/Redis, real Stripe/EAS production store submission.
 

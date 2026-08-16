@@ -241,11 +241,10 @@ export class VerificationService {
 
     if (payload.event_id) {
       const cacheKey = `didit:webhook:${payload.event_id}`;
-      const seen = await this.redis.client.get(cacheKey);
-      if (seen) {
+      const claimed = await this.redis.client.set(cacheKey, '1', 'EX', 7 * 24 * 60 * 60, 'NX');
+      if (claimed !== 'OK') {
         return { success: true, duplicate: true };
       }
-      await this.redis.client.set(cacheKey, '1', 'EX', 7 * 24 * 60 * 60);
     }
 
     const sessionId = payload.session_id;

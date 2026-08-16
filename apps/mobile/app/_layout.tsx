@@ -28,6 +28,8 @@ import { iconForNotificationType, showIncomingBanner } from '../src/stores/incom
 import { useAppConfig } from '../src/hooks/use-app-config';
 import { useAppFonts } from '../src/hooks/use-app-fonts';
 import { Button, IncomingBannerHost, ToastHost } from '../src/components/ui';
+import { AppErrorBoundary } from '../src/components/app-error-boundary';
+import { OfflineBanner } from '../src/components/offline-banner';
 import { ThemeProvider, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -225,6 +227,7 @@ function RootLayoutContent() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
+        <OfflineBanner />
         <ConfigBootstrap>
           <AppSocketProvider>
             <AuthGate>
@@ -254,7 +257,9 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <RootLayoutContent />
+      <AppErrorBoundary>
+        <RootLayoutContent />
+      </AppErrorBoundary>
     </ThemeProvider>
   );
 }

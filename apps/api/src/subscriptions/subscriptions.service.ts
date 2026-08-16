@@ -267,11 +267,11 @@ export class SubscriptionsService {
 
   async handlePaymentWebhook(provider: string, payload: unknown, signature?: string) {
     const gateway = this.getGateway();
-    if (gateway.providerId !== provider && provider !== 'manual') {
+    if (gateway.providerId !== provider) {
       throw new NotFoundException('Unknown payment provider');
     }
 
-    if (!gateway.isConfigured() && provider !== 'manual') {
+    if (!gateway.isConfigured()) {
       throw new ServiceUnavailableException('Payments are not configured');
     }
 

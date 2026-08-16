@@ -17,8 +17,16 @@ export class ChatController {
 
   @Get()
   @ApiOperation({ summary: 'List active chats' })
-  list(@CurrentUser() user: User) {
-    return this.chatService.listChats(user.id);
+  list(
+    @CurrentUser() user: User,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.chatService.listChats(
+      user.id,
+      cursor,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Get(':id')

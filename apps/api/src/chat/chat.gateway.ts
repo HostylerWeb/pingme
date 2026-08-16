@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { UserStatus } from '@pingme/db';
 import {
   ConnectedSocket,
   MessageBody,
@@ -13,12 +14,14 @@ import {
 import { Server, Socket } from 'socket.io';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { createCorsOriginDelegate, parseCorsOrigins } from '../common/utils/cors.util';
+import { PrismaService } from '../prisma/prisma.service';
 import { ChatService } from './chat.service';
 
 const wsNodeEnv = process.env.NODE_ENV ?? 'development';
 const wsAllowedOrigins = parseCorsOrigins(process.env.CORS_ORIGINS, wsNodeEnv);
 const WS_MESSAGE_SEND_LIMIT = 30;
 const WS_CONNECT_LIMIT = 30;
+const WS_MESSAGE_MAX_LENGTH = 2000;
 
 @WebSocketGateway({
   namespace: '/ws',
@@ -39,6 +42,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly rateLimit: RateLimitService,
+    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
   ) {}
@@ -71,6 +75,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const payload = await this.jwtService.verifyAsync<{ sub: string }>(token, {
         secret: this.config.get<string>('JWT_ACCESS_SECRET', 'dev-secret'),
       });
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { deletedAt: true, status: true },
+      });
+
+      if (
+        !user ||
+        user.deletedAt != null ||
+        user.status === UserStatus.suspended ||
+        user.status === UserStatus.deleted
+      ) {
+        client.disconnect();
+        return;
+      }
 
       client.data.userId = payload.sub;
       await client.join(this.userRoom(payload.sub));
@@ -106,8 +125,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() body: { chatId?: string; content?: string },
   ) {
     const userId = client.data.userId as string | undefined;
-    if (!userId || !body.chatId || !body.content?.trim()) {
+    const content = body.content?.trim();
+    if (!userId || !body.chatId || !content) {
       return { success: false };
+    }
+
+    if (content.length > WS_MESSAGE_MAX_LENGTH) {
+      return { success: false, error: 'Message too long' };
     }
 
     const sendAllowed = await this.rateLimit.incrementWithinWindow(
@@ -120,7 +144,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const result = await this.chatService.sendMessage(userId, body.chatId, body.content);
+      const result = await this.chatService.sendMessage(userId, body.chatId, content);
       return { success: true, data: result.data };
     } catch (error) {
       this.logger.warn(

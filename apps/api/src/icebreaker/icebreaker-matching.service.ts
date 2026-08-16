@@ -1,8 +1,8 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { shouldRunWorkers } from '../common/utils/run-mode';
+import { BullmqRedisService } from '../redis/redis.module';
 import { IcebreakerService } from './icebreaker.service';
 
 @Injectable()
@@ -13,7 +13,7 @@ export class IcebreakerMatchingService implements OnModuleInit, OnModuleDestroy 
   private worker!: Worker;
 
   constructor(
-    private readonly config: ConfigService,
+    private readonly bullmqRedis: BullmqRedisService,
     private readonly icebreaker: IcebreakerService,
   ) {}
 
@@ -23,8 +23,7 @@ export class IcebreakerMatchingService implements OnModuleInit, OnModuleDestroy 
       return;
     }
 
-    const redisUrl = this.config.get<string>('REDIS_URL', 'redis://localhost:6381');
-    this.connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+    this.connection = this.bullmqRedis.connection;
 
     this.queue = new Queue('icebreaker-matching', { connection: this.connection });
 
@@ -58,6 +57,5 @@ export class IcebreakerMatchingService implements OnModuleInit, OnModuleDestroy 
   async onModuleDestroy() {
     await this.worker?.close();
     await this.queue?.close();
-    await this.connection?.quit();
   }
 }

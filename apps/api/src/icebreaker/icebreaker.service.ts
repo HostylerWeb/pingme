@@ -503,45 +503,65 @@ export class IcebreakerService {
       };
     }
 
-    const match = await this.prisma.$transaction(async (tx) => {
-      const expiresAt = new Date(Date.now() + MATCH_EXPIRY_MINUTES * 60 * 1000);
-      const createdMatch = await tx.match.create({
-        data: {
-          userAId,
-          userBId,
-          source: 'icebreaker',
-          sourceReferenceId: mySession.id,
-          expiresAt,
-        },
-      });
+    let match;
+    try {
+      match = await this.prisma.$transaction(async (tx) => {
+        const expiresAt = new Date(Date.now() + MATCH_EXPIRY_MINUTES * 60 * 1000);
+        const createdMatch = await tx.match.create({
+          data: {
+            userAId,
+            userBId,
+            source: 'icebreaker',
+            sourceReferenceId: mySession.id,
+            expiresAt,
+          },
+        });
 
-      await tx.icebreakerSession.update({
-        where: { id: mySession.id },
-        data: {
-          status: IcebreakerSessionStatus.matched,
-          matchedSessionId: targetSession.id,
-        },
-      });
-      await tx.icebreakerSession.update({
-        where: { id: targetSession.id },
-        data: {
-          status: IcebreakerSessionStatus.matched,
-          matchedSessionId: mySession.id,
-        },
-      });
+        await tx.icebreakerSession.update({
+          where: { id: mySession.id },
+          data: {
+            status: IcebreakerSessionStatus.matched,
+            matchedSessionId: targetSession.id,
+          },
+        });
+        await tx.icebreakerSession.update({
+          where: { id: targetSession.id },
+          data: {
+            status: IcebreakerSessionStatus.matched,
+            matchedSessionId: mySession.id,
+          },
+        });
 
-      await tx.icebreakerInterest.updateMany({
-        where: {
-          OR: [
-            { fromUserId: userId, toUserId: targetUserId },
-            { fromUserId: targetUserId, toUserId: userId },
-          ],
-        },
-        data: { expiresAt: null, expiredAt: null },
-      });
+        await tx.icebreakerInterest.updateMany({
+          where: {
+            OR: [
+              { fromUserId: userId, toUserId: targetUserId },
+              { fromUserId: targetUserId, toUserId: userId },
+            ],
+          },
+          data: { expiresAt: null, expiredAt: null },
+        });
 
-      return createdMatch;
-    });
+        return createdMatch;
+      });
+    } catch (error) {
+      if (isPrismaUniqueConflict(error)) {
+        const raced = await this.prisma.match.findFirst({
+          where: {
+            userAId,
+            userBId,
+            status: { in: [MatchStatus.pending, MatchStatus.active] },
+          },
+        });
+        if (raced) {
+          return {
+            success: true,
+            data: { matched: true, matchId: raced.id },
+          };
+        }
+      }
+      throw error;
+    }
 
     await this.audit.log({
       userId,
@@ -649,6 +669,15 @@ function isActiveYesInterest(
 
 function orderUserIds(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
+}
+
+function isPrismaUniqueConflict(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: string }).code === 'P2002'
+  );
 }
 
 function isHiddenFromList(

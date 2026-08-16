@@ -30,7 +30,7 @@ cp .env.example .env
 pnpm docker:up
 pnpm db:generate
 pnpm db:migrate
-pnpm db:seed   # optional — creates 10 test users
+pnpm db:seed   # optional — creates 10 test users (local only; refuses production unless ALLOW_SEED=1)
 ```
 
 **Services started by Docker:**

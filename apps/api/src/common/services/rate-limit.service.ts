@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../redis/redis.module';
 
+const INCREMENT_WITH_EXPIRE_LUA = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+`;
+
 @Injectable()
 export class RateLimitService {
   constructor(private readonly redis: RedisService) {}
@@ -13,10 +21,12 @@ export class RateLimitService {
   }
 
   async incrementWithinWindow(key: string, limit: number, windowSeconds: number): Promise<boolean> {
-    const count = await this.redis.client.incr(key);
-    if (count === 1) {
-      await this.redis.client.expire(key, windowSeconds);
-    }
+    const count = (await this.redis.client.eval(
+      INCREMENT_WITH_EXPIRE_LUA,
+      1,
+      key,
+      String(windowSeconds),
+    )) as number;
     return count <= limit;
   }
 }

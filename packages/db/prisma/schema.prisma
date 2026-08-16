@@ -390,6 +390,8 @@ model Match {
   userB User  @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
   chat  Chat?
 
+  // Partial unique index matches_active_pair_uidx (pending|active) applied in migration —
+  // Prisma cannot express partial unique indexes in @@unique.
   @@index([userAId, userBId])
   @@index([userAId, status])
   @@index([userBId, status])

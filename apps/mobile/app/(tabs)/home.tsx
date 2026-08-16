@@ -234,11 +234,13 @@ export default function WallScreen() {
   );
   const presenceRefetchInterval = useSocketAwareRefetchInterval({
     foreground: 60_000,
-    ignoreSocket: true,
+    connected: 10 * 60_000,
+    mode: 'slow',
   });
   const nearbyUsersRefetchInterval = useSocketAwareRefetchInterval({
     foreground: 30_000,
-    ignoreSocket: true,
+    connected: 3 * 60_000,
+    mode: 'slow',
   });
 
   const { data: presenceData } = useQuery({

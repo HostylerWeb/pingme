@@ -28,7 +28,8 @@ export class ChatService {
     private readonly gateway: ChatGateway,
   ) {}
 
-  async listChats(userId: string) {
+  async listChats(userId: string, cursor?: string, limitInput?: number) {
+    const limit = Math.min(Math.max(limitInput ?? 20, 1), 50);
     const blockedIds = await this.blocks.getBlockedUserIds(userId);
 
     const chats = await this.prisma.chat.findMany({
@@ -76,7 +77,9 @@ export class ChatService {
     );
     const verifiedSet = await loadLivenessVerifiedSet(this.prisma, otherUserIds);
 
-    const data = chats
+    const cursorPayload = decodeChatCursor(cursor);
+
+    const ranked = chats
       .map((chat) => {
         const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
         if (blockedIds.includes(otherUserId)) return null;
@@ -90,6 +93,7 @@ export class ChatService {
           verifiedSet.has(otherUserId),
         );
         const lastMessage = chat.messages[0] ?? null;
+        const sortAt = lastMessage?.createdAt ?? chat.createdAt;
 
         return {
           id: chat.id,
@@ -113,14 +117,38 @@ export class ChatService {
             : null,
           unreadCount: unreadByChatId.get(chat.id) ?? 0,
           createdAt: chat.createdAt,
-          sortAt: lastMessage?.createdAt ?? chat.createdAt,
+          sortAt,
         };
       })
       .filter((chat): chat is NonNullable<typeof chat> => chat !== null)
-      .sort((a, b) => b.sortAt.getTime() - a.sortAt.getTime())
-      .map(({ sortAt: _sortAt, ...chat }) => chat);
+      .sort((a, b) => {
+        const byTime = b.sortAt.getTime() - a.sortAt.getTime();
+        if (byTime !== 0) return byTime;
+        return b.id.localeCompare(a.id);
+      })
+      .filter((chat) => {
+        if (!cursorPayload) return true;
+        if (chat.sortAt.getTime() < cursorPayload.sortAt) return true;
+        if (chat.sortAt.getTime() > cursorPayload.sortAt) return false;
+        return chat.id < cursorPayload.id;
+      });
 
-    return { success: true, data };
+    const page = ranked.slice(0, limit + 1);
+    const hasMore = page.length > limit;
+    const items = hasMore ? page.slice(0, limit) : page;
+    const last = items[items.length - 1];
+    const nextCursor =
+      hasMore && last
+        ? encodeChatCursor({ sortAt: last.sortAt.getTime(), id: last.id })
+        : null;
+
+    const data = items.map(({ sortAt: _sortAt, ...chat }) => chat);
+
+    return {
+      success: true,
+      data,
+      meta: { limit, nextCursor, hasMore },
+    };
   }
 
   async getChat(userId: string, chatId: string) {
@@ -336,5 +364,25 @@ export class ChatService {
     }
 
     return chat;
+  }
+}
+
+function encodeChatCursor(payload: { sortAt: number; id: string }): string {
+  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+}
+
+function decodeChatCursor(cursor?: string): { sortAt: number; id: string } | null {
+  if (!cursor) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as {
+      sortAt?: unknown;
+      id?: unknown;
+    };
+    if (typeof parsed.sortAt !== 'number' || typeof parsed.id !== 'string') {
+      return null;
+    }
+    return { sortAt: parsed.sortAt, id: parsed.id };
+  } catch {
+    return null;
   }
 }

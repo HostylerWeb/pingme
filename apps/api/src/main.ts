@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './common/adapters/redis-io.adapter';
@@ -18,6 +19,9 @@ async function bootstrap() {
   assertRequiredSecrets(config, nodeEnv);
   const allowedOrigins = parseCorsOrigins(config.get<string>('CORS_ORIGINS'), nodeEnv);
   const uploadsDir = config.get<string>('UPLOADS_DIR', 'uploads');
+
+  app.enableShutdownHooks();
+  app.use(helmet());
 
   const redisAdapter = new RedisIoAdapter(app, config);
   await redisAdapter.connectToRedis();
@@ -72,12 +76,21 @@ async function bootstrap() {
 
   if (shouldRunApi()) {
     await app.listen(port, host);
+    app.getHttpServer().on('close', () => {
+      void redisAdapter.close();
+    });
     console.log(`API running on http://localhost:${port}/v1 (RUN_MODE=${runMode})`);
     console.log(`Swagger docs at http://localhost:${port}/docs`);
   } else {
     await app.init();
     console.log(`Worker mode active — HTTP API disabled (RUN_MODE=${runMode})`);
   }
+
+  const quitRedis = () => {
+    void redisAdapter.close();
+  };
+  process.once('SIGINT', quitRedis);
+  process.once('SIGTERM', quitRedis);
 }
 
 bootstrap();

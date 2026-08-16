@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AdminRole } from '@pingme/db';
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, Matches, MinLength } from 'class-validator';
 import { Public } from '../../common/decorators/public.decorator';
 import { AdminAuditService } from '../admin-audit.service';
 import { CurrentAdmin } from '../decorators/current-admin.decorator';
@@ -25,6 +25,9 @@ class CreateAdminDto {
 
   @IsString()
   @MinLength(8)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
+    message: 'Password must include upper and lower case letters and a number',
+  })
   password!: string;
 
   @IsEnum(AdminRole)
@@ -39,6 +42,9 @@ class UpdateAdminDto {
   @IsOptional()
   @IsString()
   @MinLength(8)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
+    message: 'Password must include upper and lower case letters and a number',
+  })
   password?: string;
 }
 

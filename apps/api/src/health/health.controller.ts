@@ -2,7 +2,6 @@ import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator';
-import { PresenceExpiryService } from '../presence/presence-expiry.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 
@@ -12,7 +11,6 @@ import { RedisService } from '../redis/redis.module';
 export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly presenceExpiry: PresenceExpiryService,
     private readonly redis: RedisService,
   ) {}
 
@@ -37,8 +35,6 @@ export class HealthController {
       });
     }
 
-    const activeAvailableUsers = await this.presenceExpiry.getActiveAvailableCount();
-
     return {
       success: true,
       data: {
@@ -46,7 +42,6 @@ export class HealthController {
         timestamp: new Date().toISOString(),
         database: 'connected',
         redis: redisStatus,
-        activeAvailableUsers,
       },
     };
   }

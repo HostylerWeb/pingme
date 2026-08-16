@@ -524,7 +524,16 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  getChats: () => apiFetch<{ success: boolean; data: ChatSummary[] }>('/chats'),
+  getChats: (cursor?: string, limit = 20) => {
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    if (cursor) params.set('cursor', cursor);
+    return apiFetch<{
+      success: boolean;
+      data: ChatSummary[];
+      meta: { limit: number; nextCursor: string | null; hasMore: boolean };
+    }>(`/chats?${params.toString()}`);
+  },
 
   getChat: (id: string) => apiFetch<{ success: boolean; data: ChatDetail }>(`/chats/${id}`),
 

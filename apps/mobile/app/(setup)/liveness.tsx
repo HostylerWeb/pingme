@@ -13,6 +13,20 @@ import { spacing, typography, useTheme, useThemedStyles } from '../../src/theme'
 const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 15;
 
+function isAllowedDiditNavigation(url: string): boolean {
+  if (url.startsWith('pingme://verification-complete')) {
+    return true;
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname.toLowerCase();
+    return host === 'didit.me' || host.endsWith('.didit.me');
+  } catch {
+    return false;
+  }
+}
+
 async function ensureCameraPermission(): Promise<boolean> {
   const current = await Camera.getCameraPermissionsAsync();
   if (current.granted) return true;
@@ -158,7 +172,7 @@ export default function LivenessScreen() {
               onWebViewClose();
               return false;
             }
-            return true;
+            return isAllowedDiditNavigation(request.url);
           }}
         />
       ) : null}

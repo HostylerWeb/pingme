@@ -9,8 +9,9 @@ Run these on **staging** with **two physical phones** before Phase 8/9. API: `ht
 - [ ] Staging API healthy: `GET /v1/health`
 - [ ] Admin login works: https://admin.hostyler.cloud
 
-Test users (from seed): `user1@pingme.test` … `user10@pingme.test` / `Password123!`  
-Admin: `admin@pingme.test` / `AdminPass123!`
+Test users (from seed): `user1@pingme.test` … `user10@pingme.test` / `Password123!` (override with `SEED_USER_PASSWORD`)  
+Admin: `admin@pingme.test` / `AdminPass123!` (override with `SEED_ADMIN_PASSWORD`)  
+Local seed only — rotate credentials on any shared staging; production seed requires `ALLOW_SEED=1`.
 
 ---
 

@@ -156,6 +156,8 @@ export class PresenceService {
         data: {
           isActive: false,
           endedAt: new Date(),
+          latitude: null,
+          longitude: null,
         },
       });
       await this.redis.client.zrem(GEO_AVAILABLE_KEY, userId);

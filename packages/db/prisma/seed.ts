@@ -7,10 +7,14 @@ config({ path: resolve(__dirname, '../../../.env') });
 
 const prisma = new PrismaClient();
 
-const PASSWORD = 'Password123!';
-const ADMIN_PASSWORD = 'AdminPass123!';
-
 async function main() {
+  if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SEED !== '1') {
+    throw new Error('Refusing to seed in production without ALLOW_SEED=1');
+  }
+
+  const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'Password123!';
+  const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'AdminPass123!';
+
   const passwordHash = await bcrypt.hash(PASSWORD, 12);
   const adminPasswordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
 
@@ -51,7 +55,7 @@ async function main() {
     });
   }
 
-  console.log('Seeded 10 test users.');
+  console.log('Seeded 10 test users (local/dev only — rotate passwords on shared staging).');
   console.log(`Login with any user1@pingme.test … user10@pingme.test / ${PASSWORD}`);
   console.log(`Admin login: admin@pingme.test / ${ADMIN_PASSWORD}`);
 }
