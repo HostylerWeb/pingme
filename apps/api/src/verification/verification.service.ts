@@ -288,8 +288,13 @@ export class VerificationService {
 
     if (existing?.metadata) {
       const metadata = existing.metadata as Record<string, unknown>;
+      const existingWorkflowType =
+        metadata.workflow_type === 'id' || metadata.workflow_type === 'kyc'
+          ? metadata.workflow_type
+          : null;
       const url = typeof metadata.url === 'string' ? metadata.url : null;
-      if (url) {
+
+      if (url && existingWorkflowType === workflowType) {
         return {
           success: true,
           data: {
@@ -299,6 +304,20 @@ export class VerificationService {
             resumed: true,
           },
         };
+      }
+
+      if (existing) {
+        await this.prisma.verification.update({
+          where: { id: existing.id },
+          data: {
+            status: VerificationStatus.expired,
+            metadata: {
+              ...metadata,
+              superseded_at: new Date().toISOString(),
+              superseded_reason: `Expected ${workflowType} workflow`,
+            },
+          },
+        });
       }
     }
 
