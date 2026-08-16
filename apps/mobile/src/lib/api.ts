@@ -592,7 +592,7 @@ export const api = {
 
   reportUser: (payload: {
     reportedUserId: string;
-    targetType: 'user' | 'post' | 'reply' | 'message';
+    targetType: 'user' | 'post' | 'reply' | 'message' | 'event' | 'event_comment';
     targetId: string;
     reason: 'harassment' | 'spam' | 'inappropriate' | 'underage' | 'other';
     description?: string;
@@ -601,6 +601,136 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  getNearbyEvents: (page = 1, limit = 20) =>
+    apiFetch<{
+      success: boolean;
+      data: EventSummary[];
+      meta: { page: number; limit: number; radiusMeters: number; hasMore: boolean };
+    }>(`/events/nearby?page=${page}&limit=${limit}`),
+
+  getMyEvents: () =>
+    apiFetch<{ success: boolean; data: EventMineSummary[] }>('/events/mine'),
+
+  getEvent: (id: string) =>
+    apiFetch<{ success: boolean; data: EventDetail }>(`/events/${id}`),
+
+  createEvent: (payload: {
+    title: string;
+    description: string;
+    latitude: number;
+    longitude: number;
+    placeName?: string;
+    address?: string;
+    startsAt: string;
+    endsAt: string;
+    allowMessages?: boolean;
+  }) =>
+    apiFetch<{ success: boolean; data: { id: string } }>('/events', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateEvent: (
+    id: string,
+    payload: Partial<{
+      title: string;
+      description: string;
+      latitude: number;
+      longitude: number;
+      placeName: string | null;
+      address: string | null;
+      startsAt: string;
+      endsAt: string;
+      allowMessages: boolean;
+    }>,
+  ) =>
+    apiFetch(`/events/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  cancelEvent: (id: string) =>
+    apiFetch(`/events/${id}`, { method: 'DELETE' }),
+
+  presignEventImage: (eventId: string, fileName: string, contentType: string) =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        uploadUrl: string | null;
+        key: string;
+        publicUrl: string;
+        directUpload?: boolean;
+      };
+    }>(`/events/${eventId}/images/presign`, {
+      method: 'POST',
+      body: JSON.stringify({ fileName, contentType }),
+    }),
+
+  addEventImages: (
+    eventId: string,
+    images: Array<{ url: string; isCover?: boolean; sortOrder?: number }>,
+  ) =>
+    apiFetch(`/events/${eventId}/images`, {
+      method: 'POST',
+      body: JSON.stringify({ images }),
+    }),
+
+  rsvpEvent: (eventId: string, status: 'going' | 'maybe') =>
+    apiFetch(`/events/${eventId}/rsvp`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    }),
+
+  cancelEventRsvp: (eventId: string) =>
+    apiFetch(`/events/${eventId}/rsvp`, { method: 'DELETE' }),
+
+  getEventComments: (eventId: string, page = 1) =>
+    apiFetch<{
+      success: boolean;
+      data: EventComment[];
+      meta: { page: number; limit: number; hasMore: boolean };
+    }>(`/events/${eventId}/comments?page=${page}`),
+
+  postEventComment: (eventId: string, content: string) =>
+    apiFetch(`/events/${eventId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+
+  deleteEventComment: (eventId: string, commentId: string) =>
+    apiFetch(`/events/${eventId}/comments/${commentId}`, { method: 'DELETE' }),
+
+  messageEventHost: (eventId: string, message?: string) =>
+    apiFetch<{ success: boolean; data: { chatId: string } }>(
+      `/events/${eventId}/message-host`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+      },
+    ),
+
+  geocodeSearch: (q: string) =>
+    apiFetch<{
+      success: boolean;
+      data: Array<{
+        placeName: string;
+        address: string;
+        latitude: number;
+        longitude: number;
+      }>;
+    }>(`/geocoding/search?q=${encodeURIComponent(q)}`),
+
+  geocodeReverse: (lat: number, lng: number) =>
+    apiFetch<{
+      success: boolean;
+      data: {
+        placeName: string;
+        address: string;
+        latitude: number;
+        longitude: number;
+      } | null;
+    }>(`/geocoding/reverse?lat=${lat}&lng=${lng}`),
 };
 
 export interface PublicUserFlair {
@@ -754,6 +884,7 @@ export interface UserSettings {
   allowPushChat: boolean;
   allowPushIcebreaker: boolean;
   allowPushIcebreakerNearby: boolean;
+  allowPushEventsNearby: boolean;
   showReadReceipts: boolean;
   radiusMeters: number;
   showDistanceBucket: boolean;
@@ -833,4 +964,74 @@ export interface ChatMessage {
   isYou: boolean;
   status: string;
   read?: boolean;
+}
+
+export interface EventHostSummary extends PublicUserFlair {
+  id: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  isYou: boolean;
+  idVerified?: boolean;
+}
+
+export interface EventSummary {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  placeName?: string | null;
+  goingCount: number;
+  maybeCount: number;
+  coverUrl?: string | null;
+  distanceBucket: string;
+  host: EventHostSummary;
+}
+
+export interface EventMineSummary {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  goingCount: number;
+  maybeCount: number;
+  coverUrl?: string | null;
+  isHost: boolean;
+}
+
+export interface EventDetail {
+  id: string;
+  title: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  placeName?: string | null;
+  address?: string | null;
+  startsAt: string;
+  endsAt: string;
+  allowMessages: boolean;
+  status: string;
+  goingCount: number;
+  maybeCount: number;
+  commentCount: number;
+  distanceBucket: string;
+  images: Array<{ id: string; url: string; isCover: boolean; sortOrder: number }>;
+  host: EventHostSummary;
+  viewerRsvp: 'going' | 'maybe' | null;
+  isHost: boolean;
+}
+
+export interface EventComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: {
+    id: string;
+    displayName: string;
+    avatarUrl?: string | null;
+    isYou: boolean;
+    isPremium?: boolean;
+    avatarTheme?: string | null;
+    livenessVerified?: boolean;
+  };
 }

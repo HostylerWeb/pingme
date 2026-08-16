@@ -89,6 +89,7 @@ export const UpdateSettingsSchema = z
     allowPushChat: z.boolean().optional(),
     allowPushIcebreaker: z.boolean().optional(),
     allowPushIcebreakerNearby: z.boolean().optional(),
+    allowPushEventsNearby: z.boolean().optional(),
     showReadReceipts: z.boolean().optional(),
     language: z.string().min(2).max(10).optional(),
   })
@@ -219,13 +220,83 @@ export const BlockUserSchema = z.object({
 
 export const CreateReportSchema = z.object({
   reportedUserId: z.string().uuid(),
-  targetType: z.enum(['user', 'post', 'reply', 'message']),
+  targetType: z.enum(['user', 'post', 'reply', 'message', 'event', 'event_comment']),
   targetId: z.string().uuid(),
   reason: z.enum(['harassment', 'spam', 'inappropriate', 'underage', 'other']),
   description: z.string().max(1000).optional(),
+});
+
+export const CreateEventSchema = z
+  .object({
+    title: z.string().min(1).max(120),
+    description: z.string().min(1).max(5000),
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+    placeName: z.string().max(200).optional(),
+    address: z.string().max(500).optional(),
+    startsAt: z.coerce.date(),
+    endsAt: z.coerce.date(),
+    allowMessages: z.boolean().optional(),
+  })
+  .refine((data) => data.endsAt > data.startsAt, {
+    message: 'End time must be after start time',
+    path: ['endsAt'],
+  });
+
+export const UpdateEventSchema = z
+  .object({
+    title: z.string().min(1).max(120).optional(),
+    description: z.string().min(1).max(5000).optional(),
+    latitude: z.number().min(-90).max(90).optional(),
+    longitude: z.number().min(-180).max(180).optional(),
+    placeName: z.string().max(200).nullable().optional(),
+    address: z.string().max(500).nullable().optional(),
+    startsAt: z.coerce.date().optional(),
+    endsAt: z.coerce.date().optional(),
+    allowMessages: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.startsAt && data.endsAt) {
+        return data.endsAt > data.startsAt;
+      }
+      return true;
+    },
+    { message: 'End time must be after start time', path: ['endsAt'] },
+  );
+
+export const EventRsvpSchema = z.object({
+  status: z.enum(['going', 'maybe']),
+});
+
+export const CreateEventCommentSchema = z.object({
+  content: z.string().min(1).max(500),
+});
+
+export const MessageEventHostSchema = z.object({
+  message: z.string().max(2000).optional(),
+});
+
+export const EventImageConfirmSchema = z.object({
+  images: z
+    .array(
+      z.object({
+        url: z.string().url().max(500),
+        isCover: z.boolean().optional(),
+        sortOrder: z.number().int().min(0).max(4).optional(),
+      }),
+    )
+    .min(1)
+    .max(5),
 });
 
 export type MatchRequestInput = z.infer<typeof MatchRequestSchema>;
 export type SendMessageInput = z.infer<typeof SendMessageSchema>;
 export type BlockUserInput = z.infer<typeof BlockUserSchema>;
 export type CreateReportInput = z.infer<typeof CreateReportSchema>;
+export type CreateEventInput = z.infer<typeof CreateEventSchema>;
+export type UpdateEventInput = z.infer<typeof UpdateEventSchema>;
+export type EventRsvpInput = z.infer<typeof EventRsvpSchema>;
+export type CreateEventCommentInput = z.infer<typeof CreateEventCommentSchema>;
+export type MessageEventHostInput = z.infer<typeof MessageEventHostSchema>;
+export type EventImageConfirmInput = z.infer<typeof EventImageConfirmSchema>;

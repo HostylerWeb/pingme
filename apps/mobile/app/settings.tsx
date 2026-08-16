@@ -18,7 +18,8 @@ type NotificationKey =
   | 'allowPushReplies'
   | 'allowPushChat'
   | 'allowPushIcebreakerNearby'
-  | 'allowPushIcebreaker';
+  | 'allowPushIcebreaker'
+  | 'allowPushEventsNearby';
 
 const NOTIFICATION_OPTIONS: Array<{
   key: NotificationKey;
@@ -41,6 +42,11 @@ const NOTIFICATION_OPTIONS: Array<{
     label: 'Nearby Break the ice',
     hint: 'When someone nearby turns Break the ice on — even if you have not',
     variant: 'icebreaker',
+  },
+  {
+    key: 'allowPushEventsNearby',
+    label: 'Nearby events',
+    hint: 'When someone hosts a new event within discovery range',
   },
   {
     key: 'allowPushIcebreaker',
@@ -172,6 +178,7 @@ export default function SettingsScreen() {
       allowPushChat?: boolean;
       allowPushIcebreaker?: boolean;
       allowPushIcebreakerNearby?: boolean;
+      allowPushEventsNearby?: boolean;
     }) => api.updateSettings(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-settings'] });

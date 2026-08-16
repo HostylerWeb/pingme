@@ -24,6 +24,8 @@ import { AdminReportsController } from './reports/admin-reports.controller';
 import { AdminReportsService } from './reports/admin-reports.service';
 import { AdminUsersController } from './users/admin-users.controller';
 import { AdminUsersService } from './users/admin-users.service';
+import { AdminEventsController } from './events/admin-events.controller';
+import { AdminEventsService } from './events/admin-events.service';
 import { AdminWallController } from './wall/admin-wall.controller';
 import { AdminWallService } from './wall/admin-wall.service';
 
@@ -51,6 +53,7 @@ import { AdminWallService } from './wall/admin-wall.service';
     AdminUsersController,
     AdminReportsController,
     AdminWallController,
+    AdminEventsController,
     AdminAuditLogsController,
     AdminChatsController,
     AdminAdminsController,
@@ -64,6 +67,7 @@ import { AdminWallService } from './wall/admin-wall.service';
     AdminUsersService,
     AdminReportsService,
     AdminWallService,
+    AdminEventsService,
     AdminAuditLogsService,
     AdminChatsService,
     AdminAdminsService,

@@ -91,6 +91,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="events"
+        options={{
+          title: 'Events',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="calendar" color={String(color)} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'You',

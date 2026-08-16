@@ -1045,7 +1045,7 @@ Both audiences must see the same benefit spelled out:
 
 ### Events in the mobile app
 
-**Status:** **UNDONE** — full spec in [Events feature plan](#events-feature-plan-couchsurfing-style) below. This is the implementation target for backlog **#33**.
+**Status:** **Done** — E1–E5 shipped (see [Events feature plan](#events-feature-plan-couchsurfing-style)).
 
 **Navigation (locked E0.1):** Add a **5th bottom tab — Events** (`app/(tabs)/events.tsx` or equivalent).
 
@@ -2394,7 +2394,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 |---|---------|--------|-------|
 | 31 | **Native in-app purchases** | **UNDONE** | |
 | 32 | **Premium add-ons à la carte** — e.g. visibility boost | **UNDONE** | |
-| 33 | **Events (user-created meetups)** — Couchsurfing-style | **UNDONE** | Full plan: [Events in mobile app](#events-in-the-mobile-app) + [Events feature plan](#events-feature-plan-couchsurfing-style) (E1–E5) |
+| 33 | **Events (user-created meetups)** — Couchsurfing-style | **Done** | E1–E5: DB, API, mobile tab, RSVP, comments, message host, admin, push |
 | 34 | **Web app** — Read-only wall for desktop | **UNDONE** | |
 | 35 | **Analytics** — DAU, match rate, icebreaker → chat conversion | **Done** | Dashboard: DAU, signups, icebreaker sessions, match rate %, icebreaker→chat % |
 
@@ -2453,45 +2453,45 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 | # | Task | Status |
 |---|------|--------|
-| E2.1 | Migration: `events` table — `user_id`, title, description, lat/lng, `place_name`, `address`, `starts_at`, `ends_at`, `allow_messages`, status | **UNDONE** |
-| E2.2 | Migration: `event_images` table — up to 5 (`is_cover`, `sort_order`) | **UNDONE** |
-| E2.3 | Migration: `event_rsvps` — `user_id`, `event_id`, status (`going` / `maybe` / `cancelled`) | **UNDONE** |
-| E2.4 | Migration: `event_comments` — threaded replies (like `wall_replies`) | **UNDONE** |
-| E2.5 | Indexes: geo (15km queries), `starts_at`, `status`, `user_id` | **UNDONE** |
+| E2.1 | Migration: `events` table — `user_id`, title, description, lat/lng, `place_name`, `address`, `starts_at`, `ends_at`, `allow_messages`, status | **Done** |
+| E2.2 | Migration: `event_images` table — up to 5 (`is_cover`, `sort_order`) | **Done** |
+| E2.3 | Migration: `event_rsvps` — `user_id`, `event_id`, status (`going` / `maybe` / `cancelled`) | **Done** |
+| E2.4 | Migration: `event_comments` — threaded replies (like `wall_replies`) | **Done** |
+| E2.5 | Indexes: geo (15km queries), `starts_at`, `status`, `user_id` | **Done** |
 
 **Phase 3 — API**
 
 | # | Task | Status |
 |---|------|--------|
-| E3.1 | `GET /events/nearby` — **15 km** radius, blocks, distance | **UNDONE** |
-| E3.2 | `GET /events/:id` — detail + images + host + RSVP counts | **UNDONE** |
-| E3.3 | `POST /events` — guard: liveness + ID verified; `allow_messages` flag | **UNDONE** |
-| E3.4 | `PATCH /events/:id` · `DELETE /events/:id` — host only | **UNDONE** |
-| E3.5 | `POST /events/:id/images` — up to 5 (1 cover + gallery) | **UNDONE** |
-| E3.6 | `POST /events/:id/rsvp` · `DELETE /events/:id/rsvp` — going / maybe | **UNDONE** |
-| E3.7 | `GET /events/:id/comments` · `POST` · `DELETE` — public thread | **UNDONE** |
-| E3.8 | `POST /events/:id/message-host` — only if `allow_messages` + liveness | **UNDONE** |
-| E3.9 | Report event — reuse reports module | **UNDONE** |
+| E3.1 | `GET /events/nearby` — **15 km** radius, blocks, distance | **Done** |
+| E3.2 | `GET /events/:id` — detail + images + host + RSVP counts | **Done** |
+| E3.3 | `POST /events` — guard: liveness + ID verified; `allow_messages` flag | **Done** |
+| E3.4 | `PATCH /events/:id` · `DELETE /events/:id` — host only | **Done** |
+| E3.5 | `POST /events/:id/images` — up to 5 (1 cover + gallery) | **Done** |
+| E3.6 | `POST /events/:id/rsvp` · `DELETE /events/:id/rsvp` — going / maybe | **Done** |
+| E3.7 | `GET /events/:id/comments` · `POST` · `DELETE` — public thread | **Done** |
+| E3.8 | `POST /events/:id/message-host` — only if `allow_messages` + liveness | **Done** |
+| E3.9 | Report event — reuse reports module | **Done** |
 
 **Phase 4 — Mobile**
 
 | # | Task | Status |
 |---|------|--------|
-| E4.1 | **Events tab** — list (cover, title, date, distance, host, RSVP count) | **UNDONE** |
-| E4.2 | Event detail — carousel, map pin, description, host card | **UNDONE** |
-| E4.3 | Create/edit — KYC gate → form → map search/pin → up to 5 images → `allow_messages` toggle | **UNDONE** |
-| E4.4 | RSVP buttons (Going / Maybe) + counts | **UNDONE** |
-| E4.5 | Comment thread on event detail | **UNDONE** |
-| E4.6 | “Message host” CTA when allowed | **UNDONE** |
-| E4.7 | “My events” on You tab — edit / cancel | **UNDONE** |
+| E4.1 | **Events tab** — list (cover, title, date, distance, host, RSVP count) | **Done** |
+| E4.2 | Event detail — carousel, map pin, description, host card | **Done** |
+| E4.3 | Create/edit — KYC gate → form → map search/pin → up to 5 images → `allow_messages` toggle | **Done** |
+| E4.4 | RSVP buttons (Going / Maybe) + counts | **Done** |
+| E4.5 | Comment thread on event detail | **Done** |
+| E4.6 | “Message host” CTA when allowed | **Done** |
+| E4.7 | “My events” on You tab — edit / cancel | **Done** |
 
 **Phase 5 — Admin & safety**
 
 | # | Task | Status |
 |---|------|--------|
-| E5.1 | Admin: list / remove events | **UNDONE** |
-| E5.2 | Admin: see host verification status on event | **UNDONE** |
-| E5.3 | Push: “New event near you” (optional, post-MVP) | **UNDONE** |
+| E5.1 | Admin: list / remove events | **Done** |
+| E5.2 | Admin: see host verification status on event | **Done** |
+| E5.3 | Push: “New event near you” | **Done** |
 
 **Suggested build order:** E1 (KYC) → E2 → E3 core (CRUD + nearby) → E4 list/detail/create → E3/E4 RSVP → comments → message host. Phase 0 locked.
 
@@ -2535,7 +2535,7 @@ GET /config       → public app limits (distance radii); mobile prefetches at l
 | D3 | API: `GET /config` — return all radii for mobile UI | **Done** |
 | D4 | Mobile: build radius picker options from API config (not hardcoded `RADIUS_OPTIONS`) | **Done** |
 | D5 | Mobile: icebreaker subtitle from API config | **Done** |
-| D6 | Events module: use `EVENTS_DISCOVERY_RADIUS_METERS` | **UNDONE** (with Events E3) |
+| D6 | Events module: use `EVENTS_DISCOVERY_RADIUS_METERS` | **Done** |
 
 **Architecture:** API `.env` → `AppConfigService` (single parser) → enforces on wall/presence/icebreaker + exposes `GET /v1/config`. Mobile prefetches config at launch. Per-user Wall radius stays in `user_settings` but is clamped to server min/max.
 

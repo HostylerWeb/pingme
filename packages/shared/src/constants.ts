@@ -18,7 +18,13 @@ export const NOTIFICATION_TYPES = {
   CHAT_MESSAGE: 'chat.message',
   VERIFICATION_PASSED: 'verification.passed',
   MODERATION_ACTION: 'moderation.action',
+  EVENT_NEARBY: 'event.nearby',
 } as const;
+
+export const MAX_EVENT_IMAGES = 5;
+export const MAX_EVENT_TITLE_LENGTH = 120;
+export const MAX_EVENT_DESCRIPTION_LENGTH = 5000;
+export const MAX_EVENT_COMMENT_LENGTH = 500;
 
 export const MAX_DISPLAY_NAME_LENGTH = 50;
 export const MAX_BIO_LENGTH = 300;

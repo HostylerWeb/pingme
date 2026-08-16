@@ -36,5 +36,6 @@ export function iconForNotificationType(type: string): AppIconName {
   ) {
     return 'icebreaker';
   }
+  if (type === 'event.nearby') return 'calendar';
   return 'notifications';
 }

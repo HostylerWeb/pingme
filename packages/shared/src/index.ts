@@ -1,3 +1,4 @@
+export * from './events';
 export * from './constants';
 export * from './distance-config';
 export * from './enums';

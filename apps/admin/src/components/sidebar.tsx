@@ -14,6 +14,7 @@ const navItems: Array<{
   { href: '/reports', label: 'Reports', roles: ['moderator', 'super_admin'] },
   { href: '/users', label: 'Users' },
   { href: '/content', label: 'Content', roles: ['moderator', 'super_admin'] },
+  { href: '/events', label: 'Events', roles: ['moderator', 'super_admin'] },
   { href: '/map', label: 'Live map', roles: ['moderator', 'super_admin'] },
   { href: '/audit-logs', label: 'Audit logs', roles: ['moderator', 'super_admin'] },
   { href: '/admins', label: 'Admin users', roles: ['super_admin'] },

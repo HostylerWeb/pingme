@@ -72,6 +72,9 @@ model User {
   reportsReceived      Report[]            @relation("ReportsReceived")
   verifications        Verification[]
   subscription         Subscription?
+  events               Event[]
+  eventRsvps           EventRsvp[]
+  eventComments        EventComment[]
 
   @@map("users")
 }
@@ -104,6 +107,7 @@ model UserSettings {
   allowPushChat       Boolean @default(true) @map("allow_push_chat")
   allowPushIcebreaker Boolean @default(true) @map("allow_push_icebreaker")
   allowPushIcebreakerNearby Boolean @default(true) @map("allow_push_icebreaker_nearby")
+  allowPushEventsNearby Boolean @default(true) @map("allow_push_events_nearby")
   showReadReceipts    Boolean @default(false) @map("show_read_receipts")
   language            String  @default("en") @db.VarChar(10)
 
@@ -319,6 +323,7 @@ enum MatchSource {
   icebreaker
   wall_reply
   manual
+  event
 }
 
 enum MatchStatus {
@@ -446,6 +451,28 @@ enum ReportTargetType {
   post
   reply
   message
+  event
+  event_comment
+}
+
+enum EventStatus {
+  active
+  cancelled
+  hidden
+  deleted
+  moderated
+}
+
+enum EventRsvpStatus {
+  going
+  maybe
+  cancelled
+}
+
+enum EventCommentStatus {
+  active
+  hidden
+  deleted
 }
 
 enum ReportReason {
@@ -600,4 +627,81 @@ model Subscription {
 
   @@index([plan, status])
   @@map("subscriptions")
+}
+
+model Event {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @map("user_id") @db.Uuid
+  title          String      @db.VarChar(120)
+  description    String      @db.Text
+  latitude       Float
+  longitude      Float
+  placeName      String?     @map("place_name") @db.VarChar(200)
+  address        String?     @db.VarChar(500)
+  startsAt       DateTime    @map("starts_at")
+  endsAt         DateTime    @map("ends_at")
+  allowMessages  Boolean     @default(true) @map("allow_messages")
+  status         EventStatus @default(active)
+  goingCount     Int         @default(0) @map("going_count")
+  maybeCount     Int         @default(0) @map("maybe_count")
+  commentCount   Int         @default(0) @map("comment_count")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images   EventImage[]
+  rsvps    EventRsvp[]
+  comments EventComment[]
+
+  @@index([latitude, longitude])
+  @@index([status])
+  @@index([startsAt])
+  @@index([userId])
+  @@map("events")
+}
+
+model EventImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  eventId   String   @map("event_id") @db.Uuid
+  url       String   @db.VarChar(500)
+  isCover   Boolean  @default(false) @map("is_cover")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("event_images")
+}
+
+model EventRsvp {
+  id        String          @id @default(uuid()) @db.Uuid
+  eventId   String          @map("event_id") @db.Uuid
+  userId    String          @map("user_id") @db.Uuid
+  status    EventRsvpStatus @default(going)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@map("event_rsvps")
+}
+
+model EventComment {
+  id        String             @id @default(uuid()) @db.Uuid
+  eventId   String             @map("event_id") @db.Uuid
+  userId    String             @map("user_id") @db.Uuid
+  content   String             @db.VarChar(500)
+  status    EventCommentStatus @default(active)
+  createdAt DateTime           @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("event_comments")
 }

@@ -10,6 +10,7 @@ export type NotificationNavigationPayload = {
   matchId?: string;
   chatId?: string;
   nearbyCount?: number;
+  eventId?: string;
 };
 
 function parseNearbyCount(value: unknown): number | undefined {
@@ -33,6 +34,7 @@ export function parseNotificationData(
     matchId: data.matchId != null ? String(data.matchId) : undefined,
     chatId: data.chatId != null ? String(data.chatId) : undefined,
     nearbyCount: parseNearbyCount(data.count),
+    eventId: data.eventId != null ? String(data.eventId) : undefined,
   };
 }
 
@@ -78,6 +80,9 @@ export function getNotificationHref(payload: NotificationNavigationPayload): Hre
   }
   if (payload.type === 'icebreaker.interest' || payload.type === 'icebreaker.nearby') {
     return '/(tabs)/icebreaker';
+  }
+  if (payload.type === 'event.nearby') {
+    return payload.eventId ? `/events/${payload.eventId}` : '/(tabs)/events';
   }
   return null;
 }

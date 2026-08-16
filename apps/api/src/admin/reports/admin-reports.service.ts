@@ -269,6 +269,45 @@ export class AdminReportsService {
             }
           : null;
       }
+      case 'event': {
+        const event = await this.prisma.event.findUnique({
+          where: { id: targetId },
+          include: {
+            user: { include: { profile: { select: { displayName: true } } } },
+          },
+        });
+        return event
+          ? {
+              type: 'event',
+              id: event.id,
+              content: event.title,
+              status: event.status,
+              createdAt: event.createdAt,
+              authorDisplayName: event.user.profile?.displayName ?? null,
+            }
+          : null;
+      }
+      case 'event_comment': {
+        const comment = await this.prisma.eventComment.findUnique({
+          where: { id: targetId },
+          include: {
+            user: { include: { profile: { select: { displayName: true } } } },
+            event: { select: { id: true, title: true } },
+          },
+        });
+        return comment
+          ? {
+              type: 'event_comment',
+              id: comment.id,
+              content: comment.content,
+              status: comment.status,
+              eventId: comment.eventId,
+              eventTitle: comment.event.title,
+              createdAt: comment.createdAt,
+              authorDisplayName: comment.user.profile?.displayName ?? null,
+            }
+          : null;
+      }
       case 'user': {
         const user = await this.prisma.user.findUnique({
           where: { id: targetId },

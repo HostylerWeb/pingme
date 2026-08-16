@@ -44,6 +44,10 @@ export default function ProfileScreen() {
     queryKey: ['subscription'],
     queryFn: () => api.getSubscription(),
   });
+  const { data: myEventsData } = useQuery({
+    queryKey: ['my-events'],
+    queryFn: () => api.getMyEvents(),
+  });
   const isPremium = subscriptionData?.data?.isPremium ?? user?.subscription?.isPremium ?? false;
   const avatarTheme =
     (user?.profile as { avatarConfig?: { theme?: string } } | null | undefined)?.avatarConfig?.theme ??
@@ -385,13 +389,6 @@ export default function ProfileScreen() {
             onPress={() => router.push('/(setup)/liveness')}
             style={styles.cta}
           />
-        ) : !user?.idVerified ? (
-          <Button
-            label="Verify ID to host events"
-            variant="secondary"
-            onPress={() => router.push('/(setup)/kyc')}
-            style={styles.cta}
-          />
         ) : null}
 
         <Text style={styles.sectionLabel}>Account</Text>
@@ -404,6 +401,36 @@ export default function ProfileScreen() {
             isLast
           />
         </View>
+
+        {myEventsData?.data && myEventsData.data.length > 0 ? (
+          <>
+            <Text style={styles.sectionLabel}>My events</Text>
+            <View style={styles.group}>
+              {myEventsData.data.map((event, index) => (
+                <Pressable
+                  key={event.id}
+                  onPress={() => router.push(`/events/${event.id}/edit`)}
+                  style={({ pressed }) => [
+                    styles.menuRow,
+                    index < myEventsData.data.length - 1 && styles.menuRowBorder,
+                    pressed && styles.menuRowPressed,
+                  ]}
+                >
+                  <View style={styles.menuIcon}>
+                    <AppIcon name="calendar" size={18} color={colors.ink} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.menuLabel}>{event.title}</Text>
+                    <Text style={styles.menuHint}>
+                      {new Date(event.startsAt).toLocaleDateString()} · {event.status}
+                    </Text>
+                  </View>
+                  <AppIcon name="chevron-forward" size={18} color={colors.inkTertiary} />
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
 
         <Text style={styles.sectionLabel}>More</Text>
         <View style={styles.group}>

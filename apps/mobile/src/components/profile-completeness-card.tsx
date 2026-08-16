@@ -69,27 +69,10 @@ export function ProfileCompletenessCard({
     rowPressed: { opacity: 0.85 },
     rowLabel: { ...typography.bodyMd, color: colors.ink, flex: 1, fontSize: 14 },
     rowLabelDone: { color: colors.inkTertiary },
-    completeBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      backgroundColor: colors.onlineSoft,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      marginBottom: spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.online,
-    },
-    completeText: { ...typography.bodyMd, color: colors.online, flex: 1 },
   }));
 
   if (result.isComplete) {
-    return (
-      <View style={styles.completeBanner}>
-        <AppIcon name="check-circle" size={20} color={colors.online} />
-        <Text style={styles.completeText}>Profile complete — you&apos;re ready to connect nearby.</Text>
-      </View>
-    );
+    return null;
   }
 
   const incompleteItems = result.items.filter((item) => !item.complete);

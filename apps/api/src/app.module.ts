@@ -21,6 +21,8 @@ import { RedisModule } from './redis/redis.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { UsersModule } from './users/users.module';
 import { VerificationModule } from './verification/verification.module';
+import { EventsModule } from './events/events.module';
+import { GeocodingModule } from './geocoding/geocoding.module';
 import { WallModule } from './wall/wall.module';
 
 @Module({
@@ -53,6 +55,8 @@ import { WallModule } from './wall/wall.module';
     SafetyModule,
     VerificationModule,
     SubscriptionsModule,
+    EventsModule,
+    GeocodingModule,
     AdminModule,
     HealthModule,
     SiteModule,
