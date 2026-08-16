@@ -33,6 +33,7 @@ import {
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 type EventsTab = 'all' | 'mine';
+type MyEventsStatus = 'active' | 'cancelled';
 
 function EventRow({ event, onPress }: { event: EventSummary; onPress: () => void }) {
   const styles = useThemedStyles(({ colors }) => ({
@@ -83,7 +84,14 @@ function EventRow({ event, onPress }: { event: EventSummary; onPress: () => void
   );
 }
 
-function MyEventRow({ event, onPress }: { event: EventMineSummary; onPress: () => void }) {
+function MyEventRow({
+  event,
+  onPress,
+}: {
+  event: EventMineSummary;
+  onPress: () => void;
+}) {
+  const isCancelled = event.status === 'cancelled';
   const styles = useThemedStyles(({ colors }) => ({
     card: {
       backgroundColor: colors.surface,
@@ -92,6 +100,7 @@ function MyEventRow({ event, onPress }: { event: EventMineSummary; onPress: () =
       borderColor: colors.cardBorder,
       overflow: 'hidden',
       marginBottom: spacing.md,
+      opacity: isCancelled ? 0.72 : 1,
     },
     pressed: { opacity: 0.92 },
     cover: { width: '100%', height: 140, backgroundColor: colors.surfaceMuted },
@@ -102,8 +111,8 @@ function MyEventRow({ event, onPress }: { event: EventMineSummary; onPress: () =
     rsvp: { ...typography.caption, color: colors.inkSecondary },
     badge: {
       ...typography.caption,
-      color: colors.online,
-      backgroundColor: colors.onlineSoft,
+      color: isCancelled ? colors.inkSecondary : colors.online,
+      backgroundColor: isCancelled ? colors.surfaceMuted : colors.onlineSoft,
       paddingHorizontal: spacing.sm,
       paddingVertical: 4,
       borderRadius: radius.md,
@@ -123,12 +132,14 @@ function MyEventRow({ event, onPress }: { event: EventMineSummary; onPress: () =
           <Text style={[styles.title, { flex: 1 }]} numberOfLines={2}>
             {event.title}
           </Text>
-          <Text style={styles.badge}>Hosting</Text>
+          <Text style={styles.badge}>{isCancelled ? 'Cancelled' : 'Hosting'}</Text>
         </View>
         <Text style={styles.meta}>{formatEventListDate(event.startsAt)}</Text>
-        <Text style={styles.rsvp}>
-          {event.goingCount} going{event.maybeCount > 0 ? ` · ${event.maybeCount} maybe` : ''}
-        </Text>
+        {!isCancelled ? (
+          <Text style={styles.rsvp}>
+            {event.goingCount} going{event.maybeCount > 0 ? ` · ${event.maybeCount} maybe` : ''}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -146,6 +157,14 @@ export default function EventsScreen() {
   const { permissionGranted, requestPermission } = useLocationPing();
   const hasLocation = permissionGranted === true;
   const [tab, setTab] = useState<EventsTab>('all');
+  const [myEventsStatus, setMyEventsStatus] = useState<MyEventsStatus>('active');
+
+  const onTabChange = useCallback((next: EventsTab) => {
+    setTab(next);
+    if (next === 'mine') {
+      setMyEventsStatus('active');
+    }
+  }, []);
 
   const { data: myEventsData, refetch: refetchMine, isRefetching: isRefetchingMine } = useQuery({
     queryKey: ['my-events'],
@@ -153,11 +172,19 @@ export default function EventsScreen() {
     enabled: Boolean(user),
   });
 
-  const myActiveEvents = useMemo(
-    () => (myEventsData?.data ?? []).filter((event) => event.status === 'active'),
-    [myEventsData?.data],
-  );
-  const showTabs = myActiveEvents.length > 0;
+  const myEvents = useMemo(() => {
+    return (myEventsData?.data ?? []).filter(
+      (event) => event.status === 'active' || event.status === 'cancelled',
+    );
+  }, [myEventsData?.data]);
+
+  const filteredMyEvents = useMemo(() => {
+    return myEvents
+      .filter((event) => event.status === myEventsStatus)
+      .sort((a, b) => new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime());
+  }, [myEvents, myEventsStatus]);
+
+  const showTabs = myEvents.length > 0;
 
   const {
     data,
@@ -196,6 +223,9 @@ export default function EventsScreen() {
       paddingHorizontal: spacing.container,
       marginBottom: spacing.md,
     },
+    statusFilter: {
+      marginTop: spacing.sm,
+    },
     subtitle: {
       ...typography.bodyMd,
       color: colors.inkSecondary,
@@ -214,11 +244,23 @@ export default function EventsScreen() {
       <SegmentedControl
         options={[
           { label: 'All events', value: 'all' as const },
-          { label: 'My events', value: 'mine' as const },
+          { label: 'My Events', value: 'mine' as const },
         ]}
         value={tab}
-        onChange={setTab}
+        onChange={onTabChange}
       />
+      {tab === 'mine' ? (
+        <View style={styles.statusFilter}>
+          <SegmentedControl
+            options={[
+              { label: 'Active', value: 'active' as const },
+              { label: 'Cancelled', value: 'cancelled' as const },
+            ]}
+            value={myEventsStatus}
+            onChange={setMyEventsStatus}
+          />
+        </View>
+      ) : null}
     </View>
   ) : null;
 
@@ -232,7 +274,7 @@ export default function EventsScreen() {
       />
       {tab === 'mine' && showTabs ? (
         <FlatList
-          data={myActiveEvents}
+          data={filteredMyEvents}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.content}
           ListHeaderComponent={listHeader}
@@ -242,15 +284,27 @@ export default function EventsScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="calendar"
-              title="No active events"
-              message="Create an event to start hosting."
-              action={<Button label="Create event" onPress={onCreate} />}
+              title={myEventsStatus === 'active' ? 'No active events' : 'No cancelled events'}
+              message={
+                myEventsStatus === 'active'
+                  ? 'Create an event to start hosting.'
+                  : 'Cancelled events will appear here.'
+              }
+              action={
+                myEventsStatus === 'active' ? (
+                  <Button label="Create event" onPress={onCreate} />
+                ) : undefined
+              }
             />
           }
           renderItem={({ item }) => (
             <MyEventRow
               event={item}
-              onPress={() => router.push(`/events/${item.id}/edit`)}
+              onPress={() =>
+                router.push(
+                  item.status === 'cancelled' ? `/events/${item.id}` : `/events/${item.id}/edit`,
+                )
+              }
             />
           )}
         />

@@ -23,3 +23,9 @@ export async function throttledLocationPing(
   lastPingAt = now;
   return true;
 }
+
+/** Always sync coordinates to the server (e.g. before icebreaker start). */
+export async function forceLocationPing(coords: PingCoordinates) {
+  await api.pingLocation(coords);
+  lastPingAt = Date.now();
+}

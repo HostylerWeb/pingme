@@ -22,6 +22,7 @@ import {
 import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
+import { forceLocationPing } from '../../src/lib/throttled-location-ping';
 import { useToastStore, showToast } from '../../src/stores/toast-store';
 import {
   clearIcebreakerNearbyPrompt,
@@ -486,7 +487,7 @@ export default function IcebreakerScreen() {
       return () => setScreenFocused(false);
     }, []),
   );
-  const { coords, permissionGranted } = useLocationPing(screenFocused);
+  const { coords, permissionGranted, ping } = useLocationPing(screenFocused);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
   const [icebreakerSetupOpen, setIcebreakerSetupOpen] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
@@ -697,6 +698,25 @@ export default function IcebreakerScreen() {
   );
   const featuredCount = nearbyPeople.filter((p) => p.highlight !== null).length;
 
+  const ensureServerLocation = useCallback(async () => {
+    const located = coords ?? (await ping({ preferCached: false }));
+    if (!located) {
+      showToast('Turn on location to use Break the ice.', 'error');
+      return false;
+    }
+
+    try {
+      await forceLocationPing(located);
+      return true;
+    } catch (error) {
+      showToast(
+        error instanceof ApiError ? error.message : 'Could not update your location',
+        'error',
+      );
+      return false;
+    }
+  }, [coords, ping]);
+
   const blockMutation = useMutation({
     mutationFn: (userId: string) => api.blockUser(userId),
     onSuccess: async () => {
@@ -761,7 +781,6 @@ export default function IcebreakerScreen() {
         },
       );
       setOptimisticIcebreakerOn(null);
-      void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
       void queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
       void queryClient.invalidateQueries({ queryKey: ['matches'] });
       setIcebreakerSetupOpen(false);
@@ -788,9 +807,16 @@ export default function IcebreakerScreen() {
     },
   });
 
-  const handleQuickStart = () => {
+  const handleQuickStart = async () => {
     if (!ensureVerified()) return;
+    if (!(await ensureServerLocation())) return;
     icebreakerMutation.mutate('start-quick');
+  };
+
+  const handleStartFromSheet = async () => {
+    if (!ensureVerified()) return;
+    if (!(await ensureServerLocation())) return;
+    icebreakerMutation.mutate('start');
   };
 
   const handleToggle = (on: boolean) => {
@@ -1151,7 +1177,7 @@ export default function IcebreakerScreen() {
         <Button
           label="Turn on"
           variant="icebreaker"
-          onPress={() => icebreakerMutation.mutate('start')}
+          onPress={() => void handleStartFromSheet()}
           loading={icebreakerMutation.isPending}
           style={styles.sheetButton}
         />

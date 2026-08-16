@@ -175,17 +175,17 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/verification-complete')) return;
 
     let target: string | null = null;
+    const onAuthScreen =
+      pathname.startsWith('/(auth)') ||
+      pathname === '/login' ||
+      pathname === '/register' ||
+      pathname === '/forgot-password' ||
+      pathname === '/reset-password';
+    const onLegalScreen = pathname === '/legal' || pathname.startsWith('/legal/');
 
     if (!onboardingComplete) {
       target = '/(onboarding)';
     } else if (!user) {
-      const onAuthScreen =
-        pathname.startsWith('/(auth)') ||
-        pathname === '/login' ||
-        pathname === '/register' ||
-        pathname === '/forgot-password' ||
-        pathname === '/reset-password';
-      const onLegalScreen = pathname === '/legal' || pathname.startsWith('/legal/');
       if (!onAuthScreen && !onLegalScreen) {
         target = '/(auth)/login';
       }
@@ -203,7 +203,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       target = '/(setup)/notifications';
     } else if (!productTourComplete && !pathname.startsWith('/(setup)/tour')) {
       target = '/(setup)/tour';
-    } else if (pathname.startsWith('/(auth)') || pathname.startsWith('/(onboarding)') || pathname.startsWith('/(setup)')) {
+    } else if (onAuthScreen || pathname.startsWith('/(onboarding)') || pathname.startsWith('/(setup)')) {
       target = '/(tabs)/home';
     }
 

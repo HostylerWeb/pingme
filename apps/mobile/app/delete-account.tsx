@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ACCOUNT_DELETION_GRACE_DAYS } from '@pingme/shared';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Linking, ScrollView, Text, View } from 'react-native';
-import { useScrollBottomPadding } from '../src/hooks/use-tab-bar-insets';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useBottomInset } from '../src/hooks/use-tab-bar-insets';
 import { ApiError, api } from '../src/lib/api';
 import { useAuthStore } from '../src/stores/auth-store';
 import { showToast } from '../src/stores/toast-store';
@@ -14,7 +15,8 @@ const DELETE_CONFIRMATION = 'DELETE';
 
 export default function DeleteAccountScreen() {
   const router = useRouter();
-  const scrollBottomPadding = useScrollBottomPadding(spacing.xxl);
+  const bottomInset = useBottomInset();
+  const scrollRef = useRef<ScrollView>(null);
   const logout = useAuthStore((s) => s.logout);
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const [password, setPassword] = useState('');
@@ -113,17 +115,20 @@ export default function DeleteAccountScreen() {
 
   return (
     <Screen padded={false} edges={[]}>
-      <AppHeader
-        title="Delete account"
-        showBrand={false}
-        subtitle="Review what happens before you continue."
-        onBack={() => router.back()}
-      />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+        <AppHeader
+          title="Delete account"
+          showBrand={false}
+          subtitle="Review what happens before you continue."
+          onBack={() => router.back()}
+        />
 
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
-        keyboardShouldPersistTaps="handled"
-      >
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={[styles.content, { paddingBottom: bottomInset + spacing.section }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
         {deletionScheduledAt ? (
           <View style={styles.scheduled}>
             <Text style={styles.scheduledText}>
@@ -171,6 +176,7 @@ export default function DeleteAccountScreen() {
             placeholder="Your current password"
             value={password}
             onChangeText={setPassword}
+            onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
           />
         </View>
 
@@ -191,6 +197,7 @@ export default function DeleteAccountScreen() {
                 onChangeText={setConfirmation}
                 autoCapitalize="characters"
                 autoCorrect={false}
+                onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
               />
             </View>
             <Button
@@ -202,7 +209,8 @@ export default function DeleteAccountScreen() {
             />
           </>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

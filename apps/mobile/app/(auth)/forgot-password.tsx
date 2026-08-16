@@ -27,7 +27,7 @@ export default function ForgotPasswordScreen() {
     },
     title: { ...typography.display, color: colors.ink, marginBottom: spacing.sm },
     hint: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.xxl, lineHeight: 22 },
-    link: { ...typography.bodyMd, textAlign: 'center', color: colors.accent },
+    link: { ...typography.bodyMd, textAlign: 'center', color: colors.accent, marginTop: spacing.xxl },
   }));
 
   const onSubmit = async () => {

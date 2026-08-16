@@ -9,11 +9,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { api, ChatMessage } from '../../src/lib/api';
-import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
 import { useChatSocket } from '../../src/hooks/use-chat-socket';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { useBottomInset } from '../../src/hooks/use-tab-bar-insets';
 import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { REPORT_SHEET_FOOTER, REPORT_SUBMITTED_MESSAGE } from '../../src/lib/report-copy';
 import { showToast } from '../../src/stores/toast-store';
@@ -108,6 +109,7 @@ export default function ChatThreadScreen() {
   const [blockOpen, setBlockOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
+  const bottomInset = useBottomInset();
 
   const styles = useThemedStyles(({ colors }) => ({
     container: { flex: 1, backgroundColor: colors.background },
@@ -353,92 +355,103 @@ export default function ChatThreadScreen() {
 
   return (
     <View style={styles.container}>
-      <AppHeader
-        title={chat.otherUser.displayName}
-        showBrand={false}
-        onBack={() => router.back()}
-        centerTitle
-        right={
-          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={styles.menuBtn}>
-            <AppIcon name="more-menu" size={20} color={colors.inkSecondary} />
-          </Pressable>
-        }
-      />
-
-      <View style={styles.threadHeader}>
-        <Avatar
-          name={chat.otherUser.displayName}
-          uri={chat.otherUser.avatarUrl}
-          size="sm"
-          themeId={chat.otherUser.isPremium ? chat.otherUser.avatarTheme : null}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+        <AppHeader
+          title={chat.otherUser.displayName}
+          showBrand={false}
+          onBack={() => router.back()}
+          centerTitle
+          right={
+            <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={styles.menuBtn}>
+              <AppIcon name="more-menu" size={20} color={colors.inkSecondary} />
+            </Pressable>
+          }
         />
-        <View style={{ flex: 1 }}>
-          <DisplayNameWithFlair
+
+        <View style={styles.threadHeader}>
+          <Avatar
             name={chat.otherUser.displayName}
-            gender={chat.otherUser.gender}
-            isPremium={chat.otherUser.isPremium}
-            isVerified={chat.otherUser.livenessVerified}
+            uri={chat.otherUser.avatarUrl}
+            size="sm"
+            themeId={chat.otherUser.isPremium ? chat.otherUser.avatarTheme : null}
           />
-          <Text style={styles.threadHint}>Private conversation</Text>
+          <View style={{ flex: 1 }}>
+            <DisplayNameWithFlair
+              name={chat.otherUser.displayName}
+              gender={chat.otherUser.gender}
+              isPremium={chat.otherUser.isPremium}
+              isVerified={chat.otherUser.livenessVerified}
+            />
+            <Text style={styles.threadHint}>Private conversation</Text>
+          </View>
         </View>
-      </View>
 
-      <FlatList
-        ref={listRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        style={{ flex: 1 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        contentContainerStyle={styles.messages}
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
-        renderItem={({ item }) => <MessageBubble message={item} />}
-        ListEmptyComponent={
-          <EmptyState
-            icon="chat-bubble"
-            scene="chats"
-            title="No messages yet"
-            message="Say hello — your conversation starts here."
-          />
-        }
-      />
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={styles.messages}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          renderItem={({ item }) => <MessageBubble message={item} />}
+          ListEmptyComponent={
+            <EmptyState
+              icon="chat-bubble"
+              scene="chats"
+              title="No messages yet"
+              message={
+                !isVerified
+                  ? 'Complete face verification to send the first message.'
+                  : 'Say hello — your conversation starts here.'
+              }
+              action={
+                !isVerified ? (
+                  <Button label="Verify now" onPress={() => router.push('/(setup)/liveness')} />
+                ) : undefined
+              }
+            />
+          }
+        />
 
-      {canSend ? (
-        <KeyboardComposerFooter style={styles.composer} useTabBarInset={false}>
-          <TextInput
-            style={styles.input}
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Type a message..."
-            placeholderTextColor={colors.inkMuted}
-            multiline
-            maxLength={2000}
-          />
-          <Pressable
-            style={[styles.sendButton, !draft.trim() && styles.sendButtonDisabled]}
-            onPress={onSend}
-            disabled={!draft.trim() || sendMutation.isPending}
-          >
-            {sendMutation.isPending ? (
-              <ActivityIndicator color={colors.onAccent} size="small" />
-            ) : (
-              <AppIcon name="send" size={18} color={colors.onAccent} />
-            )}
-          </Pressable>
-        </KeyboardComposerFooter>
-      ) : chat.status !== 'active' ? (
-        <View style={styles.closedBanner}>
-          <Text style={styles.closedText}>This conversation is closed.</Text>
-        </View>
-      ) : (
-        <View style={styles.verifyBanner}>
-          <Text style={styles.verifyTitle}>Verify to send messages</Text>
-          <Text style={styles.verifyBody}>
-            Complete a quick face check so people know you are real before you chat.
-          </Text>
-          <Button label="Verify now" onPress={() => router.push('/(setup)/liveness')} />
-        </View>
-      )}
+        {canSend ? (
+          <View style={[styles.composer, { paddingBottom: bottomInset + spacing.md }]}>
+            <TextInput
+              style={styles.input}
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.inkMuted}
+              multiline
+              maxLength={2000}
+            />
+            <Pressable
+              style={[styles.sendButton, !draft.trim() && styles.sendButtonDisabled]}
+              onPress={onSend}
+              disabled={!draft.trim() || sendMutation.isPending}
+            >
+              {sendMutation.isPending ? (
+                <ActivityIndicator color={colors.onAccent} size="small" />
+              ) : (
+                <AppIcon name="send" size={18} color={colors.onAccent} />
+              )}
+            </Pressable>
+          </View>
+        ) : chat.status !== 'active' ? (
+          <View style={[styles.closedBanner, { paddingBottom: bottomInset + spacing.md }]}>
+            <Text style={styles.closedText}>This conversation is closed.</Text>
+          </View>
+        ) : (
+          <View style={[styles.verifyBanner, { paddingBottom: bottomInset + spacing.md }]}>
+            <Text style={styles.verifyTitle}>Verify to send messages</Text>
+            <Text style={styles.verifyBody}>
+              Complete a quick face check so people know you are real before you chat.
+            </Text>
+            <Button label="Verify now" onPress={() => router.push('/(setup)/liveness')} />
+          </View>
+        )}
+      </KeyboardAvoidingView>
 
       <ActionSheet
         visible={menuOpen}

@@ -486,11 +486,6 @@ export default function WallScreen() {
           </ScrollView>
         </View>
       ) : null}
-
-      <SectionLabel>Nearby wall</SectionLabel>
-      <Text style={styles.presenceHint}>
-        Showing posts from the last {WALL_POST_MAX_AGE_HOURS} hours. Scroll for more.
-      </Text>
     </View>
   );
 

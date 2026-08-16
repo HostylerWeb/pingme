@@ -11,9 +11,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../src/lib/api';
+import { api, EventComment, EventDetail } from '../../src/lib/api';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
+import { useBottomInset } from '../../src/hooks/use-tab-bar-insets';
 import { REPORT_SHEET_FOOTER, REPORT_SUBMITTED_MESSAGE } from '../../src/lib/report-copy';
 import { showToast } from '../../src/stores/toast-store';
 import {
@@ -29,8 +31,6 @@ import {
   SectionLabel,
 } from '../../src/components/ui';
 import { EventMapPreview } from '../../src/components/event-map';
-import { KeyboardComposerFooter } from '../../src/components/keyboard-composer-footer';
-import { useScrollBottomPadding } from '../../src/hooks/use-tab-bar-insets';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 function RsvpPill({
@@ -68,6 +68,179 @@ function RsvpPill({
   );
 }
 
+function EventDetailsHeader({
+  event,
+  images,
+  carouselWidth,
+  carouselIndex,
+  onCarouselIndex,
+  rsvpPending,
+  messagePending,
+  onRsvp,
+  onMessageHost,
+}: {
+  event: EventDetail;
+  images: EventDetail['images'];
+  carouselWidth: number;
+  carouselIndex: number;
+  onCarouselIndex: (index: number) => void;
+  rsvpPending: boolean;
+  messagePending: boolean;
+  onRsvp: (status: 'going' | 'maybe') => void;
+  onMessageHost: () => void;
+}) {
+  const styles = useThemedStyles(({ colors }) => ({
+    hero: { height: 220, borderRadius: radius.xl, overflow: 'hidden', marginBottom: spacing.lg },
+    dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: spacing.md },
+    dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.outlineVariant },
+    dotActive: { backgroundColor: colors.accent },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+    title: { ...typography.headlineLg, color: colors.ink, flex: 1 },
+    meta: { ...typography.bodyMd, color: colors.inkSecondary, marginBottom: spacing.md },
+    description: { ...typography.bodyLg, color: colors.ink, lineHeight: 26, marginBottom: spacing.lg },
+    map: { height: 180, borderRadius: radius.xl, overflow: 'hidden', marginBottom: spacing.lg },
+    hostCard: { marginBottom: spacing.lg },
+    hostRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    rsvpRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
+    counts: { ...typography.caption, color: colors.inkSecondary, marginBottom: spacing.lg },
+  }));
+
+  return (
+    <View>
+      {images.length > 0 && carouselWidth > 0 ? (
+        <>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            style={[styles.hero, { width: carouselWidth }]}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / carouselWidth);
+              onCarouselIndex(index);
+            }}
+          >
+            {images.map((img) => (
+              <Image
+                key={img.id}
+                source={{ uri: img.url }}
+                style={{ width: carouselWidth, height: 220 }}
+                resizeMode="cover"
+              />
+            ))}
+          </ScrollView>
+          {images.length > 1 ? (
+            <View style={styles.dots}>
+              {images.map((img, index) => (
+                <View key={img.id} style={[styles.dot, index === carouselIndex && styles.dotActive]} />
+              ))}
+            </View>
+          ) : null}
+        </>
+      ) : null}
+
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{event.title}</Text>
+        <DistancePill label={distanceLabel(event.distanceBucket)} />
+      </View>
+      <Text style={styles.meta}>{formatEventDateRange(event.startsAt, event.endsAt)}</Text>
+      {event.placeName ? <Text style={styles.meta}>{event.placeName}</Text> : null}
+      {event.address ? <Text style={styles.meta}>{event.address}</Text> : null}
+      <Text style={styles.description}>{event.description}</Text>
+
+      <View style={styles.map}>
+        <EventMapPreview latitude={event.latitude} longitude={event.longitude} />
+      </View>
+
+      <Card style={styles.hostCard} variant="flat">
+        <SectionLabel>Host</SectionLabel>
+        <View style={styles.hostRow}>
+          <Avatar uri={event.host.avatarUrl} name={event.host.displayName} size="md" />
+          <DisplayNameWithFlair
+            name={event.host.displayName}
+            isPremium={event.host.isPremium}
+            isVerified={event.host.livenessVerified}
+          />
+        </View>
+        {event.allowMessages && !event.isHost ? (
+          <Button
+            label="Message host"
+            variant="secondary"
+            loading={messagePending}
+            onPress={onMessageHost}
+            style={{ marginTop: spacing.md }}
+          />
+        ) : null}
+      </Card>
+
+      {!event.isHost && event.status === 'active' ? (
+        <>
+          <SectionLabel>RSVP</SectionLabel>
+          <View style={styles.rsvpRow}>
+            <RsvpPill
+              label="Going"
+              active={event.viewerRsvp === 'going'}
+              onPress={() => onRsvp('going')}
+              disabled={rsvpPending}
+            />
+            <RsvpPill
+              label="Maybe"
+              active={event.viewerRsvp === 'maybe'}
+              onPress={() => onRsvp('maybe')}
+              disabled={rsvpPending}
+            />
+          </View>
+        </>
+      ) : null}
+      <Text style={styles.counts}>
+        {event.goingCount} going · {event.maybeCount} maybe · {event.commentCount} comments
+      </Text>
+      <SectionLabel>Comments</SectionLabel>
+    </View>
+  );
+}
+
+function CommentRow({ comment }: { comment: EventComment }) {
+  const styles = useThemedStyles(() => ({
+    commentCard: { marginBottom: spacing.md, padding: spacing.lg },
+    commentHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+    commentAuthor: { flex: 1 },
+    commentTime: { ...typography.caption },
+    commentBody: { ...typography.bodyMd, lineHeight: 22 },
+  }));
+  const { colors } = useTheme();
+
+  return (
+    <Card style={styles.commentCard} variant="flat">
+      <View style={styles.commentHeader}>
+        <Avatar
+          uri={comment.author.avatarUrl}
+          name={comment.author.displayName}
+          size="sm"
+          themeId={comment.author.isPremium ? comment.author.avatarTheme : null}
+        />
+        <View style={styles.commentAuthor}>
+          <DisplayNameWithFlair
+            name={comment.author.isYou ? 'You' : comment.author.displayName}
+            gender={comment.author.gender}
+            isPremium={comment.author.isPremium}
+            isVerified={!comment.author.isYou && comment.author.livenessVerified}
+          />
+        </View>
+        <Text style={[styles.commentTime, { color: colors.inkTertiary }]}>
+          {new Date(comment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+      <Text style={[styles.commentBody, { color: colors.inkSecondary }]}>{comment.content}</Text>
+    </Card>
+  );
+}
+
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -77,7 +250,8 @@ export default function EventDetailScreen() {
   const [comment, setComment] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
-  const scrollBottomPadding = useScrollBottomPadding(72);
+  const [carouselWidth, setCarouselWidth] = useState(0);
+  const bottomInset = useBottomInset();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['event', id],
@@ -153,12 +327,30 @@ export default function EventDetailScreen() {
     rsvpRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg },
     counts: { ...typography.caption, color: colors.inkSecondary, marginBottom: spacing.lg },
     commentCard: { marginBottom: spacing.md, padding: spacing.lg },
-    commentAuthor: { ...typography.bodySemiBold, color: colors.ink, marginBottom: spacing.xs },
+    commentHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
+    commentAuthor: { ...typography.bodySemiBold, color: colors.ink, flex: 1 },
+    commentTime: { ...typography.caption, color: colors.inkTertiary },
     commentBody: { ...typography.bodyMd, color: colors.inkSecondary, lineHeight: 22 },
+    commentsEmpty: {
+      ...typography.bodyMd,
+      color: colors.inkSecondary,
+      marginBottom: spacing.lg,
+      lineHeight: 22,
+    },
+    closedBanner: {
+      paddingHorizontal: spacing.container,
+      paddingTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.surfaceMuted,
+    },
+    closedText: { ...typography.bodyMd, color: colors.inkSecondary, textAlign: 'center' },
     composer: {
       flexDirection: 'row',
+      alignItems: 'flex-end',
       gap: spacing.sm,
-      padding: spacing.container,
+      paddingHorizontal: spacing.container,
+      paddingTop: spacing.md,
       borderTopWidth: 1,
       borderTopColor: colors.border,
       backgroundColor: colors.surface,
@@ -224,133 +416,72 @@ export default function EventDetailScreen() {
 
   return (
     <Screen padded={false} edges={[]}>
-      <AppHeader
-        title="Event"
-        showBrand={false}
-        onBack={() => router.back()}
-        right={
-          event.isHost ? (
-            <Pressable onPress={() => router.push(`/events/${event.id}/edit`)}>
-              <Text style={{ ...typography.bodySemiBold, color: colors.accent }}>Edit</Text>
-            </Pressable>
-          ) : (
-            <Pressable onPress={() => setReportOpen(true)}>
-              <Text style={{ ...typography.bodySemiBold, color: colors.accent }}>Report</Text>
-            </Pressable>
-          )
-        }
-      />
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}>
-        {images.length > 0 ? (
-          <>
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              style={styles.hero}
-              onMomentumScrollEnd={(e) => {
-                const index = Math.round(e.nativeEvent.contentOffset.x / e.nativeEvent.layoutMeasurement.width);
-                setCarouselIndex(index);
-              }}
-            >
-              {images.map((img) => (
-                <Image key={img.id} source={{ uri: img.url }} style={{ width: 360, height: 220 }} resizeMode="cover" />
-              ))}
-            </ScrollView>
-            {images.length > 1 ? (
-              <View style={styles.dots}>
-                {images.map((img, index) => (
-                  <View key={img.id} style={[styles.dot, index === carouselIndex && styles.dotActive]} />
-                ))}
-              </View>
-            ) : null}
-          </>
-        ) : null}
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-          <Text style={styles.title}>{event.title}</Text>
-          <DistancePill label={distanceLabel(event.distanceBucket)} />
-        </View>
-        <Text style={styles.meta}>{formatEventDateRange(event.startsAt, event.endsAt)}</Text>
-        {event.placeName ? <Text style={styles.meta}>{event.placeName}</Text> : null}
-        {event.address ? <Text style={styles.meta}>{event.address}</Text> : null}
-        <Text style={styles.description}>{event.description}</Text>
-
-        <View style={styles.map}>
-          <EventMapPreview latitude={event.latitude} longitude={event.longitude} />
-        </View>
-
-        <Card style={styles.hostCard} variant="flat">
-          <SectionLabel>Host</SectionLabel>
-          <View style={styles.hostRow}>
-            <Avatar uri={event.host.avatarUrl} name={event.host.displayName} size="md" />
-            <DisplayNameWithFlair
-              name={event.host.displayName}
-              isPremium={event.host.isPremium}
-              isVerified={event.host.livenessVerified}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+        <AppHeader
+          title="Event"
+          showBrand={false}
+          onBack={() => router.back()}
+          right={
+            event.isHost ? (
+              <Pressable onPress={() => router.push(`/events/${event.id}/edit`)}>
+                <Text style={{ ...typography.bodySemiBold, color: colors.accent }}>Edit</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => setReportOpen(true)}>
+                <Text style={{ ...typography.bodySemiBold, color: colors.accent }}>Report</Text>
+              </Pressable>
+            )
+          }
+        />
+        <FlatList
+          data={comments}
+          keyExtractor={(item) => item.id}
+          style={{ flex: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={[styles.content, { paddingBottom: spacing.xl }]}
+          onLayout={(e) => setCarouselWidth(e.nativeEvent.layout.width - spacing.container * 2)}
+          ListHeaderComponent={
+            <EventDetailsHeader
+              event={event}
+              images={images}
+              carouselWidth={carouselWidth}
+              carouselIndex={carouselIndex}
+              onCarouselIndex={setCarouselIndex}
+              rsvpPending={rsvpMutation.isPending}
+              messagePending={messageHostMutation.isPending}
+              onRsvp={(status) => void onRsvp(status)}
+              onMessageHost={() => void onMessageHost()}
+            />
+          }
+          ListEmptyComponent={
+            <Text style={styles.commentsEmpty}>No comments yet. Be the first to say something.</Text>
+          }
+          renderItem={({ item }) => <CommentRow comment={item} />}
+        />
+        {event.status === 'active' ? (
+          <View style={[styles.composer, { paddingBottom: bottomInset + spacing.md }]}>
+            <TextInput
+              style={styles.input}
+              placeholder="Add a comment..."
+              placeholderTextColor={colors.inkTertiary}
+              value={comment}
+              onChangeText={setComment}
+              multiline
+            />
+            <Button
+              label="Post"
+              size="sm"
+              loading={commentMutation.isPending}
+              onPress={() => void onComment()}
             />
           </View>
-          {event.allowMessages && !event.isHost ? (
-            <Button
-              label="Message host"
-              variant="secondary"
-              loading={messageHostMutation.isPending}
-              onPress={() => void onMessageHost()}
-              style={{ marginTop: spacing.md }}
-            />
-          ) : null}
-        </Card>
-
-        {!event.isHost && event.status === 'active' ? (
-          <>
-            <SectionLabel>RSVP</SectionLabel>
-            <View style={styles.rsvpRow}>
-              <RsvpPill
-                label="Going"
-                active={event.viewerRsvp === 'going'}
-                onPress={() => void onRsvp('going')}
-                disabled={rsvpMutation.isPending}
-              />
-              <RsvpPill
-                label="Maybe"
-                active={event.viewerRsvp === 'maybe'}
-                onPress={() => void onRsvp('maybe')}
-                disabled={rsvpMutation.isPending}
-              />
-            </View>
-          </>
-        ) : null}
-        <Text style={styles.counts}>
-          {event.goingCount} going · {event.maybeCount} maybe · {event.commentCount} comments
-        </Text>
-
-        <SectionLabel>Comments</SectionLabel>
-        {comments.map((item) => (
-          <Card key={item.id} style={styles.commentCard} variant="flat">
-            <Text style={styles.commentAuthor}>{item.author.displayName}</Text>
-            <Text style={styles.commentBody}>{item.content}</Text>
-          </Card>
-        ))}
-      </ScrollView>
-
-      <KeyboardComposerFooter>
-        <View style={styles.composer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Add a comment..."
-            placeholderTextColor={colors.inkTertiary}
-            value={comment}
-            onChangeText={setComment}
-            multiline
-          />
-          <Button
-            label="Post"
-            size="sm"
-            loading={commentMutation.isPending}
-            onPress={() => void onComment()}
-          />
-        </View>
-      </KeyboardComposerFooter>
+        ) : (
+          <View style={[styles.closedBanner, { paddingBottom: bottomInset + spacing.md }]}>
+            <Text style={styles.closedText}>Comments are closed for this event.</Text>
+          </View>
+        )}
+      </KeyboardAvoidingView>
 
       <ActionSheet
         visible={reportOpen}
