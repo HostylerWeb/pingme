@@ -2,7 +2,7 @@
 
 > **Working title:** PingMe (name TBD)  
 > **Last updated:** August 2026  
-> **Status:** Phases 0–8 shipped on staging; Phase 9 deferred; **Events (#33)** is the next major build — see [Progress at a glance](#progress-at-a-glance)
+> **Status:** Phases 0–8 + Events (#33) shipped on staging; Phase 9 deferred — see [Progress at a glance](#progress-at-a-glance) for what’s next
 
 ---
 
@@ -40,7 +40,7 @@ Use this section to see what is left without reading the full plan. Details live
 | **Partial** | Started or backend-only; UX, ops, or polish still missing |
 | **UNDONE** | No meaningful implementation yet (or explicitly deferred) |
 
-*Last reviewed: 2026-08-16 (profile completeness #29, share/invite #30, Premium + icebreaker push shipped).*
+*Last reviewed: 2026-08-17 (Events E1–E5, admin Mapbox live map + Redis precompute, auth UI polish).*
 
 ### Implementation phases (0–9)
 
@@ -53,7 +53,7 @@ Use this section to see what is left without reading the full plan. Details live
 | 4 — Icebreaker & matches | **Done** | Session flow, mutual match push, **proximity push (#36–37)**, rate limits, expiry workers |
 | 5 — Chat & safety | **Done** | REST + WebSocket, blocks, reports |
 | 6 — Verification | **Done** | Didit liveness + admin KYC tools |
-| 7 — Admin | **Done** | Dashboard, users, reports, audit, map |
+| 7 — Admin | **Done** | Dashboard, users, reports, audit, **Mapbox live map** (#21) |
 | 8 — Premium | **Done** | Stripe gateway + checkout + webhooks; demo mode for local; badges + mobile UI |
 | 9 — Venues & launch | **UNDONE** | Deferred B2B |
 
@@ -61,21 +61,21 @@ Use this section to see what is left without reading the full plan. Details live
 
 | Status | Count | Examples |
 |--------|------:|----------|
-| **Done** | 33 | All backlog polish items through #35 complete |
+| **Done** | 34 | Backlog #1–#35 (incl. Events #33, admin map #21) |
 | **Partial** | 0 | — |
-| **UNDONE** | 6+ | IAP, web app, self-hosted OTA, venues (Phase 9) |
+| **UNDONE** | 4 | IAP (#9, #31), self-hosted OTA, venues (Phase 9), paid event tickets (#39) |
 
-Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-plan (E0–E5): mostly **UNDONE** except Phase 0 decisions (**Done**).
+Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-plan (E0–E5): **Done** on staging.
 
 ### High-priority **UNDONE** (next builds)
 
 | Item | What |
 |------|------|
-| **Events (#33)** | E1 (host KYC) → E2 DB → E3 API → E4 mobile 5th tab — see [Events feature plan](#events-feature-plan-couchsurfing-style) |
+| **Device test pass** | Two-phone checklist on staging — Wall, icebreaker, chat, events, premium, invite |
+| **Store prep** | Legal pages finalized, App Store / Play screenshots, production URLs |
 | **Stripe go-live** | Code shipped (`StripeGateway`); set `PAYMENT_PROVIDER=stripe` + keys on VPS when ready to charge |
 | **Self-hosted OTA** | xprem + `expo-updates` on VPS — documented, not wired |
-| **Store prep** | Legal pages finalized, icons/screenshots, native rebuild for splash (#26) |
-| **Device test pass** | Two-phone checklist on staging before Events or public beta |
+| **Production domain** | Move off `hostyler.cloud` when ready — DNS, TLS, env cutover |
 
 ### **Partial** — none remaining
 
@@ -443,7 +443,7 @@ users ──┬── profiles
 
 admin_users (role enum on row)
 admin_audit_logs (append-only, separate from user audit_logs)
-venues (Phase 9 — optional B2B boost)
+venues (Phase 9 — deferred B2B)
 subscriptions (Phase 8)
 ```
 
@@ -684,7 +684,7 @@ subscriptions (Phase 8)
 | metadata | JSONB | |
 | created_at | TIMESTAMPTZ | immutable |
 
-#### `venues` (Phase 9 — optional B2B boost)
+#### `venues` (Phase 9 — deferred B2B)
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -925,7 +925,7 @@ services:
 | Plan | Price | Includes |
 |------|-------|----------|
 | Free | $0 | Wall, reply, chat, icebreaker |
-| Premium (optional) | TBD | **Premium badge** (star + gradient ring) on Wall posts, replies, and Break the ice; custom avatar themes; read receipts (optional) |
+| Premium (optional) | TBD | **Cosmetic only:** Premium badge (star + gradient ring) on Wall posts, replies, and Break the ice — **no gameplay or discovery advantage** |
 | Venue B2B | Custom | Branded room, analytics, moderation tools |
 
 ### Stripe objects
@@ -1013,9 +1013,9 @@ services:
 | Events — create / edit (KYC gate) | E4 |
 | Events — my events (You tab) | E4 |
 
-### Premium badge & visibility (product spec)
+### Premium badge (cosmetic only — product spec)
 
-Premium members are **visibly distinguished** wherever they show up in the app. This is a core perk — not optional polish.
+Premium is **support / flair**, not pay-to-win. Paid users get a visible badge and avatar ring only — **no** visibility boosts, ranking bumps, extra radius, read receipts, or any mechanic that changes who sees whom or who matches whom.
 
 **Where the Premium badge must appear**
 
@@ -1036,7 +1036,7 @@ Both audiences must see the same benefit spelled out:
 1. **Non-Premium** (`Go Premium` / plan comparison) — list explicitly:
    - *Premium badge on your posts, replies, and Break the ice*
    - *Gradient avatar ring so others spot you on the Wall*
-   - *(Optional perks: avatar themes, read receipts — when enabled)*
+   - *Supports PingMe — core features stay free for everyone*
 
 2. **Active Premium** (`Premium membership` / “Your benefits”) — repeat the same bullets so members know what others see:
    - *Your Premium star and ring appear on every Wall post, reply, and Break the ice card*
@@ -1049,23 +1049,15 @@ Both audiences must see the same benefit spelled out:
 
 **Navigation (locked E0.1):** Add a **5th bottom tab — Events** (`app/(tabs)/events.tsx` or equivalent).
 
-**Screens to build (maps to E4)**
+**Screens (shipped — E4)**
 
 | Route / screen | Purpose |
 |----------------|---------|
-| `(tabs)/events` | Nearby events list — cover, title, date, distance, host, RSVP counts |
+| `(tabs)/events` | **Nearby** · **Attending** · **Hosting** segments. Attending lists RSVP’d Going/Maybe events (`GET /events/attending`) |
 | `events/[id]` | Detail — image carousel, map pin, description, host card, RSVP, comments |
 | `events/create` | Create flow — **KYC gate** if not ID-verified → form → map pin → up to 5 images → `allow_messages` toggle |
 | `events/[id]/edit` | Host-only edit / cancel |
 | Profile → **My events** | Host’s created events (E4.7) |
-
-**Prerequisites before mobile Events UI**
-
-1. **E1** — User-facing ID KYC (`DIDIT_WORKFLOW_ID_KYC`) for hosts
-2. **E2** — DB tables (`events`, `event_images`, `event_rsvps`, `event_comments`)
-3. **E3** — API (`GET /events/nearby`, CRUD, RSVP, comments, message-host)
-
-**Build order:** E1 → E2 → E3 (list + detail + create) → E4 mobile tab → RSVP → comments → message host → E5 admin.
 
 **Config:** Discovery uses `EVENTS_DISCOVERY_RADIUS_METERS` (default **15 km**) from API `GET /config` — not hardcoded in the app.
 
@@ -1163,7 +1155,7 @@ Both audiences must see the same benefit spelled out:
 | Wall moderation | 7 | Hide/delete posts and replies |
 | Chats (read-only) | 7 | View reported chat context (audit — never editable) |
 | Audit log viewer | 7 | Filter user audit_logs + admin_audit_logs by user, action, date |
-| Live map (internal) | 7 | Heatmap of active users in launch area (admin only — never in mobile app) |
+| Live map (internal) | 7 | **Mapbox GL** clusters for Wall + Break the ice users; Redis-cached; worker refreshes **only while map page is open** |
 | Analytics | 8 | Charts: signups, retention, posts, matches, icebreaker conversion |
 | Venues (B2B) | 9 | Create geofences, QR codes |
 | Subscriptions | 8 | Stripe customer lookup |
@@ -1319,7 +1311,7 @@ Use this when switching from staging (`hostyler.cloud`) to a **real domain** or 
 
 - [ ] `api.yourdomain.com` → VPS (A/AAAA)
 - [ ] `admin.yourdomain.com` → VPS
-- [ ] `yourdomain.com` or `www` → marketing site (optional)
+- [ ] `yourdomain.com` or `www` → **marketing landing page** (download links, not a web app)
 - [ ] `ota.yourdomain.com` → VPS (when self-hosted OTA ships)
 - [ ] TLS certificates (Let's Encrypt via Certbot / Nginx)
 
@@ -1987,7 +1979,7 @@ Mobile app                    NestJS API                    didit.me
 3. `POST /subscriptions/checkout` — Stripe Checkout session
 4. `POST /webhooks/stripe` — handle subscription events
 5. `GET /subscriptions/me` — current plan
-6. Premium features: **visible Premium badge** (star + avatar ring on Wall, replies, Break the ice), custom avatar themes, read receipts — **no pay-to-chat**
+6. Premium features: **cosmetic badge + avatar ring only** — **no** pay-to-chat, visibility boosts, or competitive advantages
 
 ## Step 2 — Mobile paywall UI
 
@@ -2002,11 +1994,11 @@ Mobile app                    NestJS API                    didit.me
 
 # Phase 9 — B2B Venues & Launch Prep
 
-**Goal:** Event/venue rooms as launch boost + production hardening.
+**Goal:** Optional venue partnerships + production hardening (deferred).
 
 ---
 
-## Step 1 — Venue rooms (optional boost)
+## Step 1 — Venue rooms (deferred B2B)
 
 1. Add `venues` table migration
 2. Admin: create venue with geofence polygon
@@ -2182,6 +2174,7 @@ Mobile app                    NestJS API                    didit.me
 |----------|--------|-------|
 | Launch model | **Radius-first (250m)** | Not venue-first at launch |
 | Core features | **Always free** | Wall, replies, chat, icebreaker — never paywalled |
+| Premium | **Cosmetic only** | Badge + ring; no boosts, add-ons, or pay-to-win mechanics |
 | Verification | **didit.me liveness** | Required to post/chat/match when `DIDIT_API_KEY` is set |
 | Payments | **Stripe (code shipped)** | `StripeGateway` + mobile checkout; staging uses `PAYMENT_PROVIDER=none` until keys are set |
 | Phase 9 venues | **Deferred** | B2B venue rooms wait until user density proves value to partners |
@@ -2197,11 +2190,11 @@ Uses the same labels as [Progress at a glance](#progress-at-a-glance): **Done** 
 | 0 — Foundation | **Done** | Monorepo, DB, CI, EAS dev builds. Deploy scripts/Docker prod stack still thin. |
 | 1 — Auth & profile | **Done** | Email/phone OTP, forgot/reset password, avatar upload. **OAuth (Google/Apple) not built.** |
 | 2 — Location & wall | **Done** | PostGIS wall, presence ping, distance buckets. |
-| 3 — Available & push | **Partial** | Background location + device registration work. **`PUSH_ENABLED` must be `true` on staging/prod.** |
+| 3 — Available & push | **Done** | All push types + cold-start deep links; `PUSH_ENABLED=true` on staging |
 | 4 — Icebreaker & matches | **Done** | Session flow, mutual match push, proximity push, rate limits, expiry workers. Typing indicators optional — not built. |
 | 5 — Chat & safety | **Done** | REST + WebSocket, blocks, reports, auto-suspend. WS uses in-memory map (single-server OK for beta). |
 | 6 — Verification | **Done** | Didit start/webhook, `VerifiedGuard`, admin KYC tools. Requires Didit env on staging. |
-| 7 — Admin | **Done** | Dashboard, users, reports, content, audit logs, map, admin CRUD, premium grant/revoke. |
+| 7 — Admin | **Done** | Dashboard, users, reports, content, audit logs, **Mapbox live map** (#21), admin CRUD, premium grant/revoke. |
 | 8 — Premium | **Done** | Stripe + demo checkout, webhooks, mobile UI, badge spec, admin grant/revoke |
 | 9 — Venues & launch | **UNDONE** | See “Later” section below. |
 
@@ -2226,19 +2219,17 @@ Uses the same labels as [Progress at a glance](#progress-at-a-glance): **Done** 
 11. **Phase 8 commit on staging** — After deploy, run migration `20260814120000_add_subscriptions_phase8` and smoke test with `./scripts/staging-smoke.sh`.
 12. **Two-phone testing** — See [`docs/testing/device-test-checklist.md`](../testing/device-test-checklist.md) before calling beta “ready”.
 
-### Do now / near future (before Events or public beta)
+### Do now / near future (before public beta)
 
 Priority order for the next sprint:
 
 | # | Task | Why |
 |---|------|-----|
-| 1 | **Commit + deploy #29/#30** | Profile completeness + invite links on staging |
-| 2 | **Device test checklist** | Two phones — Wall, icebreaker push, chat, premium, invite deep link |
-| 3 | **Events E1 (KYC)** | Didit full KYC workflow + user-facing “Verify ID to host events” |
-| 4 | **Events E2–E3** | DB tables + `GET /events/nearby` API |
-| 5 | **Events E4** | 5th tab — list, detail, create (gated on KYC) |
-| 6 | **Store prep** | Legal pages, screenshots, native rebuild for splash (#26) |
-| 7 | **Stripe go-live** (optional) | When ready: `PAYMENT_PROVIDER=stripe` + webhook secret on VPS |
+| 1 | **Device test checklist** | Two phones — Wall, icebreaker push, chat, events, premium, invite deep link |
+| 2 | **Store prep** | Legal pages live, screenshots, production `EXPO_PUBLIC_*` URLs |
+| 3 | **Stripe go-live** (optional) | When ready: `PAYMENT_PROVIDER=stripe` + webhook secret on VPS |
+| 4 | **Production domain cutover** | Real API/admin URLs, TLS, `CORS_ORIGINS`, mobile rebuild |
+| 5 | **Self-hosted OTA** (optional) | xprem on VPS for JS-only updates without store rebuild |
 
 **Staging deploy checklist (VPS):**
 ```bash
@@ -2269,7 +2260,9 @@ pnpm build
 
 ### Explicitly out of scope (for now)
 
+- Desktop web app / read-only Wall (#34) — **marketing landing page only** at `yourdomain.com`
 - Venue-first launch / B2B rooms at day one
+- Pay-to-win monetization — visibility boosts, ranking bumps, premium add-ons, read receipts, or any paid competitive advantage
 - Pay-to-chat or paywalled wall
 - Full KYC for all users (liveness only; admin can escalate to KYC)
 - Horizontal multi-instance WebSocket (until traffic requires it)
@@ -2336,6 +2329,12 @@ NOTIFICATIONS_TEST_ENABLED=false
 | Icebreaker match reset (staging ops) | **Done** | Manual DB/Redis cleanup as needed |
 | Profile completeness (#29) | **Done** | `ProfileCompletenessCard` on You tab |
 | Share / invite (#30) | **Done** | Share sheet, `pingme://invite`, `/invite` web page |
+| Auth screen backdrop | **Done** | Shared `AuthBackdrop` on login/register/forgot/reset |
+| Logout session race fix | **Done** | Session epoch + sign-out flags prevent stale 401s |
+| Gender symbols on register | **Done** | `GenderPicker` shows ♂ / ♀ / ⚧ on signup |
+| Wall post timestamps | **Done** | Today / Yesterday / date via `format-post-time` |
+| Profile status badges | **Done** | Green checkmarks on You tab (`ProfileStatusBadges`) |
+| Event gallery 4-slot UI | **Done** | Cover + 4 gallery slots; edit/delete via API |
 
 ### Premium & monetization
 
@@ -2373,7 +2372,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 21 | **Real map tiles** — Mapbox GL on admin live map (same `pk.*` token as mobile Events) | **Done** | `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`; heatmap + user dots on Mapbox streets/dark |
+| 21 | **Real map tiles** — Mapbox GL admin live map (same `pk.*` token as mobile Events) | **Done** | Mapbox streets/dark; ~550m cluster circles; Wall + icebreaker counts; Redis cache; BullMQ worker refreshes only while `/map` is open (`admin:map:watching` heartbeat); partial DB indexes; `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` via `apps/admin/.env.production.local` |
 | 22 | **Bulk actions on reports** | **Done** | Bulk assign/resolve/dismiss API + checkbox UI on admin reports |
 | 23 | **User search** — Email, phone, display name | **Done** | Query on admin Users page |
 | 24 | **Staging vs prod env indicator** | **Done** | Amber banner on admin when `NEXT_PUBLIC_APP_ENV=staging` or API URL is hostyler |
@@ -2394,9 +2393,9 @@ NOTIFICATIONS_TEST_ENABLED=false
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 31 | **Native in-app purchases** | **UNDONE** | |
-| 32 | **Premium add-ons à la carte** — e.g. visibility boost | **UNDONE** | |
 | 33 | **Events (user-created meetups)** — Couchsurfing-style | **Done** | E1–E5: DB, API, mobile tab, RSVP, comments, message host, admin, push |
-| 34 | **Web app** — Read-only wall for desktop | **UNDONE** | |
+| 38 | **Events — Attending tab** | **Done** | Nearby / Attending / Hosting segments; `GET /events/attending`; Going/Maybe badges + filter |
+| 39 | **Events — Paid tickets + app-only QR check-in** | **UNDONE** | In-app purchase, proprietary ticket QR, host scanner — see E6.4–E6.8 |
 | 35 | **Analytics** — DAU, match rate, icebreaker → chat conversion | **Done** | Dashboard: DAU, signups, icebreaker sessions, match rate %, icebreaker→chat % |
 
 ### Events feature plan (Couchsurfing-style)
@@ -2415,12 +2414,11 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 **What already exists in code**
 
-- Didit liveness flow (mobile WebView, webhook, `verifications` table)
-- KYC session creation: `VerificationService.startKycForUser()` → `VerificationType.document`
-- KYC today is **admin-triggered only** (`POST /admin/users/:id/verification/start-kyc`)
-- `DIDIT_WORKFLOW_ID_KYC` is empty in `.env` — must be set in Didit console first
-- Avatar/image upload (R2 or local) — extend for event cover/gallery
-- Wall nearby query (PostGIS) — pattern to copy for `GET /events/nearby`
+- Didit liveness + **user-initiated KYC** (`POST /verification/start-kyc`, mobile `/(setup)/kyc`)
+- `DIDIT_WORKFLOW_ID_KYC` set on staging VPS (see `scripts/deploy-staging.sh`)
+- Events CRUD, RSVP, comments, message-host, admin moderation, nearby push (E1–E5)
+- Mobile **Events** tab + create/edit with Mapbox map picker + Nominatim geocoding
+- Avatar/image upload (R2 or local) — reused for event gallery
 
 **Phase 0 — Product decisions** ✅ *Locked 2026-08-16*
 
@@ -2434,6 +2432,8 @@ NOTIFICATIONS_TEST_ENABLED=false
 | E0.6 | Event lifetime | **`starts_at` + `ends_at` required**; remove from active/discovery feed when ended; host can cancel early |
 | E0.7 | Host contact | **(1) Message host** — opt-in per event (`allow_messages`, toggle on create/edit). **(2) Public comment thread** on event (Wall-style replies; threaded discussion). |
 | E0.8 | Past events | Hide from main feed when ended; **“Past events”** section later (not MVP) |
+| E0.9 | **Attending filter** | **Done** | **Attending** segment on Events tab — Going/Maybe badges + All/Going/Maybe sub-filter (separate from **Hosting**) |
+| E0.10 | **Paid events + tickets** (future) | Hosts can charge for entry; attendee pays in-app before the event; attendee gets an **app-only ticket QR** (not a plain URL QR — generic scanners show nothing useful; only PingMe validates); host scans with in-app check-in to verify purchase |
 
 **MVP scope note:** RSVP + comments + map picker + 5 images is a **large** MVP — build in slices: KYC → events CRUD + list/detail → RSVP → comments → map search.
 
@@ -2441,8 +2441,8 @@ NOTIFICATIONS_TEST_ENABLED=false
 
 | # | Task | Status |
 |---|------|--------|
-| E1.1 | Create **full KYC workflow** in Didit console (ID + liveness + age) | **UNDONE** |
-| E1.2 | Set `DIDIT_WORKFLOW_ID_KYC` in local + staging `.env` | **UNDONE** |
+| E1.1 | Create **full KYC workflow** in Didit console (ID + liveness + age) | **Done** | Staging workflow ID in deploy script |
+| E1.2 | Set `DIDIT_WORKFLOW_ID_KYC` in local + staging `.env` | **Done** | Staging VPS + `scripts/deploy-staging.sh` |
 | E1.3 | Add `hasPassedIdVerification(userId)` on API | **Done** |
 | E1.4 | Fix webhook pass logic for KYC — check `id_verifications` + liveness, not liveness alone | **Done** |
 | E1.5 | `POST /verification/start-kyc` — **user-initiated** (not admin-only) | **Done** |
@@ -2494,7 +2494,26 @@ NOTIFICATIONS_TEST_ENABLED=false
 | E5.2 | Admin: see host verification status on event | **Done** |
 | E5.3 | Push: “New event near you” | **Done** |
 
-**Suggested build order:** E1 (KYC) → E2 → E3 core (CRUD + nearby) → E4 list/detail/create → E3/E4 RSVP → comments → message host. Phase 0 locked.
+**Phase 6 — Events enhancements (planned)**
+
+| # | Task | Status | Notes |
+|---|------|--------|-------|
+| E6.1 | API: `GET /events/attending` — events where viewer RSVP is `going` or `maybe` (active, not ended) | **Done** | Paginated; respect blocks |
+| E6.2 | Mobile: **Attending** segment on Events tab — list RSVP’d events with Going / Maybe badge | **Done** | Always visible with empty state; All / Going / Maybe sub-filter |
+| E6.3 | Optional filters on Attending — **Going** vs **Maybe**, upcoming vs past | **UNDONE** | Pairs with E0.8 past-events UX |
+| E6.4 | DB + API: paid events — `is_paid`, price, currency, capacity (optional) | **UNDONE** | Stripe Connect or platform checkout TBD |
+| E6.5 | Mobile: purchase ticket flow — pay in app → issue ticket record | **UNDONE** | Refund/cancel policy TBD |
+| E6.6 | **App-only ticket QR** — signed payload / deep link rendered as QR; **not** a public URL ticket | **UNDONE** | Generic camera apps must not redeem entry; only PingMe host check-in scanner validates |
+| E6.7 | Host check-in: in-app scanner for organizers — `POST /events/:id/tickets/scan` | **UNDONE** | One-time or time-window redemption; audit log |
+| E6.8 | Attendee ticket screen — show QR + event details offline-friendly | **UNDONE** | After successful purchase |
+
+**Paid events product rules (locked direction):**
+
+- Ticket QR is **PingMe-proprietary** — encoded for the app only (e.g. signed JWT or opaque token in `pingme://` payload). Scanning with a normal QR reader shows gibberish or a non-actionable stub, not a redeemable ticket.
+- **Hosts** use the PingMe app (or admin tool later) to scan and mark entry — prevents screenshot URL sharing as a bypass.
+- Separate from Premium cosmetic perks — this is **event commerce**, not pay-to-win on Wall/icebreaker.
+
+**Suggested build order:** E1 (KYC) → E2 → E3 core (CRUD + nearby) → E4 list/detail/create → E3/E4 RSVP → comments → message host. Phase 0 locked. **Next events work:** E6.4+ (paid tickets).
 
 **Rough effort:** ~3–4 weeks given RSVP + comments + map (larger than initial estimate).
 
@@ -2505,10 +2524,10 @@ NOTIFICATIONS_TEST_ENABLED=false
 | Variable | Feature | Default | Who sets it | Notes |
 |----------|---------|---------|-------------|-------|
 | `DEFAULT_RADIUS_METERS` | Wall — default when user has no preference | `250` | Ops (`.env`) | Already used by API (`wall.service`, `presence.service`) |
-| `WALL_MIN_RADIUS_METERS` | Wall — floor for user picker | `150` | Ops (`.env`) | **To wire:** clamp `user_settings.radius_meters` + mobile picker options |
-| `WALL_MAX_RADIUS_METERS` | Wall — ceiling for user picker | `500` | Ops (`.env`) | **To wire:** same as above |
-| `ICEBREAKER_RADIUS_METERS` | Break the ice — fixed match radius | `150` | Ops (`.env`) | Already used by API (`icebreaker.service`). Staging `.env` may still be `50` — align when testing |
-| `EVENTS_DISCOVERY_RADIUS_METERS` | Events — nearby discovery | `15000` (15 km) | Ops (`.env`) | **To wire** when Events ship (Phase E3) |
+| `WALL_MIN_RADIUS_METERS` | Wall — floor for user picker | `150` | Ops (`.env`) | Clamps `user_settings.radius_meters` + mobile picker options |
+| `WALL_MAX_RADIUS_METERS` | Wall — ceiling for user picker | `500` | Ops (`.env`) | Same as above |
+| `ICEBREAKER_RADIUS_METERS` | Break the ice — fixed match radius | `150` | Ops (`.env`) | Used by API (`icebreaker.service`). Staging `.env` may still be `50` — align when testing |
+| `EVENTS_DISCOVERY_RADIUS_METERS` | Events — nearby discovery | `15000` (15 km) | Ops (`.env`) | Used by `events.service` + `GET /config` |
 
 **Why API `.env` (not mobile `.env`)?**
 - Change on VPS → restart API → all app users pick it up (no APK rebuild).
@@ -2527,7 +2546,7 @@ user_settings DB  → each user's Wall choice within min–max
 GET /config       → public app limits (distance radii); mobile prefetches at launch
 ```
 
-**Implementation TODO**
+**Implementation status**
 
 | # | Task | Status |
 |---|------|--------|
@@ -2544,19 +2563,19 @@ GET /config       → public app limits (distance radii); mobile prefetches at l
 
 | Phase | Items | Rationale |
 |-------|-------|-----------|
-| **Done (polish sprint)** | #29 profile completeness, #30 invite, #36–37 icebreaker push, #6–7 Stripe | Shipped on `main`; deploy to staging for device QA |
-| **Immediate** | Deploy latest + device test checklist | Validate invite deep link + completeness card on two phones |
-| **Next** | **Events E1** (Didit KYC) → E2–E4 mobile tab | 5th tab + host KYC gate — largest new feature |
-| **Parallel track** | Store prep (#26 splash rebuild, legal) OR Stripe go-live | Launch assets vs monetization — pick based on timeline |
-| **Before public launch** | 19, 19b, 21, 27, legal pages | Trust badges on others’ cards, ID verification, admin map, contrast |
-| **Growth** | 35, E5.3 | Funnel metrics + optional “new event near you” push (#30 invite done) |
+| **Done** | Events E1–E5, #21 admin Mapbox map, #29–30 invite/completeness, #36–37 icebreaker push | Shipped on staging Aug 2026 |
+| **Immediate** | Device test checklist | Validate full flows on two phones before beta |
+| **Next** | Store prep + legal pages | App Store / Play submission assets |
+| **Parallel track** | Stripe go-live OR production domain | Monetization vs real-domain launch |
+| **Before public launch** | Legal pages, monitoring (Sentry), load test | Trust + ops readiness |
+| **Growth** | #35 analytics (done), marketing / invite funnel | Already on dashboard |
 
 ### Goal-based top 5 (pick one track)
 
 | Goal | Top 5 |
 |------|-------|
 | **Monetize soon** | Stripe go-live → 10 (subscription history) → 31 (IAP) |
-| **Grow / test icebreaker** | Device test checklist → 35 (analytics) → E5.3 event push |
-| **Ship Events** | E1 (KYC) → E2 → E3 → E4 → E5 |
-| **Polish for launch** | 26 → 27 → 28 → 19 → 21 → legal pages |
+| **Grow / test** | Device test checklist → invite funnel (#30) → analytics (#35) |
+| **Launch prep** | Legal pages → store screenshots → production domain → mobile release build |
+| **Polish** | Self-hosted OTA → E2E tests (Detox/Maestro) → wall feed cache |
 

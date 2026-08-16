@@ -192,6 +192,29 @@ export function formatDurationMinutes(minutes: number): string {
   return `${minutes} min`;
 }
 
+/** Countdown label for an active Break the ice session (floors partial minutes). */
+export function formatIcebreakerTimeRemaining(
+  expiresAt: string | Date,
+  now = Date.now(),
+): string {
+  const ms = new Date(expiresAt).getTime() - now;
+  if (ms <= 0) {
+    return 'Ending soon';
+  }
+
+  const totalMinutes = Math.floor(ms / 60_000);
+  if (totalMinutes >= 60) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (minutes === 0) {
+      return hours === 1 ? '1 hour left' : `${hours} hours left`;
+    }
+    return `${hours}h ${minutes}m left`;
+  }
+
+  return totalMinutes === 1 ? '1 min left' : `${totalMinutes} min left`;
+}
+
 export function formatEventsDiscoveryRadius(meters: number): string {
   if (meters >= 1000 && meters % 1000 === 0) {
     return `${meters / 1000} km`;

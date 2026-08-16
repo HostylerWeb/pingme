@@ -62,6 +62,20 @@ export class EventsController {
     return this.eventsService.listMine(user.id);
   }
 
+  @Get('attending')
+  @ApiOperation({ summary: 'List events the current user RSVP’d to (going or maybe)' })
+  listAttending(
+    @CurrentUser() user: User,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.eventsService.listAttending(
+      user.id,
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 20,
+    );
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get event detail' })
   getEvent(@CurrentUser() user: User, @Param('id', ParseUUIDPipe) id: string) {

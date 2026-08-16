@@ -273,6 +273,7 @@ export default function EventDetailScreen() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['event', id] });
       void queryClient.invalidateQueries({ queryKey: ['events-nearby'] });
+      void queryClient.invalidateQueries({ queryKey: ['events-attending'] });
     },
     onError: (err: Error) => showToast(err.message, 'error'),
   });

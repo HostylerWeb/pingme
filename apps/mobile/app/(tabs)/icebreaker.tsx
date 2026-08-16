@@ -1,4 +1,4 @@
-import { formatDurationMinutes, icebreakerRadiusLabel } from '@pingme/shared';
+import { formatDurationMinutes, formatIcebreakerTimeRemaining, icebreakerRadiusLabel } from '@pingme/shared';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -166,25 +166,6 @@ function ResponsePill({
 
 const ICEBREAKER_SUBTITLE =
   'People open to meeting nearby. Say yes — if they say yes too, you can connect.';
-
-function formatIcebreakerTimeRemaining(expiresAt: string, now = Date.now()): string {
-  const ms = new Date(expiresAt).getTime() - now;
-  if (ms <= 0) {
-    return 'Ending soon';
-  }
-
-  const totalMinutes = Math.ceil(ms / 60_000);
-  if (totalMinutes >= 60) {
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (minutes === 0) {
-      return hours === 1 ? '1 hour left' : `${hours} hours left`;
-    }
-    return `${hours}h ${minutes}m left`;
-  }
-
-  return totalMinutes === 1 ? '1 min left' : `${totalMinutes} min left`;
-}
 
 function useIcebreakerCountdown(expiresAt: string | null | undefined, active: boolean) {
   const [label, setLabel] = useState<string | null>(null);

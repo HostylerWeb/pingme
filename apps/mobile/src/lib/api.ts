@@ -684,6 +684,13 @@ export const api = {
   getMyEvents: () =>
     apiFetch<{ success: boolean; data: EventMineSummary[] }>('/events/mine'),
 
+  getAttendingEvents: (page = 1, limit = 20) =>
+    apiFetch<{
+      success: boolean;
+      data: EventAttendingSummary[];
+      meta: { page: number; limit: number; hasMore: boolean };
+    }>(`/events/attending?page=${page}&limit=${limit}`),
+
   getEvent: (id: string) =>
     apiFetch<{ success: boolean; data: EventDetail }>(`/events/${id}`),
 
@@ -1096,6 +1103,10 @@ export interface EventMineSummary {
   maybeCount: number;
   coverUrl?: string | null;
   isHost: boolean;
+}
+
+export interface EventAttendingSummary extends EventSummary {
+  viewerRsvp: 'going' | 'maybe';
 }
 
 export interface EventDetail {

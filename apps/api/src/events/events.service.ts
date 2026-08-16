@@ -193,6 +193,105 @@ export class EventsService {
     };
   }
 
+  async listAttending(userId: string, page = 1, limit = 20) {
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safeLimit = Math.min(50, Math.max(1, Number.isFinite(limit) ? Math.floor(limit) : 20));
+    const offset = (safePage - 1) * safeLimit;
+    const now = new Date();
+    const blockedIds = await this.blocks.getBlockedUserIds(userId);
+    const session = await this.prisma.presenceSession.findUnique({ where: { userId } });
+
+    const where: Prisma.EventWhereInput = {
+      status: EventStatus.active,
+      endsAt: { gt: now },
+      ...(blockedIds.length > 0 ? { userId: { notIn: blockedIds } } : {}),
+      user: { deletedAt: null, NOT: { status: UserStatus.deleted } },
+      rsvps: {
+        some: {
+          userId,
+          status: { in: [EventRsvpStatus.going, EventRsvpStatus.maybe] },
+        },
+      },
+    };
+
+    const [events, total] = await Promise.all([
+      this.prisma.event.findMany({
+        where,
+        include: {
+          images: { orderBy: { sortOrder: 'asc' } },
+          user: { include: { profile: true, subscription: true } },
+          rsvps: { where: { userId } },
+        },
+        orderBy: { startsAt: 'asc' },
+        skip: offset,
+        take: safeLimit,
+      }),
+      this.prisma.event.count({ where }),
+    ]);
+
+    const verifiedSet = await loadLivenessVerifiedSet(
+      this.prisma,
+      events.map((event) => event.userId),
+    );
+
+    const data = events.map((event) => {
+      const rsvp = event.rsvps[0];
+      const viewerRsvp =
+        rsvp?.status === EventRsvpStatus.going || rsvp?.status === EventRsvpStatus.maybe
+          ? rsvp.status
+          : null;
+      const flair = getPublicProfileFields(
+        event.user.profile,
+        event.user.subscription,
+        verifiedSet.has(event.userId),
+      );
+
+      let distanceBucketValue = 'nearby';
+      if (
+        session?.latitude != null &&
+        session?.longitude != null &&
+        event.latitude != null &&
+        event.longitude != null
+      ) {
+        distanceBucketValue = distanceBucket(
+          haversineMeters(session.latitude, session.longitude, event.latitude, event.longitude),
+        );
+      }
+
+      return {
+        id: event.id,
+        title: event.title,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        placeName: event.placeName,
+        goingCount: event.goingCount,
+        maybeCount: event.maybeCount,
+        coverUrl: event.images.find((img) => img.isCover)?.url ?? event.images[0]?.url ?? null,
+        distanceBucket: distanceBucketValue,
+        viewerRsvp,
+        host: {
+          id: event.userId,
+          displayName: event.user.profile?.displayName ?? 'User',
+          avatarUrl: event.user.profile?.avatarUrl ?? null,
+          isYou: event.userId === userId,
+          isPremium: flair.isPremium,
+          avatarTheme: flair.avatarTheme,
+          livenessVerified: flair.livenessVerified,
+        },
+      };
+    });
+
+    return {
+      success: true,
+      data,
+      meta: {
+        page: safePage,
+        limit: safeLimit,
+        hasMore: offset + events.length < total,
+      },
+    };
+  }
+
   async getEvent(userId: string, eventId: string) {
     const blockedIds = await this.blocks.getBlockedUserIds(userId);
     const event = await this.prisma.event.findFirst({
@@ -777,4 +876,15 @@ export class EventsService {
 
 function orderUserIds(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
+}
+
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (degrees: number) => (degrees * Math.PI) / 180;
+  const earthRadiusMeters = 6_371_000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadiusMeters * Math.asin(Math.sqrt(a));
 }
