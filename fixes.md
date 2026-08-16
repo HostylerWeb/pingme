@@ -430,6 +430,8 @@ Do one Part at a time. Each Part has three fixes (1 → 2 → 3). Numbers below 
 **Done when:** legal links open from the app; wall posts can be reported/blocked; logout leaves no lingering location/cache/push; nearby/wall queries are capped and indexed.
 
 > Part 2 note: run `pnpm --filter @pingme/db migrate:deploy` (or staging deploy) so GiST indexes apply.
+>
+> **Wall feed (follow-up):** posts older than **48 hours** are hidden; Home uses infinite scroll (`useInfiniteQuery`) with page size 20. New posts set `expires_at` to +48h.
 
 ---
 

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, UserStatus, WallPostStatus, WallReplyStatus } from '@pingme/db';
-import { distanceBucket, NOTIFICATION_TYPES, CreateWallPostInput, CreateWallReplyInput } from '@pingme/shared';
+import { distanceBucket, NOTIFICATION_TYPES, WALL_POST_MAX_AGE_HOURS, CreateWallPostInput, CreateWallReplyInput } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
 import { BlocksService } from '../common/services/blocks.service';
@@ -55,6 +55,7 @@ export class WallService {
     const radius = this.appConfig.resolveWallRadius(settings?.radiusMeters);
     const blockedIds = await this.blocks.getBlockedUserIds(userId);
     const offset = (safePage - 1) * safeLimit;
+    const cutoff = new Date(Date.now() - WALL_POST_MAX_AGE_HOURS * 60 * 60 * 1000);
 
     const blockedFilter =
       blockedIds.length > 0
@@ -96,6 +97,8 @@ export class WallService {
         AND u.status <> 'deleted'
       LEFT JOIN subscriptions sub ON sub.user_id = wp.user_id
       WHERE wp.status = 'active'
+        AND wp.created_at >= ${cutoff}
+        AND (wp.expires_at IS NULL OR wp.expires_at > NOW())
         AND ST_DWithin(
           ST_SetSRID(ST_MakePoint(wp.longitude, wp.latitude), 4326)::geography,
           ST_SetSRID(ST_MakePoint(${session.longitude}, ${session.latitude}), 4326)::geography,
@@ -137,10 +140,23 @@ export class WallService {
     };
     });
 
-    return { success: true, data, meta: { page: safePage, limit: safeLimit, radiusMeters: radius } };
+    const hasMore = rows.length === safeLimit;
+
+    return {
+      success: true,
+      data,
+      meta: {
+        page: safePage,
+        limit: safeLimit,
+        radiusMeters: radius,
+        hasMore,
+        maxAgeHours: WALL_POST_MAX_AGE_HOURS,
+      },
+    };
   }
 
   async createPost(userId: string, dto: CreateWallPostInput) {
+    const expiresAt = new Date(Date.now() + WALL_POST_MAX_AGE_HOURS * 60 * 60 * 1000);
     const post = await this.prisma.wallPost.create({
       data: {
         userId,
@@ -149,6 +165,7 @@ export class WallService {
         longitude: dto.longitude,
         showPhoto: dto.showPhoto ?? false,
         status: WallPostStatus.active,
+        expiresAt,
       },
     });
 
@@ -169,6 +186,8 @@ export class WallService {
       where: {
         id: postId,
         status: WallPostStatus.active,
+        createdAt: { gte: new Date(Date.now() - WALL_POST_MAX_AGE_HOURS * 60 * 60 * 1000) },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
         userId: blockedIds.length ? { notIn: blockedIds } : undefined,
         user: { deletedAt: null, NOT: { status: UserStatus.deleted } },
       },

@@ -1,8 +1,9 @@
-import { distanceLabel } from '@pingme/shared';
+import { distanceLabel, WALL_POST_MAX_AGE_HOURS } from '@pingme/shared';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -11,7 +12,7 @@ import {
   View,
   Alert,
 } from 'react-native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, WallPost } from '../../src/lib/api';
 import {
   requestBackgroundPermissions,
@@ -118,7 +119,7 @@ function PostRow({
 }
 
 function wallSubtitle(radiusMeters: number) {
-  return `A local feed within ~${radiusMeters}m. Post, read replies, and chat after you connect.`;
+  return `A local feed within ~${radiusMeters}m from the last ${WALL_POST_MAX_AGE_HOURS} hours. Post, read replies, and chat after you connect.`;
 }
 
 export default function WallScreen() {
@@ -207,12 +208,30 @@ export default function WallScreen() {
     headerIconBtnPressed: { opacity: 0.85 },
   }));
 
-  const { data, isLoading, refetch, isRefetching } = useQuery({
+  const {
+    data,
+    isLoading,
+    refetch,
+    isRefetching,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['wall-posts'],
-    queryFn: () => api.getWallPosts(),
+    queryFn: ({ pageParam }) => api.getWallPosts(pageParam, 20),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.meta.hasMore === false) return undefined;
+      if ((lastPage.data?.length ?? 0) < (lastPage.meta.limit ?? 20)) return undefined;
+      return (lastPage.meta.page ?? 1) + 1;
+    },
     enabled: !!coords,
   });
 
+  const posts = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data],
+  );
   const presenceRefetchInterval = useSocketAwareRefetchInterval({
     foreground: 60_000,
     ignoreSocket: true,
@@ -458,6 +477,9 @@ export default function WallScreen() {
       ) : null}
 
       <SectionLabel>Nearby wall</SectionLabel>
+      <Text style={styles.presenceHint}>
+        Showing posts from the last {WALL_POST_MAX_AGE_HOURS} hours. Scroll for more.
+      </Text>
     </View>
   );
 
@@ -489,17 +511,30 @@ export default function WallScreen() {
         </View>
       ) : (
         <FlatList
-          data={data?.data ?? []}
+          data={posts}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={listHeader}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.accent} />}
+          refreshControl={<RefreshControl refreshing={isRefetching && !isFetchingNextPage} onRefresh={() => void refetch()} tintColor={colors.accent} />}
           contentContainerStyle={[styles.list, { paddingBottom: contentBottom + 72 }]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) {
+              void fetchNextPage();
+            }
+          }}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={{ paddingVertical: spacing.lg }}>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <EmptyState
               icon="megaphone"
               title="No posts yet"
-              message={`Be the first to say something to people within about ${radiusMeters} meters.`}
+              message={`Be the first to say something to people within about ${radiusMeters} meters. Posts older than ${WALL_POST_MAX_AGE_HOURS} hours leave the feed.`}
               action={
                 <Button
                   label="Write a post"

@@ -344,10 +344,18 @@ export const api = {
       };
     }>('/presence/nearby'),
 
-  getWallPosts: (page = 1) =>
-    apiFetch<{ success: boolean; data: WallPost[]; meta: { page: number; limit: number } }>(
-      `/wall/posts?page=${page}`,
-    ),
+  getWallPosts: (page = 1, limit = 20) =>
+    apiFetch<{
+      success: boolean;
+      data: WallPost[];
+      meta: {
+        page: number;
+        limit: number;
+        hasMore?: boolean;
+        maxAgeHours?: number;
+        radiusMeters?: number;
+      };
+    }>(`/wall/posts?page=${page}&limit=${limit}`),
 
   createWallPost: (payload: {
     content: string;

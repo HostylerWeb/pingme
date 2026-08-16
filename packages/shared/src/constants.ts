@@ -1,4 +1,6 @@
 export const MATCH_EXPIRY_MINUTES = 30;
+/** Wall posts older than this are hidden from the feed (and set as expires_at on create). */
+export const WALL_POST_MAX_AGE_HOURS = 48;
 /** Foreground location pings while Wall / Break the ice tabs are open (~1/min). */
 export const LOCATION_PINGS_PER_HOUR = 120;
 export const FOREGROUND_PING_INTERVAL_MS = 60_000;
