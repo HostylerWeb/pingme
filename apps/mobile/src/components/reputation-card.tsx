@@ -1,6 +1,6 @@
 import { getReputationTierLabel, type ReputationTierId } from '@pingme/shared';
 import { Text, View } from 'react-native';
-import { radius, spacing, typography, useThemedStyles } from '../../theme';
+import { radius, spacing, typography, useThemedStyles } from '../theme';
 
 type ReputationCardProps = {
   score: number;
@@ -43,7 +43,7 @@ export function ReputationCard({
       gap: spacing.md,
     },
     tier: {
-      ...typography.titleSm,
+      ...typography.title,
       color: colors.ink,
     },
     score: {

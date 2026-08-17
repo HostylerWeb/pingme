@@ -877,6 +877,7 @@ export interface PublicUserFlair {
   isPremium?: boolean;
   avatarTheme?: string | null;
   livenessVerified?: boolean;
+  reputationTier?: 'new' | 'regular' | 'respected' | 'trusted' | 'master';
   gender?: 'male' | 'female' | 'transgender' | 'other' | null;
 }
 
@@ -935,6 +936,7 @@ export interface WallPost {
     isPremium?: boolean;
     avatarTheme?: string | null;
     livenessVerified?: boolean;
+    reputationTier?: 'new' | 'regular' | 'respected' | 'trusted' | 'master';
     gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   };
 }
@@ -952,6 +954,7 @@ export interface WallPostDetail extends WallPost {
       isPremium?: boolean;
       avatarTheme?: string | null;
       livenessVerified?: boolean;
+      reputationTier?: 'new' | 'regular' | 'respected' | 'trusted' | 'master';
       gender?: 'male' | 'female' | 'transgender' | 'other' | null;
     };
   }>;
@@ -1054,6 +1057,7 @@ export interface MatchOtherUser {
   isPremium?: boolean;
   avatarTheme?: string | null;
   livenessVerified?: boolean;
+  reputationTier?: 'new' | 'regular' | 'respected' | 'trusted' | 'master';
   gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   activeNow?: boolean;
   anonymous: boolean;
