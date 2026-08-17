@@ -14,6 +14,7 @@ import { BlocksService } from '../common/services/blocks.service';
 import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReputationService } from '../reputation/reputation.service';
 import { activateMatchIfReady, resetIcebreakerSessionsForMatch } from './match.utils';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class MatchesService {
     private readonly notifications: NotificationService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly gateway: ChatGateway,
+    private readonly reputation: ReputationService,
   ) {}
 
   async list(userId: string) {
@@ -39,6 +41,7 @@ export class MatchesService {
           select: {
             id: true,
             lastSeenAt: true,
+            reputationScore: true,
             profile: { select: { displayName: true, avatarUrl: true, avatarConfig: true, gender: true } },
             subscription: true,
           },
@@ -47,6 +50,7 @@ export class MatchesService {
           select: {
             id: true,
             lastSeenAt: true,
+            reputationScore: true,
             profile: { select: { displayName: true, avatarUrl: true, avatarConfig: true, gender: true } },
             subscription: true,
           },
@@ -128,6 +132,11 @@ export class MatchesService {
 
       this.emitMatchUpdate(userId, activated);
       this.emitMatchUpdate(otherUserId, activated);
+
+      await Promise.all([
+        this.reputation.grantMutualMatch(userId, matchId),
+        this.reputation.grantMutualMatch(otherUserId, matchId),
+      ]);
 
       return { success: true, data: this.serializeMatch(activated, userId, true) };
     }
@@ -337,6 +346,7 @@ export class MatchesService {
       userA?: {
         id: string;
         lastSeenAt: Date | null;
+        reputationScore?: number;
         profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown; gender?: Gender | null } | null;
         subscription: {
           plan: string;
@@ -347,6 +357,7 @@ export class MatchesService {
       userB?: {
         id: string;
         lastSeenAt: Date | null;
+        reputationScore?: number;
         profile: { displayName: string; avatarUrl: string | null; avatarConfig: unknown; gender?: Gender | null } | null;
         subscription: {
           plan: string;
@@ -369,6 +380,7 @@ export class MatchesService {
       otherRecord?.profile,
       otherRecord?.subscription,
       verifiedSet.has(otherUserId),
+      otherRecord?.reputationScore ?? 0,
     );
     const otherDisplayName = otherRecord?.profile?.displayName ?? 'Someone nearby';
 
@@ -393,6 +405,7 @@ export class MatchesService {
             isPremium: otherFlair.isPremium,
             avatarTheme: otherFlair.avatarTheme,
             livenessVerified: otherFlair.livenessVerified,
+            reputationTier: otherFlair.reputationTier,
             gender: otherFlair.gender,
             activeNow: isUserActiveNow(otherRecord?.lastSeenAt),
             anonymous: false,
@@ -405,6 +418,7 @@ export class MatchesService {
             isPremium: otherFlair.isPremium,
             avatarTheme: otherFlair.avatarTheme,
             livenessVerified: otherFlair.livenessVerified,
+            reputationTier: otherFlair.reputationTier,
             gender: otherFlair.gender,
             activeNow: isUserActiveNow(otherRecord?.lastSeenAt),
             anonymous: false,

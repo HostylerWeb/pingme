@@ -1,4 +1,5 @@
 import { Gender, SubscriptionPlan, SubscriptionStatus, VerificationStatus, VerificationType } from '@pingme/db';
+import { getReputationTier, type ReputationTierId } from '@pingme/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 
 export interface PublicProfileFields {
@@ -6,6 +7,7 @@ export interface PublicProfileFields {
   avatarTheme: string | null;
   livenessVerified: boolean;
   gender: Gender | null;
+  reputationTier: ReputationTierId;
 }
 
 export function isActivePremiumSubscription(subscription: {
@@ -36,6 +38,7 @@ export function getPublicProfileFields(
     currentPeriodEnd: Date | null;
   } | null | undefined,
   livenessVerified = false,
+  reputationScore = 0,
 ): PublicProfileFields {
   const isPremium = isActivePremiumSubscription(subscription);
   const avatarConfig = profile?.avatarConfig as { theme?: string } | null | undefined;
@@ -46,6 +49,7 @@ export function getPublicProfileFields(
     avatarTheme: isPremium ? theme : null,
     livenessVerified,
     gender: profile?.gender ?? null,
+    reputationTier: getReputationTier(reputationScore),
   };
 }
 
@@ -76,7 +80,7 @@ export async function loadPublicProfileMap(prisma: PrismaService, userIds: strin
     return new Map<string, PublicProfileFields>();
   }
 
-  const [profiles, subscriptions, verifiedSet] = await Promise.all([
+  const [profiles, subscriptions, verifiedSet, users] = await Promise.all([
     prisma.profile.findMany({
       where: { userId: { in: uniqueIds } },
       select: { userId: true, avatarConfig: true, gender: true },
@@ -85,10 +89,15 @@ export async function loadPublicProfileMap(prisma: PrismaService, userIds: strin
       where: { userId: { in: uniqueIds } },
     }),
     loadLivenessVerifiedSet(prisma, uniqueIds),
+    prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, reputationScore: true },
+    }),
   ]);
 
   const profileByUserId = new Map(profiles.map((profile) => [profile.userId, profile]));
   const subscriptionByUserId = new Map(subscriptions.map((subscription) => [subscription.userId, subscription]));
+  const reputationByUserId = new Map(users.map((user) => [user.id, user.reputationScore]));
 
   return new Map(
     uniqueIds.map((userId) => [
@@ -97,6 +106,7 @@ export async function loadPublicProfileMap(prisma: PrismaService, userIds: strin
         profileByUserId.get(userId),
         subscriptionByUserId.get(userId),
         verifiedSet.has(userId),
+        reputationByUserId.get(userId) ?? 0,
       ),
     ]),
   );

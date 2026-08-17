@@ -13,6 +13,7 @@ import { AvatarWithTheme } from '../../src/components/avatar-with-theme';
 import { PremiumCta } from '../../src/components/premium-cta';
 import { ProfileCompletenessCard } from '../../src/components/profile-completeness-card';
 import { ProfileStatusBadges } from '../../src/components/profile-status-badges';
+import { ReputationCard } from '../../src/components/reputation-card';
 import type { ProfileCompletenessField } from '@pingme/shared';
 import { shareAppInvite } from '../../src/lib/invite';
 import { ActionSheet, AppHeader, BottomSheet, Button, GenderPicker, GenderReadOnly, Input, Screen } from '../../src/components/ui';
@@ -54,6 +55,14 @@ export default function ProfileScreen() {
   const displayName = user?.profile?.displayName ?? 'User';
   const bio = user?.profile?.bio;
   const profileGender = user?.profile?.gender ?? null;
+  const reputation = (user as { reputation?: {
+    score: number;
+    tier: import('@pingme/shared').ReputationTierId;
+    tierLabel: string;
+    pointsToNextTier: number | null;
+    nextTierLabel: string | null;
+    scoreMax: number;
+  } } | null)?.reputation;
 
   const [editOpen, setEditOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(displayName);
@@ -312,6 +321,17 @@ export default function ProfileScreen() {
             idVerified={user?.idVerified}
           />
         </View>
+
+        {reputation ? (
+          <ReputationCard
+            score={reputation.score}
+            tier={reputation.tier}
+            tierLabel={reputation.tierLabel}
+            pointsToNextTier={reputation.pointsToNextTier}
+            nextTierLabel={reputation.nextTierLabel}
+            scoreMax={reputation.scoreMax}
+          />
+        ) : null}
 
         <ProfileCompletenessCard
           avatarUrl={avatarUrl}

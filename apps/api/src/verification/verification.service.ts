@@ -17,6 +17,7 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
+import { ReputationService } from '../reputation/reputation.service';
 import { DiditService, DiditWebhookPayload } from './didit.service';
 
 @Injectable()
@@ -29,6 +30,7 @@ export class VerificationService {
     private readonly audit: AuditService,
     private readonly redis: RedisService,
     private readonly notifications: NotificationService,
+    private readonly reputation: ReputationService,
   ) {}
 
   isEnforcementEnabled(): boolean {
@@ -562,6 +564,12 @@ export class VerificationService {
           verificationType: isDocument ? 'kyc' : 'liveness',
         },
       });
+
+      if (isDocument && workflowType === 'kyc') {
+        await this.reputation.grantOnce(userId, 'verification_id', userId);
+      } else if (!isDocument) {
+        await this.reputation.grantOnce(userId, 'verification_liveness', userId);
+      }
     }
 
     if (finalStatus === 'failed' && existing?.status !== VerificationStatus.failed) {

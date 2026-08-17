@@ -7,4 +7,5 @@ export * from './enums';
 export * from './geo';
 export * from './age';
 export * from './profile-completeness';
+export * from './reputation';
 export * from './schemas';

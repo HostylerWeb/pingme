@@ -33,6 +33,7 @@ import { R2Service } from '../common/services/r2.service';
 import { assertSafeEventObjectKey } from '../common/utils/upload-key.util';
 import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReputationService } from '../reputation/reputation.service';
 import { EventsNearbyPushService } from './events-nearby-push.service';
 import { NotificationService } from '../notifications/notification.service';
 
@@ -61,6 +62,7 @@ interface EventNearbyRow {
   subscription_status: string | null;
   subscription_period_end: Date | null;
   liveness_verified: boolean;
+  reputation_score: number;
   cover_url: string | null;
 }
 
@@ -74,6 +76,7 @@ export class EventsService {
     private readonly eventsPush: EventsNearbyPushService,
     private readonly notifications: NotificationService,
     private readonly r2: R2Service,
+    private readonly reputation: ReputationService,
   ) {}
 
   async listNearby(userId: string, page = 1, limit = 20) {
@@ -131,6 +134,7 @@ export class EventsService {
             AND v.status = 'passed'
             AND (v.expires_at IS NULL OR v.expires_at > NOW())
         ) AS liveness_verified,
+        u.reputation_score,
         (
           SELECT ei.url FROM event_images ei
           WHERE ei.event_id = e.id AND ei.is_cover = true
@@ -248,6 +252,7 @@ export class EventsService {
         event.user.profile,
         event.user.subscription,
         verifiedSet.has(event.userId),
+        event.user.reputationScore ?? 0,
       );
 
       let distanceBucketValue = 'nearby';
@@ -338,6 +343,7 @@ export class EventsService {
       event.user.profile,
       event.user.subscription,
       verifiedSet.has(event.userId),
+      event.user.reputationScore ?? 0,
     );
 
     const idVerified = await this.prisma.verification.findFirst({
@@ -429,6 +435,8 @@ export class EventsService {
       event.latitude,
       event.longitude,
     );
+
+    await this.reputation.grantActivity(userId, 'activity_event_host', event.id);
 
     return {
       success: true,
@@ -737,6 +745,7 @@ export class EventsService {
           comment.user.profile,
           comment.user.subscription,
           verifiedSet.has(comment.userId),
+          comment.user.reputationScore ?? 0,
         );
         return {
           id: comment.id,
@@ -941,6 +950,7 @@ export class EventsService {
           }
         : null,
       row.liveness_verified,
+      row.reputation_score,
     );
 
     return {

@@ -34,6 +34,11 @@ interface UserSummary {
     wallPosts: number;
     matches: number;
   };
+  reputationScore?: number;
+  reputation?: {
+    tierLabel: string;
+    score: number;
+  };
 }
 
 interface ChatMessagePreview {
@@ -245,6 +250,9 @@ export default function ReportDetailPage() {
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolutionNote, setResolutionNote] = useState('');
   const [resolveStatus, setResolveStatus] = useState<'resolved' | 'dismissed'>('resolved');
+  const [deductPoints, setDeductPoints] = useState(false);
+  const [deductionAmount, setDeductionAmount] = useState<number | 'custom'>(5);
+  const [customDeduction, setCustomDeduction] = useState('');
 
   async function load() {
     setLoading(true);
@@ -277,11 +285,31 @@ export default function ReportDetailPage() {
   async function submitResolution() {
     setActionLoading(true);
     try {
+      const targetUserId =
+        resolveStatus === 'resolved'
+          ? data?.report.reportedUser.id
+          : data?.report.reporter.id;
+      const amount =
+        deductPoints && targetUserId
+          ? deductionAmount === 'custom'
+            ? Number(customDeduction)
+            : deductionAmount
+          : 0;
+
       await adminFetch(`/admin/reports/${params.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status: resolveStatus, resolutionNote }),
+        body: JSON.stringify({
+          status: resolveStatus,
+          resolutionNote,
+          ...(deductPoints && amount > 0 && targetUserId
+            ? { reputationDeduction: { targetUserId, amount } }
+            : {}),
+        }),
       });
       setResolveOpen(false);
+      setDeductPoints(false);
+      setDeductionAmount(5);
+      setCustomDeduction('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update report');
@@ -575,6 +603,69 @@ export default function ReportDetailPage() {
             onChange={(e) => setResolutionNote(e.target.value)}
             rows={4}
           />
+          <div className="rounded-lg border border-border bg-surface-muted/40 p-3 space-y-3">
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={deductPoints}
+                onChange={(e) => setDeductPoints(e.target.checked)}
+              />
+              Deduct reputation points
+            </label>
+            {deductPoints ? (
+              <>
+                <p className="text-sm text-ink-secondary">
+                  Target:{' '}
+                  <strong>
+                    {resolveStatus === 'resolved'
+                      ? data?.report.reportedUser.displayName ?? 'Reported user'
+                      : data?.report.reporter.displayName ?? 'Reporter'}
+                  </strong>
+                  {' · '}
+                  Current score:{' '}
+                  <strong>
+                    {resolveStatus === 'resolved'
+                      ? data?.context.reportedUser?.reputationScore ?? 0
+                      : data?.context.reporter?.reputationScore ?? 0}
+                  </strong>
+                  {resolveStatus === 'resolved'
+                    ? data?.context.reportedUser?.reputation
+                      ? ` (${data.context.reportedUser.reputation.tierLabel})`
+                      : ''
+                    : data?.context.reporter?.reputation
+                      ? ` (${data.context.reporter.reputation.tierLabel})`
+                      : ''}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[3, 5, 7, 10].map((value) => (
+                    <Button
+                      key={value}
+                      variant={deductionAmount === value ? 'primary' : 'secondary'}
+                      onClick={() => setDeductionAmount(value)}
+                    >
+                      −{value}
+                    </Button>
+                  ))}
+                  <Button
+                    variant={deductionAmount === 'custom' ? 'primary' : 'secondary'}
+                    onClick={() => setDeductionAmount('custom')}
+                  >
+                    Custom
+                  </Button>
+                </div>
+                {deductionAmount === 'custom' ? (
+                  <input
+                    type="number"
+                    min={1}
+                    className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
+                    placeholder="Custom amount"
+                    value={customDeduction}
+                    onChange={(e) => setCustomDeduction(e.target.value)}
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
       </Modal>
     </div>

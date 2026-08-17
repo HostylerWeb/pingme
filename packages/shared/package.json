@@ -9,7 +9,7 @@
     "dev": "tsc --watch",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsc && node --test dist/profile-completeness.spec.js dist/icebreaker-time.spec.js"
+    "test": "tsc && node --test dist/profile-completeness.spec.js dist/icebreaker-time.spec.js dist/reputation.spec.js"
   },
   "dependencies": {
     "zod": "^3.24.1"

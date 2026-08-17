@@ -12,13 +12,14 @@ import {
   VerificationStatus,
   VerificationType,
 } from '@pingme/db';
-import { NOTIFICATION_TYPES } from '@pingme/shared';
+import { NOTIFICATION_TYPES, buildReputationSummary } from '@pingme/shared';
 import { AuthService } from '../../auth/auth.service';
 import { AppConfigService } from '../../config/app-config.service';
 import { NotificationService } from '../../notifications/notification.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { VerificationService } from '../../verification/verification.service';
 import { SubscriptionsService } from '../../subscriptions/subscriptions.service';
+import { ReputationService } from '../../reputation/reputation.service';
 
 export interface UpdateAdminUserInput {
   email?: string | null;
@@ -45,6 +46,7 @@ export class AdminUsersService {
     private readonly verificationService: VerificationService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly notifications: NotificationService,
+    private readonly reputation: ReputationService,
   ) {}
 
   async list(params: { q?: string; status?: UserStatus; page?: number; limit?: number }) {
@@ -136,6 +138,7 @@ export class AdminUsersService {
     }
 
     const subscription = await this.subscriptionsService.getSubscriptionView(user.id);
+    const reputationEvents = await this.reputation.listEvents(user.id, 20);
 
     const livenessVerified = user.verifications.some(
       (v) =>
@@ -161,6 +164,9 @@ export class AdminUsersService {
         livenessVerified,
         idVerified,
         requiresAdminReview: user.requiresAdminReview,
+        reputationScore: user.reputationScore,
+        reputation: buildReputationSummary(user.reputationScore),
+        reputationEvents,
         isAvailable: user.isAvailable,
         createdAt: user.createdAt,
         lastSeenAt: user.lastSeenAt,

@@ -6,6 +6,7 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { VerificationModule } from '../verification/verification.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { ReputationModule } from '../reputation/reputation.module';
 import { AdminAuditService } from './admin-audit.service';
 import { AdminAdminsController } from './admins/admin-admins.controller';
 import { AdminAdminsService } from './admins/admin-admins.service';
@@ -36,6 +37,7 @@ import { AdminWallService } from './wall/admin-wall.service';
     NotificationsModule,
     VerificationModule,
     SubscriptionsModule,
+    ReputationModule,
     PassportModule.register({ defaultStrategy: 'admin-jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

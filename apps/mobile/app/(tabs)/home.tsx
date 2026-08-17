@@ -114,6 +114,7 @@ function PostRow({
             gender={post.author.gender}
             isPremium={post.author.isPremium}
             isVerified={!post.author.isYou && post.author.livenessVerified}
+            reputationTier={post.author.reputationTier}
           />
           <Text style={styles.postTime}>{formatWallPostTime(post.createdAt)}</Text>
           <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />

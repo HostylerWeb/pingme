@@ -55,6 +55,20 @@ interface UserDetail {
       verifiedAt: string | null;
       createdAt: string;
     }>;
+    reputationScore?: number;
+    reputation?: {
+      score: number;
+      tierLabel: string;
+      pointsToNextTier: number | null;
+      nextTierLabel: string | null;
+    };
+    reputationEvents?: Array<{
+      id: string;
+      delta: number;
+      sourceType: string;
+      createdAt: string;
+      note?: string | null;
+    }>;
     counts: Record<string, number>;
   };
 }
@@ -300,6 +314,41 @@ export default function UserDetailPage() {
           </Card>
 
           <SubscriptionHistoryCard userId={user.id} />
+
+          <Card>
+            <h2 className="font-medium text-foreground">Reputation</h2>
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-foreground">
+                  {user.reputation?.tierLabel ?? 'New'}{' '}
+                  <Badge>{user.reputationScore ?? 0} pts</Badge>
+                </p>
+                {user.reputation?.pointsToNextTier != null && user.reputation.nextTierLabel ? (
+                  <p className="mt-1 text-ink-secondary">
+                    {user.reputation.pointsToNextTier} points to {user.reputation.nextTierLabel}
+                  </p>
+                ) : null}
+              </div>
+              {(user.reputationEvents ?? []).length > 0 ? (
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {(user.reputationEvents ?? []).map((event) => (
+                    <div key={event.id} className="rounded border border-border px-3 py-2 text-xs">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-foreground">{event.sourceType.replace(/_/g, ' ')}</span>
+                        <span className={event.delta < 0 ? 'text-error' : 'text-online'}>
+                          {event.delta > 0 ? '+' : ''}
+                          {event.delta}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-ink-tertiary">{formatDate(event.createdAt)}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-ink-tertiary">No reputation events yet.</p>
+              )}
+            </div>
+          </Card>
 
           <Card>
             <h2 className="font-medium text-foreground">Verification controls</h2>

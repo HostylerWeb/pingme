@@ -1,4 +1,4 @@
-import { genderLabel, genderSymbol, type GenderValue } from '@pingme/shared';
+import { genderLabel, genderSymbol, getReputationTierLabel, type GenderValue, type ReputationTierId } from '@pingme/shared';
 import { Text, View, type TextStyle, type ViewStyle } from 'react-native';
 import { typography, useTheme, useThemedStyles } from '../../theme';
 import { AppIcon } from './app-icon';
@@ -8,6 +8,7 @@ export function DisplayNameWithFlair({
   gender,
   isPremium = false,
   isVerified = false,
+  reputationTier,
   style,
   numberOfLines,
 }: {
@@ -15,6 +16,7 @@ export function DisplayNameWithFlair({
   gender?: GenderValue | string | null;
   isPremium?: boolean;
   isVerified?: boolean;
+  reputationTier?: ReputationTierId | null;
   style?: TextStyle;
   numberOfLines?: number;
 }) {
@@ -38,6 +40,18 @@ export function DisplayNameWithFlair({
       color: colors.ink,
       flexShrink: 1,
     },
+    tier: {
+      ...typography.caption,
+      color: colors.accent,
+      fontSize: 10,
+      lineHeight: 12,
+      paddingHorizontal: 5,
+      paddingVertical: 2,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.accentSoft,
+      overflow: 'hidden',
+    },
   }));
 
   return (
@@ -59,6 +73,11 @@ export function DisplayNameWithFlair({
       ) : null}
       {isPremium ? (
         <AppIcon name="premium-star" size={13} color={colors.premiumStart} accessibilityLabel="Premium member" />
+      ) : null}
+      {reputationTier && reputationTier !== 'new' ? (
+        <Text style={styles.tier} accessibilityLabel={`Reputation tier ${getReputationTierLabel(reputationTier)}`}>
+          {getReputationTierLabel(reputationTier)}
+        </Text>
       ) : null}
     </View>
   );

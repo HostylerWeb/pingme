@@ -2,7 +2,7 @@
 
 > **Working title:** PingMe (name TBD)  
 > **Last updated:** August 2026  
-> **Status:** Phases 0–8 + Events (#33) shipped on staging; Phase 9 deferred — see [Progress at a glance](#progress-at-a-glance) for what’s next
+> **Status:** Phases 0–8 + Events (#33) shipped on staging; Phase 9 deferred — Reputation system **specified, not built** — see [Progress at a glance](#progress-at-a-glance) for what’s next
 
 ---
 
@@ -25,6 +25,7 @@
 14. [Production & VPS setup checklist](#production--vps-setup-checklist)
 15. [Phased Implementation](#phased-implementation)
 16. [Feature roadmap (product backlog)](#feature-roadmap-product-backlog)
+17. [Reputation system](#reputation-system)
 
 ---
 
@@ -40,7 +41,7 @@ Use this section to see what is left without reading the full plan. Details live
 | **Partial** | Started or backend-only; UX, ops, or polish still missing |
 | **UNDONE** | No meaningful implementation yet (or explicitly deferred) |
 
-*Last reviewed: 2026-08-17 (Events E1–E5, admin Mapbox live map + Redis precompute, auth UI polish).*
+*Last reviewed: 2026-08-17 (Reputation system spec locked; Events E1–E5 on staging).*
 
 ### Implementation phases (0–9)
 
@@ -61,7 +62,7 @@ Use this section to see what is left without reading the full plan. Details live
 
 | Status | Count | Examples |
 |--------|------:|----------|
-| **Done** | 34 | Backlog #1–#35 (incl. Events #33, admin map #21) |
+| **Done** | 35 | Backlog #1–#40 (incl. Reputation #40, Events #33, admin map #21) |
 | **Partial** | 0 | — |
 | **UNDONE** | 4 | IAP (#9, #31), self-hosted OTA, venues (Phase 9), paid event tickets (#39) |
 
@@ -439,6 +440,7 @@ users ──┬── profiles
         ├── matches ── chats ── messages
         ├── blocks
         ├── reports
+        ├── reputation_events
         └── audit_logs
 
 admin_users (role enum on row)
@@ -464,6 +466,23 @@ subscriptions (Phase 8)
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
 | deleted_at | TIMESTAMPTZ | soft delete |
+| reputation_score | INT | default **0**; max **1500** — see [Reputation system](#reputation-system) |
+
+#### `reputation_events` *(planned)*
+
+Append-only audit log — **never** change `reputation_score` without a row here.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| user_id | UUID FK | user whose score changed |
+| delta | INT | positive = earn, negative = deduction |
+| balance_after | INT | score after this event |
+| source_type | ENUM | `verification_liveness`, `verification_id`, `verification_email`, `verification_phone`, `activity_wall`, `activity_icebreaker`, `activity_chat`, `activity_streak`, `activity_event`, `report_deduction`, `report_reporter_penalty`, `admin_adjustment`, `recovery` |
+| source_id | UUID | nullable — report id, event id, etc. |
+| admin_id | UUID FK | nullable — set when admin applies deduction |
+| note | TEXT | nullable — admin resolution note or system reason |
+| created_at | TIMESTAMPTZ | |
 
 #### `profiles`
 
@@ -1151,7 +1170,7 @@ Both audiences must see the same benefit spelled out:
 | Login | 7 | Email + password, 2FA later |
 | Dashboard | 7 | DAU, posts/day, reports open, active Available users, launch area density |
 | Users | 7 | Search, view profile, suspend, ban, verification status, force re-verify |
-| Reports queue | 7 | Open reports, assign, resolve, dismiss, auto-flagged users (3+ reports/24h) |
+| Reports queue | 7 | Open reports, assign, resolve, dismiss, auto-flagged users (3+ reports/24h); **planned:** optional reputation deduction on resolve/dismiss |
 | Wall moderation | 7 | Hide/delete posts and replies |
 | Chats (read-only) | 7 | View reported chat context (audit — never editable) |
 | Audit log viewer | 7 | Filter user audit_logs + admin_audit_logs by user, action, date |
@@ -2290,6 +2309,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 - When launch city/neighborhood is picked
 - After device test checklist is completed
 - When Events Phase 0 decisions are locked
+- When reputation Phase R0 decisions are locked
 - When `DIDIT_WORKFLOW_ID_KYC` is configured
 
 ---
@@ -2304,7 +2324,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | **Partial** | Started or backend-only; UX or polish still missing |
 | **UNDONE** | No meaningful implementation yet (or deferred) |
 
-*Last reviewed: 2026-08-16 (profile completeness #29, share/invite #30, backlog counts refreshed).*
+*Last reviewed: 2026-08-17 (reputation #40 spec, Events E1–E5, backlog counts refreshed).*
 
 ### Do first (high impact, relatively small)
 
@@ -2367,6 +2387,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | 19 | **Verification badge** — Email/phone/liveness on profile | **Done** | Liveness verified badge via `DisplayNameWithFlair` on Wall, replies, icebreaker, chats; own profile shows email + liveness badges |
 | 19b | **ID verification (KYC) for event hosts** — Didit ID + liveness | **Done** | `POST /verification/start-kyc`, KYC webhook logic, mobile `/(setup)/kyc`, ID badge on profile; set `DIDIT_WORKFLOW_ID_KYC` on server |
 | 20 | **Underage / DOB enforcement** | **Done** | `meetsMinimumAge` in `VerifiedGuard` on gated features; register/profile Zod validation |
+| 40 | **Reputation system** — Points, tiers, admin deductions, profile badge | **Done** | See [Reputation system](#reputation-system) — rules in `packages/shared/src/reputation.ts` |
 
 ### Admin & ops
 
@@ -2578,4 +2599,281 @@ GET /config       → public app limits (distance radii); mobile prefetches at l
 | **Grow / test** | Device test checklist → invite funnel (#30) → analytics (#35) |
 | **Launch prep** | Legal pages → store screenshots → production domain → mobile release build |
 | **Polish** | Self-hosted OTA → E2E tests (Detox/Maestro) → wall feed cache |
+
+---
+
+## Reputation system
+
+> **Status:** Implemented **2026-08-17** — rules in shared package; scores in Postgres.
+
+### Where to change values later
+
+| What | File / location |
+|------|-----------------|
+| **Tier names, thresholds, earn amounts, daily caps** | `packages/shared/src/reputation.ts` — edit constants, then `pnpm --filter @pingme/shared build` |
+| **User score (runtime)** | DB column `users.reputation_score` |
+| **Point history / audit** | DB table `reputation_events` |
+| **Apply earn / deduct logic** | `apps/api/src/reputation/reputation.service.ts` |
+| **Earn hooks** | Verification: `verification.service.ts` · Auth email/phone: `auth.service.ts` · Wall: `wall.service.ts` · Matches: `matches.service.ts` · Events host: `events.service.ts` |
+| **Admin deductions UI** | `apps/admin/src/app/(dashboard)/reports/[id]/page.tsx` |
+| **Admin user reputation view** | `apps/admin/src/app/(dashboard)/users/[id]/page.tsx` |
+| **Mobile tier badge** | `apps/mobile/src/components/ui/display-name-with-flair.tsx` |
+| **Mobile score card (You tab)** | `apps/mobile/src/components/reputation-card.tsx` |
+| **Migration** | `packages/db/prisma/migrations/20260817070000_reputation/` |
+
+**Do not** put tier thresholds in `.env` — keep product rules in `@pingme/shared` so API and mobile stay in sync.
+
+### Product goal
+
+Give users a visible **trust tier** that rewards positive, verified participation and lets admins apply **small, discretionary point deductions** when reports are upheld — without replacing the existing **verification ladder** (liveness / ID KYC) or auto-flag logic (`requiresAdminReview`).
+
+**Design principles (locked)**
+
+1. **Reports alone never change score** — only when an admin resolves a report and **opts in** to a point deduction.
+2. **Dismissed reports** — reported user loses nothing; admin may optionally penalize the **reporter** (same opt-in UI).
+3. **Earn slowly, tiers get harder** — score cap **1500**; each tier needs progressively more points.
+4. **Visible tier, private number** — others see **tier title + badge** on profile and social surfaces (Wall, icebreaker, chats); exact score visible to **account owner only** (+ admins).
+5. **Cosmetic in v1** — no feature gates tied to tier (liveness/KYC rules stay as-is).
+6. **Premium ≠ reputation** — paid subscription does not buy points or tier.
+
+### Relationship to existing trust systems
+
+| System | Purpose | Interaction with reputation |
+|--------|---------|----------------------------|
+| **Liveness verification** | Gate Wall / chat / icebreaker | Also grants **+50** reputation (one-time) |
+| **ID KYC** | Gate event hosting | Also grants **+50** reputation (one-time) |
+| **Auto-flag (3+ reports / 24h)** | `requiresAdminReview` banner | Independent — can coexist with any score |
+| **Admin suspend / ban** | Account status | Independent — critical violations may suspend regardless of score |
+
+**Events hosting:** still requires **liveness + ID KYC only** — reputation tier does **not** gate hosting in v1.
+
+---
+
+### Points model
+
+| Rule | Value |
+|------|-------|
+| Starting score | **0** |
+| Maximum score | **1500** (hard cap) |
+| Floor | **0** (never negative) |
+| Tier | **Computed** from score (not stored separately) |
+
+#### How users **earn** points
+
+| Action | Points | Frequency / cap |
+|--------|--------|-----------------|
+| Complete **liveness** verification | **+50** | One-time |
+| Complete **ID KYC** verification | **+50** | One-time |
+| Verify **email** | **+5** | One-time |
+| Verify **phone** | **+5** | One-time |
+| Account age (active account) | **+2** | Per 7 days; cap 2 years |
+| First Wall post | **+5** | One-time |
+| Wall post or reply | **+1** | Max **+2/day** combined |
+| Icebreaker mutual match (both accepted) | **+3** | Max **+4/day** (2 matches) |
+| Chat message sent | **0** | — (no chat spam points) |
+| 7-day activity streak (5+ active days) | **+4** | Once/week |
+| Host an event (created, not cancelled) | **+8** | Once per event |
+| Attend event (RSVP going, event ended) | **+3** | Once per event *(hook deferred — R2.2)* |
+
+**Hard daily activity cap:** **6 pts/day** (wall + icebreaker combined).
+
+#### How users **lose** points
+
+**Only via admin action** when resolving a report:
+
+1. Admin sets report status to **`resolved`** (violation confirmed) or **`dismissed`** (no violation).
+2. After the resolution note, show an **optional** “Deduct reputation points?” step.
+3. Display the subject’s **current score** and tier.
+4. Quick-pick deductions: **3 · 5 · 7 · 10** or **custom** amount.
+5. Admin confirms — writes `reputation_events` row and updates `users.reputation_score`.
+
+| When | Who can be penalized | Default quick-picks |
+|------|----------------------|---------------------|
+| Report **resolved** | Reported user | 3, 5, 7, 10 or custom |
+| Report **dismissed** | Reporter (optional) | 3, 5, 7, 10 or custom |
+
+- Deduction is **always optional** — admin can resolve/dismiss with **no** point change.
+- For serious violations, admin uses **custom** (e.g. 50–200) and may also suspend via existing user status tools.
+- **No automatic** point loss from report count alone (auto-flag still only sets `requiresAdminReview`).
+
+#### Passive recovery *(Phase 2 — optional)*
+
+Not in v1 MVP. When added:
+
+- **+5 points / 7 days** with no upheld deductions (paused if new deduction within 30 days).
+- Optional **+25** “clean month” bonus.
+
+---
+
+### Five reputation tiers
+
+Progressively harder to advance — gaps widen at higher tiers.
+
+| Tier | Score range | Title | Meaning |
+|------|-------------|-------|---------|
+| 1 | **0 – 199** | **New** | Brand-new or rebuilding trust |
+| 2 | **200 – 449** | **Regular** | Established participant |
+| 3 | **450 – 699** | **Respected** | Consistent positive presence |
+| 4 | **700 – 999** | **Trusted** | Long-term good standing |
+| 5 | **1000 – 1500** | **Master** | Top standing (rare) |
+
+**Progression math (engaged user ~3 pts/day)**
+
+| Tier | ~Time from signup |
+|------|-------------------|
+| **Regular** (200) | ~4 weeks after verification |
+| **Respected** (450) | ~3 months |
+| **Trusted** (700) | ~6 months |
+| **Master** (1000) | ~10 months |
+| Max (1500) | ~15 months |
+
+Max-grind floor to Master: ~5 months (6 pts/day cap).
+
+### Visibility & UI
+
+| Surface | What others see | What owner sees |
+|---------|-----------------|-----------------|
+| **Profile (You tab)** | — | Exact score + tier + progress to next tier |
+| **Other users’ profiles** | Tier badge + title | — |
+| **Wall / replies / icebreaker / chats** | Small tier badge next to display name (like Premium flair) | Own tier on own posts |
+| **Admin user page** | Score, tier, full `reputation_events` history | — |
+
+**Badge design:** TBD in UI pass — distinct from Premium star and verification checkmarks.
+
+---
+
+### Admin workflow (reports)
+
+Extends existing report flow: `open` → `reviewing` → `resolved` | `dismissed`.
+
+**On resolve or dismiss — add step 2:**
+
+```
+┌─────────────────────────────────────────┐
+│ Resolution note (existing)              │
+├─────────────────────────────────────────┤
+│ Deduct reputation points?  [ ] No  [x] Yes │
+│ Current score: 127 (New)                │
+│ Amount:  (3) (5) (7) (10)  [ Custom: __ ] │
+│ Target:  [Reported user ▼]              │  ← resolved: reported user
+│          [Reporter ▼]                   │  ← dismissed: reporter (optional)
+└─────────────────────────────────────────┘
+```
+
+- Deduction **0** = skip (same as “No”).
+- Log to `reputation_events` with `admin_id`, `source_type`, linked `report.id`.
+- Existing suspend/ban actions unchanged.
+
+**Admin user page additions**
+
+- Current score + tier badge
+- Sparkline or table of last 20 reputation events
+- Manual adjustment (superadmin only): +/- points with required note → `admin_adjustment`
+
+---
+
+### API (planned)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| `GET` | `/users/me/reputation` | Score, tier, points to next tier, recent events (owner) |
+| `GET` | `/users/:id/reputation` | Public: tier + title only (no score) |
+| `PATCH` | `/admin/reports/:id` | Extend body: optional `reputationDeduction: { targetUserId, amount }` |
+| `POST` | `/admin/users/:id/reputation/adjust` | Superadmin manual adjustment |
+
+**Public profile payloads** (`GET /users/:id`, wall feed, icebreaker cards): add `reputationTier: 'new' | 'regular' | 'respected' | 'trusted' | 'master'`.
+
+**Internal jobs**
+
+- Nightly: account-age + streak bonuses (idempotent per user per period)
+- On verification webhook pass: grant one-time verification points (idempotent)
+
+---
+
+### Mobile (planned)
+
+| Screen / component | Work |
+|--------------------|------|
+| `ProfileStatusBadges` or new `ReputationBadge` | Tier badge on profile hero |
+| `DisplayNameWithFlair` | Tier micro-badge beside name (Wall, icebreaker, chats) |
+| You tab | Score bar + “X points to Regular” + link to “How reputation works” |
+| Settings or profile | Static explainer sheet (earn rules, tiers, appeals via support) |
+
+**No v1 feature gates** — tier is cosmetic only.
+
+---
+
+### Anti-gaming safeguards
+
+- One-time bonuses idempotent (verification, first post) — check `reputation_events` before granting.
+- Daily caps enforced server-side per `source_type`.
+- No points for self-interaction or same-device duplicate accounts (basic device fingerprint check where available).
+- Premium subscription does **not** affect score.
+- Score never shown to other users (tier only).
+
+---
+
+### Implementation phases
+
+**Phase R1 — MVP (ship first)**
+
+| # | Task | Status |
+|---|------|--------|
+| R1.1 | Migration: `users.reputation_score` (default 0) | **Done** |
+| R1.2 | Migration: `reputation_events` table | **Done** |
+| R1.3 | `ReputationService` — apply delta, compute tier, enforce cap/floor | **Done** |
+| R1.4 | Grant one-time verification points on Didit pass (liveness + KYC) | **Done** |
+| R1.5 | Activity earn hooks (wall, icebreaker, chat) with daily caps | **Done** |
+| R1.6 | `GET /users/me/reputation` + public tier on profile payloads | **Done** |
+| R1.7 | Admin: deduction UI on report resolve/dismiss | **Done** |
+| R1.8 | Admin user page: score + event history | **Done** |
+| R1.9 | Mobile: tier badge on profile + `DisplayNameWithFlair` | **Done** |
+| R1.10 | Mobile: owner score/progress on You tab | **Done** |
+
+**Phase R2 — Polish**
+
+| # | Task | Status |
+|---|------|--------|
+| R2.1 | Passive recovery job (+5 / clean week) | **UNDONE** |
+| R2.2 | Event host/attend point grants | **UNDONE** |
+| R2.3 | “How reputation works” in-app explainer | **UNDONE** |
+| R2.4 | Backfill: grant verification points to existing verified users | **UNDONE** |
+
+**Phase R3 — Future (only if abuse warrants)**
+
+| # | Task | Status |
+|---|------|--------|
+| R3.1 | Light feature gates (e.g. icebreaker daily limits by tier) | **Deferred** — cosmetic-only for v1 |
+| R3.2 | Reputation-aware report prioritization in admin queue | **Deferred** |
+
+---
+
+### Open items (minor — decide during build)
+
+| # | Question | Current default |
+|---|----------|-----------------|
+| R0.1 | Exact activity point values after beta | Use table above; tune in R2 |
+| R0.2 | Tier badge colors / icons | Design pass — distinct from Premium + verification |
+| R0.3 | Show tier on event host card? | Yes — same badge component |
+| R0.4 | Appeal flow for wrongful deduction | Support email + admin manual `admin_adjustment` in v1 |
+| R0.5 | Backfill existing users to 100 (old liveness+ID)? | Backfill script in R2.4 — grant +50/+50 if already verified |
+
+---
+
+### Phase 0 — Product decisions ✅ *Locked 2026-08-17*
+
+| # | Question | Decision |
+|---|----------|----------|
+| R0.1 | Tier names | **New → Regular → Respected → Trusted → Master** |
+| R0.2 | Tier count | **5** |
+| R0.3 | Score range | **0 – 1500** |
+| R0.4 | Tier thresholds | **200 / 450 / 700 / 1000** (upper bound of each tier) |
+| R0.5 | Starting score | **0** |
+| R0.6 | Verification bonuses | **+50** liveness, **+50** ID KYC |
+| R0.7 | Report deductions | **Admin opt-in** on resolve/dismiss; quick picks **3, 5, 7, 10** or custom |
+| R0.8 | False reporter penalty | **Same opt-in UI** when report dismissed |
+| R0.9 | Public visibility | **Tier + badge** on profile and social surfaces |
+| R0.10 | Feature gates | **Cosmetic only** in v1 |
+| R0.11 | Events hosting | **Separate** — KYC gate unchanged |
+| R0.12 | Earn beyond verification | **Yes** — activity + streaks with daily caps |
 

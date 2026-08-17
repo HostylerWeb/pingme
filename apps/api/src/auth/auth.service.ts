@@ -14,6 +14,7 @@ import { SecurityEventsService } from '../audit/security-events.service';
 import { EmailService } from '../common/services/email.service';
 import { SmsService } from '../common/services/sms.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReputationService } from '../reputation/reputation.service';
 import { VerificationService } from '../verification/verification.service';
 import {
   generateOtpCode,
@@ -44,6 +45,7 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
     private readonly verification: VerificationService,
+    private readonly reputation: ReputationService,
   ) {}
 
   async register(dto: SignUpInput, meta: { ipAddress?: string; userAgent?: string }) {
@@ -276,6 +278,7 @@ export class AuthService {
       where: { id: userId },
       data: { emailVerified: true, status: UserStatus.active },
     });
+    await this.reputation.grantOnce(userId, 'verification_email', userId);
     return { success: true, verified: true };
   }
 
@@ -298,6 +301,7 @@ export class AuthService {
       where: { id: userId },
       data: { phoneVerified: true, status: UserStatus.active },
     });
+    await this.reputation.grantOnce(userId, 'verification_phone', userId);
     return { success: true, verified: true };
   }
 

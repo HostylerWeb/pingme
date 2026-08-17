@@ -12,7 +12,8 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AdminRole, ReportReason, ReportStatus } from '@pingme/db';
-import { IsArray, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, IsUUID, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { Public } from '../../common/decorators/public.decorator';
 import { AdminAuditService } from '../admin-audit.service';
 import { CurrentAdmin } from '../decorators/current-admin.decorator';
@@ -21,6 +22,15 @@ import { AdminJwtAuthGuard } from '../guards/admin-jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { AdminReportsService } from './admin-reports.service';
 
+class ReputationDeductionDto {
+  @IsUUID()
+  targetUserId!: string;
+
+  @IsInt()
+  @Min(1)
+  amount!: number;
+}
+
 class UpdateReportDto {
   @IsEnum(ReportStatus)
   status!: ReportStatus;
@@ -28,6 +38,11 @@ class UpdateReportDto {
   @IsOptional()
   @IsString()
   resolutionNote?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ReputationDeductionDto)
+  reputationDeduction?: ReputationDeductionDto;
 }
 
 class BulkReportIdsDto {
@@ -165,6 +180,7 @@ export class AdminReportsController {
       status: dto.status,
       resolutionNote: dto.resolutionNote,
       resolvedBy: admin.id,
+      reputationDeduction: dto.reputationDeduction,
     });
 
     await this.adminAudit.log({

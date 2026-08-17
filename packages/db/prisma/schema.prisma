@@ -33,6 +33,23 @@ enum Gender {
   other
 }
 
+enum ReputationEventSourceType {
+  verification_liveness
+  verification_id
+  verification_email
+  verification_phone
+  activity_first_wall_post
+  activity_wall
+  activity_icebreaker_match
+  activity_weekly_streak
+  activity_account_age
+  activity_event_host
+  activity_event_attend
+  report_deduction
+  report_reporter_penalty
+  admin_adjustment
+}
+
 model User {
   id            String       @id @default(uuid()) @db.Uuid
   email         String?      @unique
@@ -44,6 +61,7 @@ model User {
   phoneVerified Boolean      @default(false) @map("phone_verified")
   isAvailable          Boolean      @default(false) @map("is_available")
   requiresAdminReview  Boolean      @default(false) @map("requires_admin_review")
+  reputationScore      Int          @default(0) @map("reputation_score")
   lastSeenAt           DateTime?    @map("last_seen_at")
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
@@ -78,6 +96,7 @@ model User {
   eventRsvpWithdrawals EventRsvpWithdrawal[]
   eventComments        EventComment[]
   notifications        UserNotification[]
+  reputationEvents     ReputationEvent[]
 
   @@map("users")
 }
@@ -339,6 +358,26 @@ model UserSecurityEvent {
   @@index([action])
   @@index([createdAt])
   @@map("user_security_events")
+}
+
+model ReputationEvent {
+  id            String                    @id @default(uuid()) @db.Uuid
+  userId        String                    @map("user_id") @db.Uuid
+  delta         Int
+  balanceAfter  Int                       @map("balance_after")
+  sourceType    ReputationEventSourceType @map("source_type")
+  sourceId      String?                   @map("source_id") @db.Uuid
+  adminId       String?                   @map("admin_id") @db.Uuid
+  note          String?
+  createdAt     DateTime                  @default(now()) @map("created_at")
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, sourceType, sourceId])
+  @@index([userId, createdAt])
+  @@index([userId, sourceType, createdAt])
+  @@map("reputation_events")
 }
 
 enum IcebreakerSessionStatus {
@@ -615,6 +654,7 @@ model AdminUser {
 
   auditLogs        AdminAuditLog[]
   assignedReports  Report[] @relation("AssignedReports")
+  reputationEvents ReputationEvent[]
 
   @@map("admin_users")
 }

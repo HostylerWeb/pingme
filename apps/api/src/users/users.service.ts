@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { VerificationService } from '../verification/verification.service';
+import { ReputationService } from '../reputation/reputation.service';
 import { assertSafeAvatarObjectKey } from '../common/utils/upload-key.util';
 
 const GEO_AVAILABLE_KEY = 'geo:available';
@@ -23,6 +24,7 @@ export class UsersService {
     private readonly verification: VerificationService,
     private readonly subscriptions: SubscriptionsService,
     private readonly redis: RedisService,
+    private readonly reputation: ReputationService,
   ) {}
 
   async getMe(userId: string) {
@@ -35,13 +37,14 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const [livenessVerified, idVerified, subscription] = await Promise.all([
+    const [livenessVerified, idVerified, subscription, reputation] = await Promise.all([
       this.verification.hasPassedLiveness(userId),
       this.verification.hasPassedIdVerification(userId),
       this.subscriptions.getSubscriptionView(userId),
+      this.reputation.getMeReputation(userId),
     ]);
     const { passwordHash: _passwordHash, ...safe } = user;
-    return { ...safe, livenessVerified, idVerified, subscription };
+    return { ...safe, livenessVerified, idVerified, subscription, reputation };
   }
 
   async updateProfile(

@@ -9,9 +9,10 @@ import { distanceBucket, WALL_POST_MAX_AGE_HOURS, CreateWallPostInput, CreateWal
 import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
 import { BlocksService } from '../common/services/blocks.service';
-import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils/public-profile.util';
+import { getPublicProfileFields, loadPublicProfileMap } from '../common/utils/public-profile.util';
 import { InboxService } from '../notifications/inbox.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReputationService } from '../reputation/reputation.service';
 
 interface WallPostRow {
   id: string;
@@ -32,6 +33,7 @@ interface WallPostRow {
   subscription_period_end: Date | null;
   liveness_verified: boolean;
   gender: string | null;
+  reputation_score: number;
 }
 
 @Injectable()
@@ -42,6 +44,7 @@ export class WallService {
     private readonly audit: AuditService,
     private readonly blocks: BlocksService,
     private readonly inbox: InboxService,
+    private readonly reputation: ReputationService,
   ) {}
 
   async listPosts(userId: string, page = 1, limit = 20) {
@@ -93,7 +96,8 @@ export class WallService {
             AND v.type = 'liveness'
             AND v.status = 'passed'
             AND (v.expires_at IS NULL OR v.expires_at > NOW())
-        ) AS liveness_verified
+        ) AS liveness_verified,
+        u.reputation_score
       FROM wall_posts wp
       INNER JOIN profiles p ON p.user_id = wp.user_id
       INNER JOIN users u ON u.id = wp.user_id
@@ -124,6 +128,7 @@ export class WallService {
             }
           : null,
         row.liveness_verified,
+        row.reputation_score,
       );
 
       return {
@@ -141,6 +146,7 @@ export class WallService {
         isPremium: flair.isPremium,
         avatarTheme: flair.avatarTheme,
         livenessVerified: flair.livenessVerified,
+        reputationTier: flair.reputationTier,
         gender: flair.gender,
       },
     };
@@ -182,6 +188,9 @@ export class WallService {
       entityId: post.id,
       metadata: { accuracy: dto.accuracy },
     });
+
+    await this.reputation.grantFirstWallPost(userId, post.id);
+    await this.reputation.grantActivity(userId, 'activity_wall', post.id);
 
     return {
       success: true,
@@ -241,15 +250,20 @@ export class WallService {
     }
 
     const authorIds = [post.userId, ...post.replies.map((reply) => reply.userId)];
-    const verifiedSet = await loadLivenessVerifiedSet(this.prisma, authorIds);
+    const flairByUserId = await loadPublicProfileMap(this.prisma, authorIds);
 
     const mapAuthor = (
       authorId: string,
-      profile: { displayName: string; avatarUrl?: string | null; avatarConfig?: unknown } | null | undefined,
-      subscription: { plan: string; status: string; currentPeriodEnd: Date | null } | null | undefined,
+      profile: { displayName: string; avatarUrl?: string | null; avatarConfig?: unknown; gender?: import('@pingme/db').Gender | null } | null | undefined,
       avatarUrl: string | null | undefined,
     ) => {
-      const flair = getPublicProfileFields(profile, subscription ?? null, verifiedSet.has(authorId));
+      const flair = flairByUserId.get(authorId) ?? {
+        isPremium: false,
+        avatarTheme: null,
+        livenessVerified: false,
+        gender: null,
+        reputationTier: 'new' as const,
+      };
       return {
         id: authorId,
         displayName: profile?.displayName,
@@ -258,6 +272,7 @@ export class WallService {
         isPremium: flair.isPremium,
         avatarTheme: flair.avatarTheme,
         livenessVerified: flair.livenessVerified,
+        reputationTier: flair.reputationTier,
         gender: flair.gender,
       };
     };
@@ -273,7 +288,6 @@ export class WallService {
         author: mapAuthor(
           post.userId,
           post.user.profile,
-          post.user.subscription,
           post.showPhoto || post.userId === userId
             ? post.user.profile?.avatarUrl ?? null
             : null,
@@ -285,7 +299,6 @@ export class WallService {
           author: mapAuthor(
             reply.userId,
             reply.user.profile,
-            reply.user.subscription,
             reply.user.profile?.avatarUrl,
           ),
         })),
@@ -342,6 +355,8 @@ export class WallService {
       entityId: reply.id,
       metadata: { postId },
     });
+
+    await this.reputation.grantActivity(userId, 'activity_wall', reply.id);
 
     await this.inbox.createWallReplyNotifications({
       postId,

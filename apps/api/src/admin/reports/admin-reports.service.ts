@@ -1,10 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { MessageStatus, Prisma, ReportReason, ReportStatus } from '@pingme/db';
+import { buildReputationSummary } from '@pingme/shared';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ReputationService } from '../../reputation/reputation.service';
 
 @Injectable()
 export class AdminReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reputation: ReputationService,
+  ) {}
 
   async list(params: {
     status?: ReportStatus;
@@ -94,6 +99,7 @@ export class AdminReportsService {
       status: ReportStatus;
       resolutionNote?: string;
       resolvedBy: string;
+      reputationDeduction?: { targetUserId: string; amount: number };
     },
   ) {
     const report = await this.prisma.report.findUnique({ where: { id } });
@@ -103,7 +109,7 @@ export class AdminReportsService {
 
     const isResolved = data.status === 'resolved' || data.status === 'dismissed';
 
-    return this.prisma.report.update({
+    const updated = await this.prisma.report.update({
       where: { id },
       data: {
         status: data.status,
@@ -112,6 +118,21 @@ export class AdminReportsService {
         resolvedAt: isResolved ? new Date() : null,
       },
     });
+
+    if (isResolved && data.reputationDeduction && data.reputationDeduction.amount > 0) {
+      const sourceType =
+        data.status === 'resolved' ? 'report_deduction' : 'report_reporter_penalty';
+      await this.reputation.applyAdminDeduction({
+        userId: data.reputationDeduction.targetUserId,
+        amount: data.reputationDeduction.amount,
+        sourceType,
+        sourceId: id,
+        adminId: data.resolvedBy,
+        note: data.resolutionNote,
+      });
+    }
+
+    return updated;
   }
 
   async bulkAssign(ids: string[], adminUserId: string) {
@@ -462,6 +483,8 @@ export class AdminReportsService {
       status: user.status,
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
+      reputationScore: user.reputationScore,
+      reputation: buildReputationSummary(user.reputationScore),
       displayName: user.profile?.displayName ?? null,
       bio: user.profile?.bio ?? null,
       avatarUrl: user.profile?.avatarUrl ?? null,
