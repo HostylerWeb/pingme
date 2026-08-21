@@ -196,7 +196,9 @@ export async function apiFetch<T>(
   return body as T;
 }
 
-export async function uploadAvatarFile(key: string, uri: string, fileName: string) {
+export async function uploadAvatarFile(key: string, uri: string, fileName: string, retry = true) {
+  await ensureValidAccessToken();
+  const epochAtStart = getAuthSessionEpoch();
   const accessToken = await getAccessToken();
   const formData = new FormData();
   formData.append('key', key);
@@ -213,6 +215,13 @@ export async function uploadAvatarFile(key: string, uri: string, fileName: strin
   });
 
   const body = await response.json().catch(() => ({}));
+
+  if (response.status === 401 && retry && !isStaleAuthSession(epochAtStart)) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      return uploadAvatarFile(key, uri, fileName, false);
+    }
+  }
 
   if (!response.ok) {
     throw new ApiError(
@@ -980,6 +989,14 @@ export interface AuthUser {
     avatarConfig?: { theme?: string } | null;
   } | null;
   subscription?: SubscriptionInfo;
+  reputation?: {
+    score: number;
+    tier: 'new' | 'regular' | 'respected' | 'trusted' | 'master';
+    tierLabel: string;
+    pointsToNextTier: number | null;
+    nextTierLabel: string | null;
+    scoreMax: number;
+  };
 }
 
 export interface SubscriptionInfo {
@@ -1094,6 +1111,7 @@ export interface ChatSummary {
     isPremium?: boolean;
     avatarTheme?: string | null;
     livenessVerified?: boolean;
+    reputationTier?: 'new' | 'regular' | 'respected' | 'trusted' | 'master';
     gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   };
   lastMessage: {
@@ -1117,6 +1135,7 @@ export interface ChatDetail {
     isPremium?: boolean;
     avatarTheme?: string | null;
     livenessVerified?: boolean;
+    reputationTier?: 'new' | 'regular' | 'respected' | 'trusted' | 'master';
     gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   };
   createdAt: string;
@@ -1204,6 +1223,7 @@ export interface EventComment {
     isPremium?: boolean;
     avatarTheme?: string | null;
     livenessVerified?: boolean;
+    reputationTier?: 'new' | 'regular' | 'respected' | 'trusted' | 'master';
     gender?: 'male' | 'female' | 'transgender' | 'other' | null;
   };
 }

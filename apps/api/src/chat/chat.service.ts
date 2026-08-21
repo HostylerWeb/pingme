@@ -14,6 +14,8 @@ import { getPublicProfileFields, loadLivenessVerifiedSet } from '../common/utils
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { VerificationService } from '../verification/verification.service';
+import { resetIcebreakerSessionsForMatch } from '../matches/match.utils';
 import { ChatGateway } from './chat.gateway';
 
 @Injectable()
@@ -24,6 +26,7 @@ export class ChatService {
     private readonly blocks: BlocksService,
     private readonly notifications: NotificationService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly verification: VerificationService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly gateway: ChatGateway,
   ) {}
@@ -109,6 +112,7 @@ export class ChatService {
           otherProfile,
           otherUser.subscription,
           verifiedSet.has(otherUserId),
+          otherUser.reputationScore,
         );
         const sortAt = lastMessage?.createdAt ?? chat.createdAt;
 
@@ -123,6 +127,7 @@ export class ChatService {
             isPremium: flair.isPremium,
             avatarTheme: flair.avatarTheme,
             livenessVerified: flair.livenessVerified,
+            reputationTier: flair.reputationTier,
             gender: flair.gender,
           },
           lastMessage:
@@ -180,6 +185,7 @@ export class ChatService {
       otherUser.profile,
       otherUser.subscription,
       (await loadLivenessVerifiedSet(this.prisma, [otherUserId])).has(otherUserId),
+      otherUser.reputationScore,
     );
 
     return {
@@ -195,6 +201,7 @@ export class ChatService {
           isPremium: flair.isPremium,
           avatarTheme: flair.avatarTheme,
           livenessVerified: flair.livenessVerified,
+          reputationTier: flair.reputationTier,
           gender: flair.gender,
         },
         createdAt: chat.createdAt,
@@ -241,6 +248,7 @@ export class ChatService {
   }
 
   async sendMessage(userId: string, chatId: string, content: string) {
+    await this.verification.assertGatedAccess(userId);
     const chat = await this.getChatForUser(userId, chatId);
 
     if (chat.status !== ChatStatus.active) {
@@ -343,10 +351,30 @@ export class ChatService {
 
   async closeChat(userId: string, chatId: string) {
     const chat = await this.getChatForUser(userId, chatId);
+    const otherUserId = chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
 
-    const updated = await this.prisma.chat.update({
-      where: { id: chat.id },
-      data: { status: ChatStatus.closed },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const closed = await tx.chat.update({
+        where: { id: chat.id },
+        data: { status: ChatStatus.closed },
+      });
+
+      if (
+        chat.match.status === MatchStatus.active ||
+        chat.match.status === MatchStatus.pending
+      ) {
+        await tx.match.update({
+          where: { id: chat.match.id },
+          data: { status: MatchStatus.expired },
+        });
+        await resetIcebreakerSessionsForMatch(
+          tx,
+          chat.match.source,
+          chat.match.sourceReferenceId,
+        );
+      }
+
+      return closed;
     });
 
     await this.audit.log({
@@ -355,6 +383,16 @@ export class ChatService {
       entityType: 'chat',
       entityId: chatId,
     });
+
+    const payload = {
+      matchId: chat.match.id,
+      status: MatchStatus.expired,
+      chatId,
+    };
+    this.gateway.emitMatchUpdated(userId, payload);
+    this.gateway.emitMatchUpdated(otherUserId, payload);
+    this.gateway.emitChatClosed(userId, { chatId });
+    this.gateway.emitChatClosed(otherUserId, { chatId });
 
     return { success: true, data: { id: updated.id, status: updated.status } };
   }

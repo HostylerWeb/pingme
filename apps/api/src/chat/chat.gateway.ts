@@ -181,6 +181,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(this.userRoom(userId)).emit('message.read', payload);
   }
 
+  emitPresenceUpdated(userId: string, payload: { isAvailable: boolean }) {
+    if (!this.server) return;
+    this.server.to(this.userRoom(userId)).emit('presence.updated', payload);
+  }
+
+  emitChatClosed(userId: string, payload: { chatId: string }) {
+    if (!this.server) return;
+    this.server.to(this.userRoom(userId)).emit('chat.closed', payload);
+  }
+
   @SubscribeMessage('message.read')
   async handleMessageRead(
     @ConnectedSocket() client: Socket,

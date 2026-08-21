@@ -2,7 +2,7 @@
 
 > **Working title:** PingMe (name TBD)  
 > **Last updated:** August 2026  
-> **Status:** Phases 0–8 + Events (#33) shipped on staging; Phase 9 deferred — Reputation system **specified, not built** — see [Progress at a glance](#progress-at-a-glance) for what’s next
+> **Status:** Phases 0–8 + Events (#33) + Reputation v1 (#40) shipped on staging; Phase 9 deferred — see [Progress at a glance](#progress-at-a-glance) for what’s next
 
 ---
 
@@ -41,7 +41,7 @@ Use this section to see what is left without reading the full plan. Details live
 | **Partial** | Started or backend-only; UX, ops, or polish still missing |
 | **UNDONE** | No meaningful implementation yet (or explicitly deferred) |
 
-*Last reviewed: 2026-08-17 (Reputation system spec locked; Events E1–E5 on staging).*
+*Last reviewed: 2026-08-17 (Reputation v1 shipped; Events E1–E5 + create/edit UI polish; E6 paid tickets still open).*
 
 ### Implementation phases (0–9)
 
@@ -62,25 +62,26 @@ Use this section to see what is left without reading the full plan. Details live
 
 | Status | Count | Examples |
 |--------|------:|----------|
-| **Done** | 35 | Backlog #1–#40 (incl. Reputation #40, Events #33, admin map #21) |
+| **Done** | 36 | Includes Reputation #40, Events #33/#38, admin map #21 |
 | **Partial** | 0 | — |
 | **UNDONE** | 4 | IAP (#9, #31), self-hosted OTA, venues (Phase 9), paid event tickets (#39) |
 
-Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events sub-plan (E0–E5): **Done** on staging.
+Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events E1–E5: **Done**. Reputation R1: **Done**.
 
 ### High-priority **UNDONE** (next builds)
 
 | Item | What |
 |------|------|
-| **Device test pass** | Two-phone checklist on staging — Wall, icebreaker, chat, events, premium, invite |
+| **Device test pass** | Two-phone checklist on staging — Wall, icebreaker, chat, events, premium, invite, reputation badges |
 | **Store prep** | Legal pages finalized, App Store / Play screenshots, production URLs |
 | **Stripe go-live** | Code shipped (`StripeGateway`); set `PAYMENT_PROVIDER=stripe` + keys on VPS when ready to charge |
 | **Self-hosted OTA** | xprem + `expo-updates` on VPS — documented, not wired |
 | **Production domain** | Move off `hostyler.cloud` when ready — DNS, TLS, env cutover |
+| **Paid event tickets** | E6.4–E6.8 — in-app pay + app-only QR check-in (#39) |
 
 ### **Partial** — none remaining
 
-All polish backlog items (#10, #18–20, #22, #26–27, #35) and Phase 3 push are **Done**. Run `bash scripts/rebuild-mobile-dev.sh` once to refresh splash on device.
+All polish backlog items (#10, #18–20, #22, #26–27, #35) and Phase 3 push are **Done**. Reputation **R1** is **Done**; leftover reputation work is R2/R3 below. Run `bash scripts/rebuild-mobile-dev.sh` once to refresh splash on device.
 
 ---
 
@@ -468,7 +469,7 @@ subscriptions (Phase 8)
 | deleted_at | TIMESTAMPTZ | soft delete |
 | reputation_score | INT | default **0**; max **1500** — see [Reputation system](#reputation-system) |
 
-#### `reputation_events` *(planned)*
+#### `reputation_events`
 
 Append-only audit log — **never** change `reputation_score` without a row here.
 
@@ -951,7 +952,7 @@ services:
 
 - Products + Prices in Stripe Dashboard
 - `stripe_customer_id` on user
-- Webhook endpoint: `POST /webhooks/stripe`
+- Webhook endpoint: `POST /webhooks/payments/stripe`
 - Events: `checkout.session.completed`, `customer.subscription.updated`, `invoice.payment_failed`
 
 ### Payment API (Phase 6)
@@ -961,7 +962,7 @@ services:
 | POST | `/subscriptions/checkout` | Create Stripe checkout session |
 | GET | `/subscriptions/me` | Current plan |
 | POST | `/subscriptions/cancel` | Cancel at period end |
-| POST | `/webhooks/stripe` | Stripe webhooks (no auth, signature verify) |
+| POST | `/webhooks/payments/stripe` | Stripe webhooks (no auth, signature verify) |
 
 ---
 
@@ -1170,7 +1171,7 @@ Both audiences must see the same benefit spelled out:
 | Login | 7 | Email + password, 2FA later |
 | Dashboard | 7 | DAU, posts/day, reports open, active Available users, launch area density |
 | Users | 7 | Search, view profile, suspend, ban, verification status, force re-verify |
-| Reports queue | 7 | Open reports, assign, resolve, dismiss, auto-flagged users (3+ reports/24h); **planned:** optional reputation deduction on resolve/dismiss |
+| Reports queue | 7 | Open reports, assign, resolve, dismiss, auto-flagged users (3+ reports/24h); optional reputation deduction on resolve/dismiss (**Done**) |
 | Wall moderation | 7 | Hide/delete posts and replies |
 | Chats (read-only) | 7 | View reported chat context (audit — never editable) |
 | Audit log viewer | 7 | Filter user audit_logs + admin_audit_logs by user, action, date |
@@ -1428,7 +1429,7 @@ pnpm build
 
 - [ ] Stripe products: Free + Premium
 - [ ] `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
-- [ ] Webhook: `https://api.yourdomain.com/v1/webhooks/stripe`
+- [ ] Webhook: `https://api.yourdomain.com/v1/webhooks/payments/stripe`
 - [ ] `PAYMENT_PROVIDER=stripe`
 - [ ] Mobile Premium screen → checkout URL
 
@@ -1996,7 +1997,7 @@ Mobile app                    NestJS API                    didit.me
 1. Create Stripe products: Free, Premium
 2. Add `subscriptions` table migration
 3. `POST /subscriptions/checkout` — Stripe Checkout session
-4. `POST /webhooks/stripe` — handle subscription events
+4. `POST /webhooks/payments/stripe` — handle subscription events
 5. `GET /subscriptions/me` — current plan
 6. Premium features: **cosmetic badge + avatar ring only** — **no** pay-to-chat, visibility boosts, or competitive advantages
 
@@ -2118,11 +2119,16 @@ Mobile app                    NestJS API                    didit.me
 - `GET /verification/status`
 - `POST /verification/webhook`
 
+### Reputation
+- `GET /users/me/reputation`
+- `GET /users/:id/reputation`
+- `POST /admin/users/:id/reputation/adjust` (superadmin)
+
 ### Subscriptions (Phase 8)
 - `POST /subscriptions/checkout`
 - `GET /subscriptions/me`
 - `POST /subscriptions/cancel`
-- `POST /webhooks/stripe`
+- `POST /webhooks/payments/stripe`
 
 ### Venues (Phase 9)
 - `GET /venues/nearby`
@@ -2324,7 +2330,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | **Partial** | Started or backend-only; UX or polish still missing |
 | **UNDONE** | No meaningful implementation yet (or deferred) |
 
-*Last reviewed: 2026-08-17 (reputation #40 spec, Events E1–E5, backlog counts refreshed).*
+*Last reviewed: 2026-08-17 (reputation R1 shipped; create/edit event UI polish; E6 + R2 still open).*
 
 ### Do first (high impact, relatively small)
 
@@ -2355,6 +2361,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | Wall post timestamps | **Done** | Today / Yesterday / date via `format-post-time` |
 | Profile status badges | **Done** | Green checkmarks on You tab (`ProfileStatusBadges`) |
 | Event gallery 4-slot UI | **Done** | Cover + 4 gallery slots; edit/delete via API |
+| Create / edit event form layout | **Done** | Card sections (Details, When, Location, Photos, Hosting); tappable cover; search + map in one card |
 
 ### Premium & monetization
 
@@ -2387,7 +2394,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 | 19 | **Verification badge** — Email/phone/liveness on profile | **Done** | Liveness verified badge via `DisplayNameWithFlair` on Wall, replies, icebreaker, chats; own profile shows email + liveness badges |
 | 19b | **ID verification (KYC) for event hosts** — Didit ID + liveness | **Done** | `POST /verification/start-kyc`, KYC webhook logic, mobile `/(setup)/kyc`, ID badge on profile; set `DIDIT_WORKFLOW_ID_KYC` on server |
 | 20 | **Underage / DOB enforcement** | **Done** | `meetsMinimumAge` in `VerifiedGuard` on gated features; register/profile Zod validation |
-| 40 | **Reputation system** — Points, tiers, admin deductions, profile badge | **Done** | See [Reputation system](#reputation-system) — rules in `packages/shared/src/reputation.ts` |
+| 40 | **Reputation system** — Points, tiers, admin deductions, profile badge | **Done** | R1 shipped (staging). R2 leftover: attend points, in-app explainer, verified-user backfill — see [Reputation system](#reputation-system) |
 
 ### Admin & ops
 
@@ -2501,7 +2508,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 |---|------|--------|
 | E4.1 | **Events tab** — list (cover, title, date, distance, host, RSVP count) | **Done** |
 | E4.2 | Event detail — carousel, map pin, description, host card | **Done** |
-| E4.3 | Create/edit — KYC gate → form → map search/pin → up to 5 images → `allow_messages` toggle | **Done** |
+| E4.3 | Create/edit — KYC gate → form → map search/pin → up to 5 images → `allow_messages` toggle | **Done** | Card layout polish on create + edit (2026-08-17) |
 | E4.4 | RSVP buttons (Going / Maybe) + counts | **Done** |
 | E4.5 | Comment thread on event detail | **Done** |
 | E4.6 | “Message host” CTA when allowed | **Done** |
@@ -2534,7 +2541,7 @@ NOTIFICATIONS_TEST_ENABLED=false
 - **Hosts** use the PingMe app (or admin tool later) to scan and mark entry — prevents screenshot URL sharing as a bypass.
 - Separate from Premium cosmetic perks — this is **event commerce**, not pay-to-win on Wall/icebreaker.
 
-**Suggested build order:** E1 (KYC) → E2 → E3 core (CRUD + nearby) → E4 list/detail/create → E3/E4 RSVP → comments → message host. Phase 0 locked. **Next events work:** E6.4+ (paid tickets).
+**Suggested build order:** E1 (KYC) → E2 → E3 core (CRUD + nearby) → E4 list/detail/create → E3/E4 RSVP → comments → message host. Phase 0 locked. **Next events work:** E6.3 (past-events filter) or E6.4+ (paid tickets).
 
 **Rough effort:** ~3–4 weeks given RSVP + comments + map (larger than initial estimate).
 
@@ -2673,7 +2680,7 @@ Give users a visible **trust tier** that rewards positive, verified participatio
 | Chat message sent | **0** | — (no chat spam points) |
 | 7-day activity streak (5+ active days) | **+4** | Once/week |
 | Host an event (created, not cancelled) | **+8** | Once per event |
-| Attend event (RSVP going, event ended) | **+3** | Once per event *(hook deferred — R2.2)* |
+| Attend event (RSVP going, event ended) | **+3** | Once per event *(hook still UNDONE — R2.2 attend)* |
 
 **Hard daily activity cap:** **6 pts/day** (wall + icebreaker combined).
 
@@ -2738,7 +2745,7 @@ Max-grind floor to Master: ~5 months (6 pts/day cap).
 | **Wall / replies / icebreaker / chats** | Small tier badge next to display name (like Premium flair) | Own tier on own posts |
 | **Admin user page** | Score, tier, full `reputation_events` history | — |
 
-**Badge design:** TBD in UI pass — distinct from Premium star and verification checkmarks.
+**Badge design:** Quiet muted chip via `DisplayNameWithFlair` — **Regular+** only (**New** hidden on social surfaces). Distinct from Premium star and verification checks.
 
 ---
 
@@ -2772,16 +2779,16 @@ Extends existing report flow: `open` → `reviewing` → `resolved` | `dismissed
 
 ---
 
-### API (planned)
+### API (**Done** — R1)
 
 | Method | Path | Notes |
 |--------|------|-------|
 | `GET` | `/users/me/reputation` | Score, tier, points to next tier, recent events (owner) |
 | `GET` | `/users/:id/reputation` | Public: tier + title only (no score) |
-| `PATCH` | `/admin/reports/:id` | Extend body: optional `reputationDeduction: { targetUserId, amount }` |
+| `PATCH` | `/admin/reports/:id` | Optional `reputationDeduction: { targetUserId, amount }` |
 | `POST` | `/admin/users/:id/reputation/adjust` | Superadmin manual adjustment |
 
-**Public profile payloads** (`GET /users/:id`, wall feed, icebreaker cards): add `reputationTier: 'new' | 'regular' | 'respected' | 'trusted' | 'master'`.
+**Public profile payloads** (`GET /users/:id`, wall feed, icebreaker cards, chats, event host): `reputationTier`. **New** is omitted on social surfaces.
 
 **Internal jobs**
 
@@ -2790,14 +2797,14 @@ Extends existing report flow: `open` → `reviewing` → `resolved` | `dismissed
 
 ---
 
-### Mobile (planned)
+### Mobile (**Done** — R1; explainer still R2.3)
 
-| Screen / component | Work |
-|--------------------|------|
-| `ProfileStatusBadges` or new `ReputationBadge` | Tier badge on profile hero |
-| `DisplayNameWithFlair` | Tier micro-badge beside name (Wall, icebreaker, chats) |
-| You tab | Score bar + “X points to Regular” + link to “How reputation works” |
-| Settings or profile | Static explainer sheet (earn rules, tiers, appeals via support) |
+| Screen / component | Status |
+|--------------------|--------|
+| `ReputationCard` on You tab | **Done** — score + “N more points to reach {tier}” |
+| `DisplayNameWithFlair` | **Done** — Regular+ chip on Wall, replies, icebreaker, chats, event host/comments |
+| Identity card on You tab | **Done** — photo, name, Edit, bio, Face/ID/Premium, reputation footer |
+| “How reputation works” explainer | **UNDONE** (R2.3) |
 
 **No v1 feature gates** — tier is cosmetic only.
 
@@ -2835,7 +2842,7 @@ Extends existing report flow: `open` → `reviewing` → `resolved` | `dismissed
 | # | Task | Status |
 |---|------|--------|
 | R2.1 | Passive recovery job (+5 / clean week) | **UNDONE** |
-| R2.2 | Event host/attend point grants | **UNDONE** |
+| R2.2 | Event **attend** points (RSVP going, after event ends) | **UNDONE** | Host grant **+8** already in `events.service.ts` (R1) |
 | R2.3 | “How reputation works” in-app explainer | **UNDONE** |
 | R2.4 | Backfill: grant verification points to existing verified users | **UNDONE** |
 
@@ -2853,8 +2860,8 @@ Extends existing report flow: `open` → `reviewing` → `resolved` | `dismissed
 | # | Question | Current default |
 |---|----------|-----------------|
 | R0.1 | Exact activity point values after beta | Use table above; tune in R2 |
-| R0.2 | Tier badge colors / icons | Design pass — distinct from Premium + verification |
-| R0.3 | Show tier on event host card? | Yes — same badge component |
+| R0.2 | Tier badge colors / icons | **Done** — muted chip, Regular+ only |
+| R0.3 | Show tier on event host card? | **Done** — same `DisplayNameWithFlair` |
 | R0.4 | Appeal flow for wrongful deduction | Support email + admin manual `admin_adjustment` in v1 |
 | R0.5 | Backfill existing users to 100 (old liveness+ID)? | Backfill script in R2.4 — grant +50/+50 if already verified |
 

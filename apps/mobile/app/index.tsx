@@ -16,7 +16,7 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  if (user.email && !user.emailVerified) {
+  if ((user.email && !user.emailVerified) || (user.phone && !user.phoneVerified)) {
     return <Redirect href="/(setup)/verify" />;
   }
 

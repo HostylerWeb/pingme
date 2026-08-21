@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { MAX_EVENT_GALLERY_IMAGES, MAX_EVENT_IMAGES } from '@pingme/shared';
+import { MAX_EVENT_IMAGES } from '@pingme/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { EventScheduleFields } from '../../../src/components/event-datetime-field';
 import { EventMapPicker } from '../../../src/components/event-map';
@@ -27,12 +27,12 @@ import { useScrollBottomPadding } from '../../../src/hooks/use-tab-bar-insets';
 import { showToast } from '../../../src/stores/toast-store';
 import {
   AppHeader,
+  AppIcon,
   AppSwitch,
   Button,
   Input,
   LoadingView,
   Screen,
-  SectionLabel,
 } from '../../../src/components/ui';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../../src/theme';
 
@@ -44,7 +44,7 @@ export default function EditEventScreen() {
   const queryClient = useQueryClient();
   const { colors } = useTheme();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['event', id],
     queryFn: () => api.getEvent(id!),
     enabled: Boolean(id),
@@ -78,38 +78,92 @@ export default function EditEventScreen() {
   const scrollBottomPadding = useScrollBottomPadding();
 
   const styles = useThemedStyles(({ colors }) => ({
-    content: { padding: spacing.container, gap: spacing.lg },
-    map: { height: 220, borderRadius: radius.xl, overflow: 'hidden' },
-    searchResults: { gap: spacing.sm },
+    content: { padding: spacing.container, gap: spacing.xl, paddingTop: spacing.md },
+    section: { gap: spacing.sm },
+    sectionTitle: { ...typography.overline, color: colors.inkTertiary },
+    sectionHint: { ...typography.caption, color: colors.inkTertiary, marginTop: -2 },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    map: { height: 200, borderRadius: radius.lg, overflow: 'hidden' },
+    searchRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
+    searchField: { flex: 1, marginBottom: 0 },
+    searchBtn: {
+      height: 48,
+      width: 48,
+      borderRadius: radius.lg,
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.outlineVariant,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    searchBtnPressed: { opacity: 0.85 },
+    searchResults: { gap: spacing.xs },
     result: {
       padding: spacing.md,
       borderRadius: radius.lg,
       backgroundColor: colors.surfaceMuted,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
-    resultText: { ...typography.bodyMd, color: colors.ink },
-    imagesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-    posterThumb: { width: '100%', height: 160, borderRadius: radius.xl },
-    thumb: { width: 72, height: 72, borderRadius: radius.md },
-    imageSlot: { gap: spacing.sm },
-    hint: { ...typography.caption, color: colors.inkSecondary },
-    locationCard: {
-      padding: spacing.md,
+    resultPressed: { opacity: 0.88 },
+    resultText: { ...typography.bodySemiBold, color: colors.ink, fontSize: 15 },
+    resultAddress: { ...typography.caption, color: colors.inkTertiary, marginTop: 2 },
+    locationSummary: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+    },
+    locationIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    locationCopy: { flex: 1, minWidth: 0 },
+    locationTitle: { ...typography.bodySemiBold, color: colors.ink, fontSize: 15 },
+    locationAddress: { ...typography.caption, color: colors.inkSecondary, lineHeight: 18, marginTop: 2 },
+    cover: {
+      height: 188,
       borderRadius: radius.lg,
+      overflow: 'hidden',
       backgroundColor: colors.surfaceMuted,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: spacing.xs,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    locationTitle: { ...typography.bodySemiBold, color: colors.ink },
-    locationAddress: { ...typography.bodyMd, color: colors.inkSecondary, lineHeight: 22 },
+    coverEmpty: { borderStyle: 'dashed' },
+    coverPressed: { opacity: 0.92 },
+    coverImage: { width: '100%', height: '100%' },
+    coverOverlay: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      backgroundColor: 'rgba(20,20,20,0.45)',
+    },
+    coverOverlayText: { ...typography.caption, color: '#FFFFFF', fontSize: 12 },
+    coverEmptyLabel: { ...typography.bodySemiBold, color: colors.inkSecondary, marginTop: spacing.sm },
+    coverEmptyHint: { ...typography.caption, color: colors.inkTertiary, marginTop: 2 },
     toggleRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.md,
     },
+    toggleTitle: { ...typography.bodySemiBold, color: colors.ink, fontSize: 15 },
+    toggleHint: { ...typography.caption, color: colors.inkTertiary, marginTop: 2, lineHeight: 18 },
+    publish: { marginTop: spacing.sm },
+    hint: { ...typography.caption, color: colors.inkSecondary },
   }));
 
   const applyReverseGeocode = useCallback(
@@ -306,6 +360,15 @@ export default function EditEventScreen() {
         ? 'Looking up address...'
         : 'Move the map or search to choose a location';
 
+  if (isError) {
+    return (
+      <Screen>
+        <AppHeader title="Edit event" showBrand={false} onBack={() => router.back()} />
+        <Text style={styles.hint}>Couldn’t load this event. Go back and try again.</Text>
+      </Screen>
+    );
+  }
+
   if (isLoading || !event) {
     return (
       <Screen>
@@ -332,118 +395,169 @@ export default function EditEventScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
       >
-        <Input label="Title" value={title} onChangeText={setTitle} maxLength={120} />
-        <Input
-          label="Description"
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={4}
-        />
-
-        <SectionLabel>When</SectionLabel>
-        <EventScheduleFields
-          startsAt={startsAt}
-          endsAt={endsAt}
-          onStartsAtChange={onStartsAtChange}
-          onEndsAtChange={setEndsAt}
-        />
-
-        <SectionLabel>Location</SectionLabel>
-        {countryCode ? (
-          <Text style={styles.hint}>Searching places in your current country</Text>
-        ) : null}
-        <Input
-          label="Search place"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={() => void onSearch()}
-          returnKeyType="search"
-        />
-        <Button label="Search" variant="secondary" loading={searching} onPress={() => void onSearch()} />
-        {searchResults.length > 0 ? (
-          <View style={styles.searchResults}>
-            {searchResults.map((place) => (
-              <Pressable
-                key={`${place.latitude}-${place.longitude}`}
-                style={styles.result}
-                onPress={() => selectPlace(place)}
-              >
-                <Text style={styles.resultText}>{place.placeName}</Text>
-                <Text style={styles.hint}>{place.address}</Text>
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
-        {center ? (
-          <View
-            onTouchStart={() => setScrollEnabled(false)}
-            onTouchEnd={() => setScrollEnabled(true)}
-            onTouchCancel={() => setScrollEnabled(true)}
-          >
-            <EventMapPicker
-              style={styles.map}
-              latitude={center.latitude}
-              longitude={center.longitude}
-              recenterToken={recenterToken}
-              onCoordinateChange={(next) => {
-                setCenter(next);
-                void applyReverseGeocode(next.latitude, next.longitude);
-              }}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Details</Text>
+          <View style={styles.card}>
+            <Input
+              label="Title"
+              value={title}
+              onChangeText={setTitle}
+              maxLength={120}
+              placeholder="What’s happening?"
+              containerStyle={styles.searchField}
+            />
+            <Input
+              label="Description"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={4}
+              placeholder="Who it’s for, what to bring, anything people should know"
+              containerStyle={styles.searchField}
             />
           </View>
-        ) : (
-          <ActivityIndicator />
-        )}
-
-        <View style={styles.locationCard}>
-          <Text style={styles.locationTitle}>{selectedLocationLabel}</Text>
-          {address ? <Text style={styles.locationAddress}>{address}</Text> : null}
-          {center ? (
-            <Text style={styles.hint}>
-              {center.latitude.toFixed(5)}, {center.longitude.toFixed(5)}
-            </Text>
-          ) : null}
         </View>
 
-        <SectionLabel>Poster image</SectionLabel>
-        <Text style={styles.hint}>Main image shown on the event card and at the top of the page.</Text>
-        <View style={styles.imageSlot}>
-          {posterPreview ? (
-            <Image source={{ uri: posterPreview }} style={styles.posterThumb} resizeMode="cover" />
-          ) : null}
-          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <Button
-              label={posterPreview ? 'Change poster' : 'Add poster'}
-              variant="secondary"
-              size="sm"
-              onPress={() => void pickPoster()}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>When</Text>
+          <View style={styles.card}>
+            <EventScheduleFields
+              startsAt={startsAt}
+              endsAt={endsAt}
+              onStartsAtChange={onStartsAtChange}
+              onEndsAtChange={setEndsAt}
             />
-            {newPosterUri ? (
-              <Button
-                label="Undo poster"
-                variant="secondary"
-                size="sm"
-                onPress={() => setNewPosterUri(null)}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Location</Text>
+          <Text style={styles.sectionHint}>
+            {countryCode ? 'Search is limited to your current country' : 'Search a place or drag the map pin'}
+          </Text>
+          <View style={styles.card}>
+            <View style={styles.searchRow}>
+              <Input
+                label="Search"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={() => void onSearch()}
+                returnKeyType="search"
+                placeholder="Park, cafe, venue…"
+                containerStyle={styles.searchField}
               />
+              <Pressable
+                onPress={() => void onSearch()}
+                disabled={searching}
+                accessibilityRole="button"
+                accessibilityLabel="Search places"
+                style={({ pressed }) => [styles.searchBtn, pressed && styles.searchBtnPressed]}
+              >
+                {searching ? (
+                  <ActivityIndicator size="small" color={colors.ink} />
+                ) : (
+                  <AppIcon name="location" size={20} color={colors.ink} />
+                )}
+              </Pressable>
+            </View>
+            {searchResults.length > 0 ? (
+              <View style={styles.searchResults}>
+                {searchResults.map((place) => (
+                  <Pressable
+                    key={`${place.latitude}-${place.longitude}`}
+                    style={({ pressed }) => [styles.result, pressed && styles.resultPressed]}
+                    onPress={() => selectPlace(place)}
+                  >
+                    <Text style={styles.resultText}>{place.placeName}</Text>
+                    <Text style={styles.resultAddress}>{place.address}</Text>
+                  </Pressable>
+                ))}
+              </View>
             ) : null}
+
+            {center ? (
+              <View
+                onTouchStart={() => setScrollEnabled(false)}
+                onTouchEnd={() => setScrollEnabled(true)}
+                onTouchCancel={() => setScrollEnabled(true)}
+              >
+                <EventMapPicker
+                  style={styles.map}
+                  latitude={center.latitude}
+                  longitude={center.longitude}
+                  recenterToken={recenterToken}
+                  onCoordinateChange={(next) => {
+                    setCenter(next);
+                    void applyReverseGeocode(next.latitude, next.longitude);
+                  }}
+                />
+              </View>
+            ) : (
+              <ActivityIndicator />
+            )}
+
+            <View style={styles.locationSummary}>
+              <View style={styles.locationIcon}>
+                <AppIcon name="location" size={18} color={colors.accent} />
+              </View>
+              <View style={styles.locationCopy}>
+                <Text style={styles.locationTitle}>{selectedLocationLabel}</Text>
+                {address ? <Text style={styles.locationAddress}>{address}</Text> : null}
+              </View>
+            </View>
           </View>
         </View>
 
-        <SectionLabel>{`Gallery (optional, up to ${MAX_EVENT_GALLERY_IMAGES})`}</SectionLabel>
-        <Text style={styles.hint}>Tap a slot to add a photo. Tap a photo to remove it.</Text>
-        <EventGallerySlots slots={gallerySlots} onChange={setGallerySlots} />
-
-        <View style={styles.toggleRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ ...typography.bodySemiBold, color: colors.ink }}>Allow messages</Text>
-            <Text style={styles.hint}>Let attendees message you about this event</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Photos</Text>
+          <Text style={styles.sectionHint}>Cover shows on the event card. Gallery is optional.</Text>
+          <View style={styles.card}>
+            <Pressable
+              onPress={() => void pickPoster()}
+              onLongPress={() => newPosterUri && setNewPosterUri(null)}
+              style={({ pressed }) => [
+                styles.cover,
+                !posterPreview && styles.coverEmpty,
+                pressed && styles.coverPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={posterPreview ? 'Change cover photo' : 'Add cover photo'}
+            >
+              {posterPreview ? (
+                <>
+                  <Image source={{ uri: posterPreview }} style={styles.coverImage} resizeMode="cover" />
+                  <View style={styles.coverOverlay}>
+                    <Text style={styles.coverOverlayText}>
+                      {newPosterUri ? 'Tap to change · hold to undo' : 'Tap to change cover'}
+                    </Text>
+                  </View>
+                </>
+              ) : (
+                <>
+                  <AppIcon name="camera" size={28} color={colors.inkTertiary} />
+                  <Text style={styles.coverEmptyLabel}>Add a cover photo</Text>
+                  <Text style={styles.coverEmptyHint}>Shown at the top of your event</Text>
+                </>
+              )}
+            </Pressable>
+            <EventGallerySlots slots={gallerySlots} onChange={setGallerySlots} />
           </View>
-          <AppSwitch value={allowMessages} onValueChange={setAllowMessages} />
         </View>
 
-        <Button label="Save changes" loading={updateMutation.isPending} onPress={onSave} />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Hosting</Text>
+          <View style={styles.card}>
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleTitle}>Allow messages</Text>
+                <Text style={styles.toggleHint}>Attendees can message you about this event</Text>
+              </View>
+              <AppSwitch value={allowMessages} onValueChange={setAllowMessages} />
+            </View>
+          </View>
+        </View>
+
+        <Button label="Save changes" loading={updateMutation.isPending} onPress={onSave} style={styles.publish} />
         {event.status === 'active' ? (
           <Button
             label="Cancel event"

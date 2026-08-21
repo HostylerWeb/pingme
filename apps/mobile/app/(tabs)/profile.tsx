@@ -1,8 +1,8 @@
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { genderLabel, type GenderValue } from '@pingme/shared';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { api } from '../../src/lib/api';
@@ -42,6 +42,11 @@ export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const refreshMe = useAuthStore((s) => s.refreshMe);
+  useFocusEffect(
+    useCallback(() => {
+      void refreshMe();
+    }, [refreshMe]),
+  );
   const { data: subscriptionData } = useQuery({
     queryKey: ['subscription'],
     queryFn: () => api.getSubscription(),
@@ -55,14 +60,7 @@ export default function ProfileScreen() {
   const displayName = user?.profile?.displayName ?? 'User';
   const bio = user?.profile?.bio;
   const profileGender = user?.profile?.gender ?? null;
-  const reputation = (user as { reputation?: {
-    score: number;
-    tier: import('@pingme/shared').ReputationTierId;
-    tierLabel: string;
-    pointsToNextTier: number | null;
-    nextTierLabel: string | null;
-    scoreMax: number;
-  } } | null)?.reputation;
+  const reputation = user?.reputation;
 
   const [editOpen, setEditOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(displayName);
@@ -109,45 +107,66 @@ export default function ProfileScreen() {
   const styles = useThemedStyles(({ colors }) => ({
     content: { paddingHorizontal: spacing.container },
     profileHero: {
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.lg,
+    },
+    identityCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.lg,
+    },
+    heroRow: {
+      flexDirection: 'row',
       alignItems: 'center',
-      paddingTop: spacing.sm,
-      paddingBottom: spacing.xl,
+      gap: spacing.lg,
     },
     avatarTap: { position: 'relative' },
-    avatarTapPressed: { opacity: 0.85 },
+    avatarTapPressed: { opacity: 0.88 },
     cameraBadge: {
       position: 'absolute',
-      right: 4,
-      bottom: 4,
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      backgroundColor: colors.accent,
+      right: 2,
+      bottom: 2,
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: colors.ink,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 3,
-      borderColor: colors.background,
+      borderWidth: 2,
+      borderColor: colors.surface,
+    },
+    heroCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
     },
     name: {
-      ...typography.display,
+      ...typography.headlineMd,
       color: colors.ink,
-      marginTop: spacing.lg,
-      textAlign: 'center',
+      flexShrink: 1,
     },
+    editLink: {
+      ...typography.bodySemiBold,
+      color: colors.accent,
+      fontSize: 13,
+    },
+    editLinkPressed: { opacity: 0.7 },
     bio: {
-      ...typography.bodyLg,
+      ...typography.bodyMd,
       color: colors.inkSecondary,
-      textAlign: 'center',
-      marginTop: spacing.sm,
-      paddingHorizontal: spacing.md,
-      lineHeight: 26,
-      maxWidth: 320,
+      marginTop: 4,
+      lineHeight: 20,
+      fontSize: 14,
     },
     bioPlaceholder: {
       color: colors.inkMuted,
-      fontStyle: 'italic',
     },
-    editBtn: { marginTop: spacing.lg, minWidth: 160 },
     cta: { marginBottom: spacing.md },
     sectionLabel: {
       ...typography.overline,
@@ -270,7 +289,6 @@ export default function ProfileScreen() {
         large
         title="You"
         showBrand={false}
-        subtitle="Your photo, name, and bio — how others see you nearby."
         right={
           <Pressable
             onPress={() => router.push('/settings')}
@@ -285,53 +303,68 @@ export default function ProfileScreen() {
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: contentBottom }]}>
         <View style={styles.profileHero}>
-          <Pressable
-            onPress={() => setSourceSheetOpen(true)}
-            disabled={uploading}
-            style={({ pressed }) => [styles.avatarTap, pressed && styles.avatarTapPressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Change profile photo"
-          >
-            <AvatarWithTheme
-              avatarUrl={avatarUrl}
-              themeId={avatarTheme}
-              displayName={displayName}
-              size={112}
-              showPremiumBadge={false}
-            />
-            <View style={styles.cameraBadge}>
-              {uploading ? (
-                <ActivityIndicator size="small" color={colors.surface} />
-              ) : (
-                <AppIcon name="camera" size={16} color={colors.surface} />
-              )}
+          <View style={styles.identityCard}>
+            <View style={styles.heroRow}>
+              <Pressable
+                onPress={() => setSourceSheetOpen(true)}
+                disabled={uploading}
+                style={({ pressed }) => [styles.avatarTap, pressed && styles.avatarTapPressed]}
+                accessibilityRole="button"
+                accessibilityLabel="Change profile photo"
+              >
+                <AvatarWithTheme
+                  avatarUrl={avatarUrl}
+                  themeId={avatarTheme}
+                  displayName={displayName}
+                  size={92}
+                  showPremiumBadge={false}
+                />
+                <View style={styles.cameraBadge}>
+                  {uploading ? (
+                    <ActivityIndicator size="small" color={colors.surface} />
+                  ) : (
+                    <AppIcon name="camera" size={12} color={colors.surface} />
+                  )}
+                </View>
+              </Pressable>
+
+              <View style={styles.heroCopy}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {displayName}
+                  </Text>
+                  <Pressable
+                    onPress={openEdit}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit profile"
+                    style={({ pressed }) => pressed && styles.editLinkPressed}
+                  >
+                    <Text style={styles.editLink}>Edit</Text>
+                  </Pressable>
+                </View>
+                <Text style={[styles.bio, !bio?.trim() && styles.bioPlaceholder]} numberOfLines={2}>
+                  {bio?.trim() ? bio : 'Add a short bio'}
+                </Text>
+                <ProfileStatusBadges
+                  isPremium={isPremium}
+                  livenessVerified={user?.livenessVerified}
+                  idVerified={user?.idVerified}
+                />
+              </View>
             </View>
-          </Pressable>
-
-          <Text style={styles.name}>{displayName}</Text>
-          <Text style={[styles.bio, !bio?.trim() && styles.bioPlaceholder]}>
-            {bio?.trim() ? bio : 'Add a short bio so people know who you are.'}
-          </Text>
-
-          <Button label="Edit profile" variant="secondary" onPress={openEdit} style={styles.editBtn} />
-
-          <ProfileStatusBadges
-            isPremium={isPremium}
-            livenessVerified={user?.livenessVerified}
-            idVerified={user?.idVerified}
-          />
+            {reputation ? (
+              <ReputationCard
+                score={reputation.score}
+                tier={reputation.tier}
+                tierLabel={reputation.tierLabel}
+                pointsToNextTier={reputation.pointsToNextTier}
+                nextTierLabel={reputation.nextTierLabel}
+                scoreMax={reputation.scoreMax}
+              />
+            ) : null}
+          </View>
         </View>
-
-        {reputation ? (
-          <ReputationCard
-            score={reputation.score}
-            tier={reputation.tier}
-            tierLabel={reputation.tierLabel}
-            pointsToNextTier={reputation.pointsToNextTier}
-            nextTierLabel={reputation.nextTierLabel}
-            scoreMax={reputation.scoreMax}
-          />
-        ) : null}
 
         <ProfileCompletenessCard
           avatarUrl={avatarUrl}

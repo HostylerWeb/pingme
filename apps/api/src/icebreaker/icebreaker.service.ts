@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -22,6 +23,7 @@ import { loadPublicProfileMap } from '../common/utils/public-profile.util';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { isPrismaUniqueConflict } from '../common/utils/prisma-error.util';
 import { StartIcebreakerDto } from './dto/icebreaker.dto';
 
 interface NearbySessionRow {
@@ -64,30 +66,39 @@ export class IcebreakerService {
       throw new BadRequestException('Location required — send a ping first');
     }
 
-    const existing = await this.prisma.icebreakerSession.findFirst({
-      where: { userId, status: IcebreakerSessionStatus.active },
-    });
-    if (existing) {
-      await this.prisma.icebreakerSession.update({
-        where: { id: existing.id },
-        data: { status: IcebreakerSessionStatus.cancelled },
-      });
-    }
-
+    const latitude = session.latitude;
+    const longitude = session.longitude;
     const windowMinutes = icebreakerConfig.windowMinutes;
     const expiresAt = new Date(Date.now() + windowMinutes * 60 * 1000);
     const introMessage = options.introMessage?.trim() || null;
 
-    const icebreaker = await this.prisma.icebreakerSession.create({
-      data: {
-        userId,
-        latitude: session.latitude,
-        longitude: session.longitude,
-        showPhoto: options.showPhoto ?? false,
-        introMessage,
-        expiresAt,
-      },
-    });
+    const createActiveSession = () =>
+      this.prisma.$transaction(async (tx) => {
+        await tx.icebreakerSession.updateMany({
+          where: { userId, status: IcebreakerSessionStatus.active },
+          data: { status: IcebreakerSessionStatus.cancelled },
+        });
+        return tx.icebreakerSession.create({
+          data: {
+            userId,
+            latitude,
+            longitude,
+            showPhoto: options.showPhoto ?? false,
+            introMessage,
+            expiresAt,
+          },
+        });
+      });
+
+    let icebreaker;
+    try {
+      icebreaker = await createActiveSession();
+    } catch (error) {
+      if (!isPrismaUniqueConflict(error)) {
+        throw error;
+      }
+      icebreaker = await createActiveSession();
+    }
 
     await this.audit.log({
       userId,
@@ -344,6 +355,7 @@ export class IcebreakerService {
         avatarTheme: null,
         livenessVerified: false,
         gender: null,
+        reputationTier: 'new' as const,
       };
     const withActiveNow = (userId: string) => isUserActiveNow(lastSeenByUserId.get(userId), now);
 
@@ -372,6 +384,7 @@ export class IcebreakerService {
         isPremium: withFlair(row.user_id).isPremium,
         avatarTheme: withFlair(row.user_id).avatarTheme,
         livenessVerified: withFlair(row.user_id).livenessVerified,
+        reputationTier: withFlair(row.user_id).reputationTier,
         gender: withFlair(row.user_id).gender,
         activeNow: withActiveNow(row.user_id),
       };
@@ -400,6 +413,7 @@ export class IcebreakerService {
         isPremium: withFlair(otherUserId).isPremium,
         avatarTheme: withFlair(otherUserId).avatarTheme,
         livenessVerified: withFlair(otherUserId).livenessVerified,
+        reputationTier: withFlair(otherUserId).reputationTier,
         gender: withFlair(otherUserId).gender,
         activeNow: withActiveNow(otherUserId),
       });
@@ -435,6 +449,27 @@ export class IcebreakerService {
     });
     if (!targetSession) {
       throw new NotFoundException('That person is no longer in Break the ice');
+    }
+
+    if (
+      mySession.latitude == null ||
+      mySession.longitude == null ||
+      targetSession.latitude == null ||
+      targetSession.longitude == null
+    ) {
+      throw new BadRequestException('Location required — send a ping first');
+    }
+
+    const radius = this.appConfig.getDistanceConfig().icebreaker.radiusMeters;
+    const [proximity] = await this.prisma.$queryRaw<{ nearby: boolean }[]>`
+      SELECT ST_DWithin(
+        ST_SetSRID(ST_MakePoint(${mySession.longitude}, ${mySession.latitude}), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(${targetSession.longitude}, ${targetSession.latitude}), 4326)::geography,
+        ${radius}
+      ) AS nearby
+    `;
+    if (!proximity?.nearby) {
+      throw new ForbiddenException('That person is no longer nearby');
     }
 
     const blocked = await this.blocks.getBlockedUserIds(userId);
@@ -691,15 +726,6 @@ function isActiveYesInterest(
 
 function orderUserIds(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
-}
-
-function isPrismaUniqueConflict(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === 'P2002'
-  );
 }
 
 function isHiddenFromList(

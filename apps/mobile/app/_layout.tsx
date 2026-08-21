@@ -197,35 +197,68 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
     let target: string | null = null;
     const onAuthScreen =
-      pathname.startsWith('/(auth)') ||
       pathname === '/login' ||
       pathname === '/register' ||
       pathname === '/forgot-password' ||
-      pathname === '/reset-password';
+      pathname === '/reset-password' ||
+      pathname.startsWith('/(auth)');
     const onLegalScreen = pathname === '/legal' || pathname.startsWith('/legal/');
+    const onInviteScreen = pathname === '/invite' || pathname.startsWith('/invite/');
+    const onSetupVerify = pathname === '/verify' || pathname.startsWith('/verify/');
+    const onSetupProfile = pathname === '/complete-profile';
+    const onSetupLocation = pathname === '/location' || pathname.startsWith('/location/');
+    const onSetupNotifications =
+      pathname === '/notifications' || pathname.startsWith('/notifications/');
+    const onSetupTour = pathname === '/tour' || pathname.startsWith('/tour/');
+    const onSetupLiveness = pathname === '/liveness' || pathname.startsWith('/liveness/');
+    const onSetupKyc = pathname === '/kyc' || pathname.startsWith('/kyc/');
+    const onOnboarding = pathname === '/onboarding' || pathname.startsWith('/onboarding');
+    const allowWithoutLocation =
+      onSetupVerify ||
+      onSetupProfile ||
+      onSetupLocation ||
+      onSetupLiveness ||
+      onSetupKyc;
 
     if (!onboardingComplete) {
       target = '/(onboarding)';
     } else if (!user) {
-      if (!onAuthScreen && !onLegalScreen) {
+      if (!onAuthScreen && !onLegalScreen && !onInviteScreen) {
         target = '/(auth)/login';
       }
     } else if ((user.email && !user.emailVerified) || (user.phone && !user.phoneVerified)) {
-      target = '/(setup)/verify';
+      if (!onSetupVerify) {
+        target = '/(setup)/verify';
+      }
     } else if (
       locationReady === null ||
       notificationsReady === null ||
       productTourComplete === null
     ) {
       return;
-    } else if (!locationReady && !pathname.startsWith('/(setup)/location')) {
+    } else if (!locationReady && !allowWithoutLocation) {
       target = '/(setup)/location';
-    } else if (!notificationsReady && !pathname.startsWith('/(setup)/notifications')) {
+    } else if (locationReady && !notificationsReady && !onSetupNotifications) {
       target = '/(setup)/notifications';
-    } else if (!productTourComplete && !pathname.startsWith('/(setup)/tour')) {
+    } else if (
+      locationReady &&
+      notificationsReady &&
+      !productTourComplete &&
+      !onSetupTour
+    ) {
       target = '/(setup)/tour';
-    } else if (onAuthScreen || pathname.startsWith('/(onboarding)') || pathname.startsWith('/(setup)')) {
-      target = '/(tabs)/home';
+    } else if (
+      onAuthScreen ||
+      onOnboarding ||
+      onSetupVerify ||
+      onSetupLocation ||
+      onSetupNotifications ||
+      onSetupTour ||
+      onSetupProfile
+    ) {
+      if (locationReady && notificationsReady && productTourComplete) {
+        target = '/(tabs)/home';
+      }
     }
 
     if (!target || pathname === target || pathname.startsWith(`${target}/`)) {

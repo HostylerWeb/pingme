@@ -416,6 +416,7 @@ export default function PostDetailScreen() {
                     gender={post.author.gender}
                     isPremium={post.author.isPremium}
                     isVerified={!post.author.isYou && post.author.livenessVerified}
+                    reputationTier={post.author.reputationTier}
                   />
                   <Text style={styles.postTime}>{formatWallPostTime(post.createdAt)}</Text>
                   <DistancePill label={distanceLabel(post.distanceBucket)} tone={distanceTone(post.distanceBucket)} />
@@ -465,6 +466,7 @@ export default function PostDetailScreen() {
                       gender={item.author.gender}
                       isPremium={item.author.isPremium}
                       isVerified={!item.author.isYou && item.author.livenessVerified}
+                      reputationTier={item.author.reputationTier}
                     />
                     {!item.author.isYou ? (
                       <Button

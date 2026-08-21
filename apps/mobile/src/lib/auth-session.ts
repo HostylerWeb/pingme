@@ -36,6 +36,7 @@ export async function handleAuthFailure(epochAtStart?: number) {
   if (epochAtStart !== undefined && isStaleAuthSession(epochAtStart)) return;
 
   handling = true;
+  bumpAuthSessionEpoch();
   try {
     await clearTokens();
     if (handler) {

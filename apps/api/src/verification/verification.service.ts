@@ -12,7 +12,7 @@ import {
   VerificationType,
   Prisma,
 } from '@pingme/db';
-import { NOTIFICATION_TYPES } from '@pingme/shared';
+import { meetsMinimumAge, NOTIFICATION_TYPES } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -39,6 +39,32 @@ export class VerificationService {
 
   isKycEnforcementEnabled(): boolean {
     return this.didit.isKycEnabled();
+  }
+
+  async assertGatedAccess(userId: string): Promise<void> {
+    const profile = await this.prisma.profile.findUnique({
+      where: { userId },
+      select: { dateOfBirth: true },
+    });
+
+    if (!profile?.dateOfBirth || !meetsMinimumAge(profile.dateOfBirth)) {
+      throw new ForbiddenException({
+        code: 'MINIMUM_AGE_REQUIRED',
+        message: 'You must be at least 18 years old to use this feature',
+      });
+    }
+
+    if (!this.isEnforcementEnabled()) {
+      return;
+    }
+
+    const passed = await this.hasPassedLiveness(userId);
+    if (!passed) {
+      throw new ForbiddenException({
+        code: 'LIVENESS_REQUIRED',
+        message: 'Complete liveness verification to use this feature',
+      });
+    }
   }
 
   async hasPassedLiveness(userId: string): Promise<boolean> {
@@ -421,44 +447,54 @@ export class VerificationService {
       return { success: true, ignored: true };
     }
 
-    if (payload.event_id) {
-      const cacheKey = `didit:webhook:${payload.event_id}`;
+    const cacheKey = payload.event_id ? `didit:webhook:${payload.event_id}` : null;
+    if (cacheKey) {
       const claimed = await this.redis.client.set(cacheKey, '1', 'EX', 7 * 24 * 60 * 60, 'NX');
       if (claimed !== 'OK') {
         return { success: true, duplicate: true };
       }
     }
 
-    const sessionId = payload.session_id;
-    const vendorData = payload.vendor_data;
+    try {
+      const sessionId = payload.session_id;
+      const vendorData = payload.vendor_data;
 
-    let verification = sessionId
-      ? await this.prisma.verification.findFirst({
-          where: { providerReference: sessionId },
-        })
-      : null;
+      let verification = sessionId
+        ? await this.prisma.verification.findFirst({
+            where: { providerReference: sessionId },
+          })
+        : null;
 
-    if (!verification && vendorData) {
-      verification = await this.prisma.verification.findFirst({
-        where: {
-          userId: vendorData,
-          provider: VerificationProvider.didit,
-        },
-        orderBy: { createdAt: 'desc' },
-      });
+      if (!verification && vendorData) {
+        verification = await this.prisma.verification.findFirst({
+          where: {
+            userId: vendorData,
+            provider: VerificationProvider.didit,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
+      if (!verification) {
+        this.logger.warn('Didit webhook could not match verification record', {
+          sessionId,
+          vendorData,
+        });
+        if (cacheKey) {
+          await this.redis.client.del(cacheKey);
+        }
+        return { success: false, message: 'Verification not found' };
+      }
+
+      await this.applyDiditResult(verification.id, verification.userId, payload);
+
+      return { success: true };
+    } catch (error) {
+      if (cacheKey) {
+        await this.redis.client.del(cacheKey);
+      }
+      throw error;
     }
-
-    if (!verification) {
-      this.logger.warn('Didit webhook could not match verification record', {
-        sessionId,
-        vendorData,
-      });
-      return { success: false, message: 'Verification not found' };
-    }
-
-    await this.applyDiditResult(verification.id, verification.userId, payload);
-
-    return { success: true };
   }
 
   private async syncFromDidit(sessionId: string, userId: string) {
@@ -565,9 +601,12 @@ export class VerificationService {
         },
       });
 
-      if (isDocument && workflowType === 'kyc') {
+      if (isDocument) {
         await this.reputation.grantOnce(userId, 'verification_id', userId);
-      } else if (!isDocument) {
+        if (workflowType === 'kyc') {
+          await this.reputation.grantOnce(userId, 'verification_liveness', userId);
+        }
+      } else {
         await this.reputation.grantOnce(userId, 'verification_liveness', userId);
       }
     }

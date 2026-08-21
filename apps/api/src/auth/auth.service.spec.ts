@@ -8,6 +8,7 @@ import { SecurityEventsService } from '../audit/security-events.service';
 import { EmailService } from '../common/services/email.service';
 import { SmsService } from '../common/services/sms.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReputationService } from '../reputation/reputation.service';
 import { VerificationService } from '../verification/verification.service';
 
 describe('AuthService', () => {
@@ -51,7 +52,10 @@ describe('AuthService', () => {
     verifyOtp: jest.fn(),
     usesTwilioVerify: jest.fn().mockReturnValue(false),
   };
-  const verification = { hasPassedLiveness: jest.fn().mockResolvedValue(false) };
+  const verification = {
+    hasPassedLiveness: jest.fn().mockResolvedValue(false),
+    hasPassedIdVerification: jest.fn().mockResolvedValue(false),
+  };
   const jwtService = { signAsync: jest.fn().mockResolvedValue('access-token') };
   const config = {
     get: jest.fn((key: string, fallback?: string) => {
@@ -75,6 +79,7 @@ describe('AuthService', () => {
         { provide: EmailService, useValue: emailService },
         { provide: SmsService, useValue: smsService },
         { provide: VerificationService, useValue: verification },
+        { provide: ReputationService, useValue: { grantOnce: jest.fn(), getUserSummary: jest.fn().mockResolvedValue({ score: 0, tier: 'new' }) } },
       ],
     }).compile();
 

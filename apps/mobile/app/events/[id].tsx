@@ -192,6 +192,7 @@ function EventDetailsHeader({
             name={event.host.displayName}
             isPremium={event.host.isPremium}
             isVerified={event.host.livenessVerified}
+            reputationTier={event.host.reputationTier}
           />
         </View>
         {event.allowMessages && !event.isHost ? (
@@ -300,6 +301,7 @@ function CommentRow({
             gender={item.author.gender}
             isPremium={item.author.isPremium}
             isVerified={!item.author.isYou && item.author.livenessVerified}
+            reputationTier={item.author.reputationTier}
           />
         </View>
         <Text style={[styles.commentTime, { color: colors.inkTertiary }]}>

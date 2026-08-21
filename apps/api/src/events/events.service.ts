@@ -27,6 +27,7 @@ import {
   distanceBucket,
 } from '@pingme/shared';
 import { AuditService } from '../audit/audit.service';
+import { isPrismaUniqueConflict } from '../common/utils/prisma-error.util';
 import { AppConfigService } from '../config/app-config.service';
 import { BlocksService } from '../common/services/blocks.service';
 import { R2Service } from '../common/services/r2.service';
@@ -286,6 +287,7 @@ export class EventsService {
           isPremium: flair.isPremium,
           avatarTheme: flair.avatarTheme,
           livenessVerified: flair.livenessVerified,
+          reputationTier: flair.reputationTier,
         },
       };
     });
@@ -391,6 +393,7 @@ export class EventsService {
           isPremium: hostFlair.isPremium,
           avatarTheme: hostFlair.avatarTheme,
           livenessVerified: hostFlair.livenessVerified,
+          reputationTier: hostFlair.reputationTier,
           idVerified: Boolean(idVerified),
           isYou: isHost,
         },
@@ -583,11 +586,6 @@ export class EventsService {
       throw new BadRequestException('Hosts cannot RSVP to their own event');
     }
 
-    const existing = await this.prisma.eventRsvp.findUnique({
-      where: { eventId_userId: { eventId, userId } },
-    });
-
-    const oldStatus = existing?.status;
     const newStatus =
       dto.status === 'going' ? EventRsvpStatus.going : EventRsvpStatus.maybe;
 
@@ -598,22 +596,15 @@ export class EventsService {
         update: { status: newStatus },
       });
 
-      const goingDelta =
-        (newStatus === EventRsvpStatus.going ? 1 : 0) -
-        (oldStatus === EventRsvpStatus.going ? 1 : 0);
-      const maybeDelta =
-        (newStatus === EventRsvpStatus.maybe ? 1 : 0) -
-        (oldStatus === EventRsvpStatus.maybe ? 1 : 0);
+      const [goingCount, maybeCount] = await Promise.all([
+        tx.eventRsvp.count({ where: { eventId, status: EventRsvpStatus.going } }),
+        tx.eventRsvp.count({ where: { eventId, status: EventRsvpStatus.maybe } }),
+      ]);
 
-      if (goingDelta !== 0 || maybeDelta !== 0) {
-        await tx.event.update({
-          where: { id: eventId },
-          data: {
-            goingCount: { increment: goingDelta },
-            maybeCount: { increment: maybeDelta },
-          },
-        });
-      }
+      await tx.event.update({
+        where: { id: eventId },
+        data: { goingCount, maybeCount },
+      });
     });
 
     return { success: true, data: { status: dto.status } };
@@ -655,18 +646,15 @@ export class EventsService {
         data: { status: EventRsvpStatus.cancelled },
       });
 
-      const goingDelta = existing.status === EventRsvpStatus.going ? -1 : 0;
-      const maybeDelta = existing.status === EventRsvpStatus.maybe ? -1 : 0;
+      const [goingCount, maybeCount] = await Promise.all([
+        tx.eventRsvp.count({ where: { eventId, status: EventRsvpStatus.going } }),
+        tx.eventRsvp.count({ where: { eventId, status: EventRsvpStatus.maybe } }),
+      ]);
 
-      if (goingDelta !== 0 || maybeDelta !== 0) {
-        await tx.event.update({
-          where: { id: eventId },
-          data: {
-            goingCount: { increment: goingDelta },
-            maybeCount: { increment: maybeDelta },
-          },
-        });
-      }
+      await tx.event.update({
+        where: { id: eventId },
+        data: { goingCount, maybeCount },
+      });
     });
 
     await this.notifications.sendToUser(event.userId, {
@@ -696,18 +684,15 @@ export class EventsService {
         data: { status: EventRsvpStatus.cancelled },
       });
 
-      const goingDelta = existing.status === EventRsvpStatus.going ? -1 : 0;
-      const maybeDelta = existing.status === EventRsvpStatus.maybe ? -1 : 0;
+      const [goingCount, maybeCount] = await Promise.all([
+        tx.eventRsvp.count({ where: { eventId, status: EventRsvpStatus.going } }),
+        tx.eventRsvp.count({ where: { eventId, status: EventRsvpStatus.maybe } }),
+      ]);
 
-      if (goingDelta !== 0 || maybeDelta !== 0) {
-        await tx.event.update({
-          where: { id: eventId },
-          data: {
-            goingCount: { increment: goingDelta },
-            maybeCount: { increment: maybeDelta },
-          },
-        });
-      }
+      await tx.event.update({
+        where: { id: eventId },
+        data: { goingCount, maybeCount },
+      });
     });
 
     return { success: true, data: { cancelled: true } };
@@ -760,6 +745,7 @@ export class EventsService {
             isPremium: flair.isPremium,
             avatarTheme: flair.avatarTheme,
             livenessVerified: flair.livenessVerified,
+            reputationTier: flair.reputationTier,
             gender: flair.gender,
           },
         };
@@ -886,8 +872,6 @@ export class EventsService {
       where: {
         userAId,
         userBId,
-        source: MatchSource.event,
-        sourceReferenceId: eventId,
         status: { in: [MatchStatus.pending, MatchStatus.active] },
       },
       include: { chat: true },
@@ -895,19 +879,36 @@ export class EventsService {
 
     if (!match) {
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      match = await this.prisma.match.create({
-        data: {
-          userAId,
-          userBId,
-          source: MatchSource.event,
-          sourceReferenceId: eventId,
-          status: MatchStatus.active,
-          expiresAt,
-          userAAcceptedAt: new Date(),
-          userBAcceptedAt: new Date(),
-        },
-        include: { chat: true },
-      });
+      try {
+        match = await this.prisma.match.create({
+          data: {
+            userAId,
+            userBId,
+            source: MatchSource.event,
+            sourceReferenceId: eventId,
+            status: MatchStatus.active,
+            expiresAt,
+            userAAcceptedAt: new Date(),
+            userBAcceptedAt: new Date(),
+          },
+          include: { chat: true },
+        });
+      } catch (error) {
+        if (!isPrismaUniqueConflict(error)) {
+          throw error;
+        }
+        match = await this.prisma.match.findFirst({
+          where: {
+            userAId,
+            userBId,
+            status: { in: [MatchStatus.pending, MatchStatus.active] },
+          },
+          include: { chat: true },
+        });
+        if (!match) {
+          throw error;
+        }
+      }
     } else if (match.status === MatchStatus.pending) {
       match = await this.prisma.match.update({
         where: { id: match.id },
@@ -971,6 +972,7 @@ export class EventsService {
         isPremium: flair.isPremium,
         avatarTheme: flair.avatarTheme,
         livenessVerified: flair.livenessVerified,
+        reputationTier: flair.reputationTier,
       },
     };
   }

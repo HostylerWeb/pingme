@@ -363,6 +363,14 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
+    const consumed = await this.prisma.passwordResetToken.updateMany({
+      where: { id: stored.id, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (consumed.count !== 1) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
     await this.prisma.$transaction([
@@ -370,15 +378,18 @@ export class AuthService {
         where: { id: stored.userId },
         data: { passwordHash },
       }),
-      this.prisma.passwordResetToken.update({
-        where: { id: stored.id },
-        data: { usedAt: new Date() },
-      }),
       this.prisma.refreshToken.updateMany({
         where: { userId: stored.userId, revokedAt: null },
         data: { revokedAt: new Date() },
       }),
     ]);
+
+    await this.audit.log({
+      userId: stored.userId,
+      action: 'auth.password_reset',
+      entityType: 'user',
+      entityId: stored.userId,
+    });
 
     return { success: true };
   }
@@ -494,15 +505,17 @@ export class AuthService {
   }
 
   private async enrichAuthUser(user: User & { profile?: unknown; settings?: unknown }) {
-    const [livenessVerified, idVerified] = await Promise.all([
+    const [livenessVerified, idVerified, reputation] = await Promise.all([
       this.verification.hasPassedLiveness(user.id),
       this.verification.hasPassedIdVerification(user.id),
+      this.reputation.getUserSummary(user.id),
     ]);
     return {
       ...this.sanitizeUser(user),
       livenessVerified,
       idVerified,
       requiresAdminReview: user.requiresAdminReview,
+      reputation,
     };
   }
 }

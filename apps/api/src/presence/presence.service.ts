@@ -1,10 +1,11 @@
 import {
   BadRequestException,
-  ForbiddenException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { Prisma } from '@pingme/db';
 import {
@@ -18,6 +19,7 @@ import { loadPublicProfileMap } from '../common/utils/public-profile.util';
 import { RateLimitService } from '../common/services/rate-limit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
+import { ChatGateway } from '../chat/chat.gateway';
 import { VerificationService } from '../verification/verification.service';
 import { PresencePingInput, SetAvailableInput } from '@pingme/shared';
 
@@ -32,6 +34,8 @@ export class PresenceService {
     private readonly rateLimit: RateLimitService,
     private readonly blocks: BlocksService,
     private readonly verification: VerificationService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly gateway: ChatGateway,
   ) {}
 
   async ping(userId: string, dto: PresencePingInput) {
@@ -102,13 +106,7 @@ export class PresenceService {
 
   async setAvailable(userId: string, dto: SetAvailableInput) {
     if (dto.isAvailable) {
-      const passed = await this.verification.hasPassedLiveness(userId);
-      if (!passed) {
-        throw new ForbiddenException({
-          code: 'LIVENESS_REQUIRED',
-          message: 'Complete liveness verification to use this feature',
-        });
-      }
+      await this.verification.assertGatedAccess(userId);
     }
 
     await this.prisma.user.update({
@@ -164,6 +162,8 @@ export class PresenceService {
       await this.redis.client.zrem(GEO_AVAILABLE_KEY, userId);
       await this.redis.client.del(`presence:${userId}`);
     }
+
+    this.gateway.emitPresenceUpdated(userId, { isAvailable: dto.isAvailable });
 
     return {
       success: true,
@@ -309,6 +309,7 @@ export class PresenceService {
           avatarTheme: null,
           livenessVerified: false,
           gender: null,
+          reputationTier: 'new' as const,
         };
         return {
           userId: row.user_id,
@@ -318,6 +319,7 @@ export class PresenceService {
           isPremium: flair.isPremium,
           avatarTheme: flair.avatarTheme,
           livenessVerified: flair.livenessVerified,
+          reputationTier: flair.reputationTier,
           gender: flair.gender,
         };
       });

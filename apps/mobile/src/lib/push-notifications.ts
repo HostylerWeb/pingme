@@ -3,6 +3,7 @@ import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
+import { MMKV } from 'react-native-mmkv';
 import { api } from './api';
 import {
   navigateFromNotification,
@@ -125,7 +126,9 @@ export async function registerForPushNotifications(options?: { skipPermissionReq
   }
 }
 
+const LAST_CONSUMED_NOTIFICATION_KEY = 'last_consumed_notification_id';
 const ICEBREAKER_SESSION_REMINDER_ID = 'icebreaker-session-reminder';
+const notificationReceiptStore = new MMKV({ id: 'pingme-push-receipts' });
 
 export async function showIcebreakerActiveLocalNotification(windowMinutes: number) {
   if (!Device.isDevice) return;
@@ -203,6 +206,16 @@ export async function unregisterPushNotifications() {
 export async function getInitialNotificationPayload(): Promise<NotificationNavigationPayload | null> {
   const response = await Notifications.getLastNotificationResponseAsync();
   if (!response) return null;
+  const identifier = response.notification.request.identifier;
+  if (
+    identifier &&
+    notificationReceiptStore.getString(LAST_CONSUMED_NOTIFICATION_KEY) === identifier
+  ) {
+    return null;
+  }
+  if (identifier) {
+    notificationReceiptStore.set(LAST_CONSUMED_NOTIFICATION_KEY, identifier);
+  }
   return parseNotificationData(
     response.notification.request.content.data as Record<string, unknown>,
   );

@@ -294,14 +294,25 @@ export class MatchesService {
   }
 
   async expirePendingMatches() {
-    const result = await this.prisma.match.updateMany({
+    const due = await this.prisma.match.findMany({
       where: {
         status: MatchStatus.pending,
         expiresAt: { lt: new Date() },
       },
-      data: { status: MatchStatus.expired },
+      select: { id: true, source: true, sourceReferenceId: true },
     });
-    return result.count;
+
+    for (const match of due) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.match.update({
+          where: { id: match.id },
+          data: { status: MatchStatus.expired },
+        });
+        await resetIcebreakerSessionsForMatch(tx, match.source, match.sourceReferenceId);
+      });
+    }
+
+    return due.length;
   }
 
   private async getMatchForUser(userId: string, matchId: string, withChat = false) {

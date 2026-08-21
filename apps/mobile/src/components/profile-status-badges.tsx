@@ -15,9 +15,8 @@ type Segment = {
 };
 
 /**
- * Compact trust row for the profile hero.
- * Face = liveness (real person). ID = government ID (required to host events).
- * Email/phone verification is shown in Account below — not repeated here.
+ * Compact trust chips for the profile hero.
+ * Face = liveness. ID = government ID (required to host events).
  */
 export function ProfileStatusBadges({
   isPremium,
@@ -27,38 +26,26 @@ export function ProfileStatusBadges({
   const { colors } = useTheme();
   const styles = useThemedStyles(({ colors }) => ({
     wrap: {
-      marginTop: spacing.md,
-      maxWidth: '100%',
-      alignSelf: 'center',
-    },
-    pill: {
+      marginTop: spacing.sm,
       flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'center',
-      borderRadius: radius.full,
-      borderWidth: 1,
-      borderColor: colors.onlineSoft,
-      backgroundColor: colors.surfaceMuted,
-      overflow: 'hidden',
+      flexWrap: 'wrap',
+      gap: 6,
     },
-    segment: {
+    chip: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 5,
-    },
-    divider: {
-      width: 1,
-      alignSelf: 'stretch',
-      backgroundColor: colors.onlineSoft,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.full,
+      backgroundColor: colors.surfaceMuted,
     },
     label: {
       ...typography.caption,
       fontSize: 11,
       lineHeight: 14,
       letterSpacing: 0,
-      color: colors.online,
+      color: colors.inkSecondary,
     },
   }));
 
@@ -92,17 +79,16 @@ export function ProfileStatusBadges({
 
   return (
     <View style={styles.wrap} accessibilityRole="text">
-      <View style={styles.pill}>
-        {segments.map((segment, index) => (
-          <View key={segment.key} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {index > 0 ? <View style={styles.divider} /> : null}
-            <View style={styles.segment} accessibilityLabel={segment.a11y}>
-              <AppIcon name="verified" size={11} color={colors.online} />
-              <Text style={styles.label}>{segment.label}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
+      {segments.map((segment) => (
+        <View key={segment.key} style={styles.chip} accessibilityLabel={segment.a11y}>
+          <AppIcon
+            name={segment.key === 'premium' ? 'premium-star' : 'verified'}
+            size={11}
+            color={segment.key === 'premium' ? colors.premiumStart : colors.online}
+          />
+          <Text style={styles.label}>{segment.label}</Text>
+        </View>
+      ))}
     </View>
   );
 }

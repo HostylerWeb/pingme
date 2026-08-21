@@ -23,8 +23,6 @@ for kv in \
   "ICEBREAKER_WINDOW_MINUTES=60" \
   "ICEBREAKER_RADIUS_METERS=50" \
   "PRESENCE_TTL_SECONDS=1800" \
-  "PAYMENT_PROVIDER=demo" \
-  "ALLOW_DEMO_PAYMENTS=true" \
   "CORS_ORIGINS=https://admin.hostyler.cloud,https://pingme.hostyler.cloud" \
   "API_PUBLIC_URL=https://pingme.hostyler.cloud/v1" \
   "UPLOADS_DIR=uploads" \
@@ -41,6 +39,10 @@ do
     echo "$kv" >> "$SITE_DIR/.env"
   fi
 done
+
+if ! grep -q "^PAYMENT_PROVIDER=" "$SITE_DIR/.env"; then
+  echo "PAYMENT_PROVIDER=none" >> "$SITE_DIR/.env"
+fi
 
 # Admin dashboard client env (Next.js inlines NEXT_PUBLIC_* at build time)
 ADMIN_ENV_FILE="$SITE_DIR/apps/admin/.env.production.local"

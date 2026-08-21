@@ -20,76 +20,70 @@ export function ReputationCard({
   scoreMax,
 }: ReputationCardProps) {
   const styles = useThemedStyles(({ colors }) => ({
-    card: {
-      marginHorizontal: spacing.lg,
+    wrap: {
       marginTop: spacing.md,
-      padding: spacing.lg,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      backgroundColor: colors.surface,
+      paddingTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.divider,
     },
-    title: {
+    meta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    label: {
       ...typography.caption,
       color: colors.inkTertiary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-    },
-    tierRow: {
-      marginTop: spacing.sm,
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      justifyContent: 'space-between',
-      gap: spacing.md,
+      fontSize: 12,
     },
     tier: {
-      ...typography.title,
+      ...typography.bodySemiBold,
       color: colors.ink,
+      fontSize: 13,
     },
-    score: {
-      ...typography.bodyMd,
+    hint: {
+      ...typography.caption,
       color: colors.inkSecondary,
+      fontSize: 13,
+      lineHeight: 18,
+      marginTop: 4,
     },
     track: {
-      marginTop: spacing.md,
-      height: 8,
+      height: 4,
       borderRadius: radius.full,
       backgroundColor: colors.surfaceMuted,
       overflow: 'hidden',
+      marginTop: 8,
     },
     fill: {
       height: '100%',
       borderRadius: radius.full,
       backgroundColor: colors.accent,
     },
-    hint: {
-      marginTop: spacing.sm,
-      ...typography.caption,
-      color: colors.inkTertiary,
-    },
   }));
 
   const progress = scoreMax > 0 ? Math.min(1, score / scoreMax) : 0;
+  const hint =
+    pointsToNextTier != null && nextTierLabel
+      ? `${pointsToNextTier} more ${pointsToNextTier === 1 ? 'point' : 'points'} to reach ${nextTierLabel}`
+      : tier === 'master'
+        ? 'Highest reputation level'
+        : getReputationTierLabel(tier);
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Reputation</Text>
-      <View style={styles.tierRow}>
+    <View
+      style={styles.wrap}
+      accessibilityLabel={`Reputation level ${tierLabel}. ${hint}`}
+    >
+      <View style={styles.meta}>
+        <Text style={styles.label}>Reputation</Text>
         <Text style={styles.tier}>{tierLabel}</Text>
-        <Text style={styles.score}>
-          {score} / {scoreMax}
-        </Text>
       </View>
+      <Text style={styles.hint}>{hint}</Text>
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${progress * 100}%` }]} />
       </View>
-      <Text style={styles.hint}>
-        {pointsToNextTier != null && nextTierLabel
-          ? `${pointsToNextTier} points to ${nextTierLabel}`
-          : tier === 'master'
-            ? 'Top tier — keep participating to stay active'
-            : `Tier: ${getReputationTierLabel(tier)}`}
-      </Text>
     </View>
   );
 }

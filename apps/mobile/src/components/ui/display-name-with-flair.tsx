@@ -1,6 +1,6 @@
 import { genderLabel, genderSymbol, getReputationTierLabel, type GenderValue, type ReputationTierId } from '@pingme/shared';
 import { Text, View, type TextStyle, type ViewStyle } from 'react-native';
-import { typography, useTheme, useThemedStyles } from '../../theme';
+import { radius, typography, useTheme, useThemedStyles } from '../../theme';
 import { AppIcon } from './app-icon';
 
 export function DisplayNameWithFlair({
@@ -22,11 +22,13 @@ export function DisplayNameWithFlair({
 }) {
   const { colors } = useTheme();
   const symbol = genderSymbol(gender);
-  const styles = useThemedStyles(() => ({
+  const showTier = reputationTier && reputationTier !== 'new';
+  const styles = useThemedStyles(({ colors }) => ({
     row: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      flexWrap: 'wrap',
+      gap: 5,
       minWidth: 0,
     } as ViewStyle,
     gender: {
@@ -41,15 +43,15 @@ export function DisplayNameWithFlair({
       flexShrink: 1,
     },
     tier: {
-      ...typography.caption,
-      color: colors.accent,
+      ...typography.labelSm,
+      color: colors.inkSecondary,
       fontSize: 10,
       lineHeight: 12,
-      paddingHorizontal: 5,
+      letterSpacing: 0.2,
+      paddingHorizontal: 6,
       paddingVertical: 2,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: colors.accentSoft,
+      borderRadius: radius.full,
+      backgroundColor: colors.surfaceMuted,
       overflow: 'hidden',
     },
   }));
@@ -65,7 +67,7 @@ export function DisplayNameWithFlair({
           {symbol}
         </Text>
       ) : null}
-      <Text style={[styles.name, style]} numberOfLines={numberOfLines}>
+      <Text style={[styles.name, style]} numberOfLines={numberOfLines ?? 1}>
         {name}
       </Text>
       {isVerified ? (
@@ -74,8 +76,8 @@ export function DisplayNameWithFlair({
       {isPremium ? (
         <AppIcon name="premium-star" size={13} color={colors.premiumStart} accessibilityLabel="Premium member" />
       ) : null}
-      {reputationTier && reputationTier !== 'new' ? (
-        <Text style={styles.tier} accessibilityLabel={`Reputation tier ${getReputationTierLabel(reputationTier)}`}>
+      {showTier ? (
+        <Text style={styles.tier} accessibilityLabel={`Reputation ${getReputationTierLabel(reputationTier)}`}>
           {getReputationTierLabel(reputationTier)}
         </Text>
       ) : null}

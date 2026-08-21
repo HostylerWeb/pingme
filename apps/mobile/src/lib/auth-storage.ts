@@ -4,6 +4,17 @@ const ACCESS_TOKEN_KEY = 'pingme_access_token';
 const REFRESH_TOKEN_KEY = 'pingme_refresh_token';
 const USER_KEY = 'pingme_cached_user';
 
+function slimCachedUser(user: unknown) {
+  if (!user || typeof user !== 'object') return user;
+  const record = user as Record<string, unknown>;
+  const reputation = record.reputation;
+  if (!reputation || typeof reputation !== 'object' || Array.isArray(reputation)) {
+    return user;
+  }
+  const { recentEvents: _recentEvents, ...reputationRest } = reputation as Record<string, unknown>;
+  return { ...record, reputation: reputationRest };
+}
+
 export async function saveTokens(accessToken: string, refreshToken: string) {
   await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
   await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, refreshToken);
@@ -18,7 +29,7 @@ export async function getRefreshToken() {
 }
 
 export async function saveCachedUser(user: unknown) {
-  await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+  await SecureStore.setItemAsync(USER_KEY, JSON.stringify(slimCachedUser(user)));
 }
 
 export async function getCachedUser(): Promise<unknown | null> {

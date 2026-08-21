@@ -73,6 +73,7 @@ function ChatRow({ chat, onPress }: { chat: ChatSummary; onPress: () => void }) 
             gender={chat.otherUser.gender}
             isPremium={chat.otherUser.isPremium}
             isVerified={chat.otherUser.livenessVerified}
+            reputationTier={chat.otherUser.reputationTier}
             style={hasUnread ? styles.nameUnread : styles.name}
           />
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -108,7 +109,7 @@ export default function ChatsScreen() {
     mode: 'stop',
   });
 
-  const { data, isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
+  const { data, isLoading, isError, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useInfiniteQuery({
       queryKey: ['chats'],
       queryFn: ({ pageParam }) => api.getChats(pageParam, 20),
@@ -159,13 +160,17 @@ export default function ChatsScreen() {
             <EmptyState
               icon="chat-bubbles"
               scene="chats"
-              title="No chats yet"
-              message="Connect with someone on the Wall or in Break the ice — when you both accept, your chat appears here."
+              title={isError ? 'Couldn’t load chats' : 'No chats yet'}
+              message={
+                isError
+                  ? 'Check your connection and pull to try again.'
+                  : 'Connect with someone on the Wall or in Break the ice — when you both accept, your chat appears here.'
+              }
               action={
                 <Button
-                  label="Browse Break the ice"
+                  label={isError ? 'Try again' : 'Browse Break the ice'}
                   variant="secondary"
-                  onPress={() => router.push('/(tabs)/icebreaker')}
+                  onPress={() => (isError ? void refetch() : router.push('/(tabs)/icebreaker'))}
                 />
               }
             />

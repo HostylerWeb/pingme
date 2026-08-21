@@ -1,6 +1,7 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, forwardRef } from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
+import { ChatGateway } from '../chat/chat.gateway';
 import { shouldRunWorkers } from '../common/utils/run-mode';
 import { AppConfigService } from '../config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,6 +21,8 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly appConfig: AppConfigService,
+    @Inject(forwardRef(() => ChatGateway))
+    private readonly gateway: ChatGateway,
   ) {}
 
   onModuleInit() {
@@ -98,6 +101,9 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.logger.log(`Expired ${staleSessions.length} stale presence session(s)`);
+    for (const session of staleSessions) {
+      this.gateway.emitPresenceUpdated(session.userId, { isAvailable: false });
+    }
   }
 
   async getActiveAvailableCount() {

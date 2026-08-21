@@ -381,6 +381,7 @@ export default function ChatThreadScreen() {
               gender={chat.otherUser.gender}
               isPremium={chat.otherUser.isPremium}
               isVerified={chat.otherUser.livenessVerified}
+              reputationTier={chat.otherUser.reputationTier}
             />
             <Text style={styles.threadHint}>Private conversation</Text>
           </View>

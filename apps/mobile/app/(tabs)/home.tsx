@@ -282,6 +282,7 @@ export default function WallScreen() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isError,
   } = useInfiniteQuery({
     queryKey: ['wall-posts'],
     queryFn: ({ pageParam }) => api.getWallPosts(pageParam, 20),
@@ -300,12 +301,12 @@ export default function WallScreen() {
   );
   const presenceRefetchInterval = useSocketAwareRefetchInterval({
     foreground: 60_000,
-    connected: 10 * 60_000,
+    connected: 5 * 60_000,
     mode: 'slow',
   });
   const nearbyUsersRefetchInterval = useSocketAwareRefetchInterval({
-    foreground: 30_000,
-    connected: 3 * 60_000,
+    foreground: 60_000,
+    connected: 5 * 60_000,
     mode: 'slow',
   });
 
@@ -321,6 +322,7 @@ export default function WallScreen() {
   useFocusEffect(
     useCallback(() => {
       void queryClient.invalidateQueries({ queryKey: ['presence-status'] });
+      void queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
     }, [queryClient]),
   );
 
@@ -607,12 +609,16 @@ export default function WallScreen() {
             <EmptyState
               icon="megaphone"
               scene="wall"
-              title="No posts yet"
-              message={`Be the first to say something to people within about ${radiusMeters} meters. Posts older than ${WALL_POST_MAX_AGE_HOURS} hours leave the feed.`}
+              title={isError ? 'Couldn’t load posts' : 'No posts yet'}
+              message={
+                isError
+                  ? 'Check your connection and pull to try again.'
+                  : `Be the first to say something to people within about ${radiusMeters} meters. Posts older than ${WALL_POST_MAX_AGE_HOURS} hours leave the feed.`
+              }
               action={
                 <Button
-                  label="Write a post"
-                  onPress={openPostModal}
+                  label={isError ? 'Try again' : 'Write a post'}
+                  onPress={isError ? () => void refetch() : openPostModal}
                 />
               }
             />

@@ -84,7 +84,7 @@ export function getNotificationHref(payload: NotificationNavigationPayload): Hre
   if (payload.type === 'moderation.action') {
     return '/settings';
   }
-  if (payload.type === 'icebreaker.interest' || payload.type === 'icebreaker.nearby') {
+  if (payload.type === 'icebreaker.interest' || payload.type === 'icebreaker.nearby' || payload.type === 'icebreaker.active') {
     return '/(tabs)/icebreaker';
   }
   if (payload.type === 'event.nearby') {

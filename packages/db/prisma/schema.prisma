@@ -424,6 +424,7 @@ model IcebreakerSession {
   @@index([userId, status])
   @@index([latitude, longitude])
   @@index([status, expiresAt])
+  // One active session per user is enforced by icebreaker_sessions_one_active_per_user (partial unique).
   @@map("icebreaker_sessions")
 }
 

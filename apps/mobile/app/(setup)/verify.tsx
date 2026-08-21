@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -75,7 +75,7 @@ export default function VerifyScreen() {
       if (usePhone) await api.verifyPhone(code.trim());
       else await api.verifyEmail(code.trim());
       await refreshMe();
-      router.replace('/(setup)/profile');
+      router.replace('/(setup)/complete-profile' as Href);
     } catch (error) {
       showToast(error instanceof ApiError ? error.message : 'Invalid code', 'error');
     } finally {

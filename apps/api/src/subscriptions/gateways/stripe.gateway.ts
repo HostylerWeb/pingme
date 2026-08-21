@@ -329,9 +329,12 @@ export class StripeGateway implements PaymentGateway {
         return SubscriptionStatus.past_due;
       case 'canceled':
       case 'incomplete_expired':
+      case 'paused':
         return SubscriptionStatus.cancelled;
+      case 'incomplete':
+        return SubscriptionStatus.past_due;
       default:
-        return SubscriptionStatus.active;
+        return SubscriptionStatus.past_due;
     }
   }
 }

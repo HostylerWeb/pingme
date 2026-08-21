@@ -156,6 +156,17 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
         }
       });
 
+      nextSocket.on('presence.updated', () => {
+        void queryClient.invalidateQueries({ queryKey: ['presence-status'] });
+        void queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
+      });
+
+      nextSocket.on('chat.closed', (payload: { chatId: string }) => {
+        void queryClient.invalidateQueries({ queryKey: ['chats'] });
+        void queryClient.invalidateQueries({ queryKey: ['chat', payload.chatId] });
+        void queryClient.invalidateQueries({ queryKey: ['matches'] });
+      });
+
       nextSocket.on('icebreaker.interest', (payload: { fromUserId: string; displayName: string }) => {
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
