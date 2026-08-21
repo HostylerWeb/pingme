@@ -6,6 +6,7 @@ import { shouldRunWorkers } from '../common/utils/run-mode';
 import { AppConfigService } from '../config/app-config.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BullmqRedisService, RedisService } from '../redis/redis.module';
+import { PresenceService } from './presence.service';
 
 const GEO_AVAILABLE_KEY = 'geo:available';
 
@@ -21,6 +22,7 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly appConfig: AppConfigService,
+    private readonly presenceService: PresenceService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly gateway: ChatGateway,
   ) {}
@@ -70,7 +72,7 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
         isActive: true,
         OR: [{ locationUpdatedAt: { lt: cutoff } }, { locationUpdatedAt: null }],
       },
-      select: { userId: true },
+      select: { userId: true, latitude: true, longitude: true },
     });
 
     if (staleSessions.length === 0) return;
@@ -103,6 +105,14 @@ export class PresenceExpiryService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`Expired ${staleSessions.length} stale presence session(s)`);
     for (const session of staleSessions) {
       this.gateway.emitPresenceUpdated(session.userId, { isAvailable: false });
+      if (session.latitude != null && session.longitude != null) {
+        await this.presenceService.notifyNearbyViewersOfPresenceChange(
+          session.userId,
+          session.latitude,
+          session.longitude,
+          false,
+        );
+      }
     }
   }
 

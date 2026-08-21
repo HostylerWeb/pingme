@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -909,6 +910,9 @@ export default function IcebreakerScreen() {
             scene="location"
             title="Location permission needed"
             message="Turn on location to browse people nearby in Break the ice mode."
+            action={
+              <Button label="Open Settings" onPress={() => void Linking.openSettings()} />
+            }
           />
         </View>
       </Screen>

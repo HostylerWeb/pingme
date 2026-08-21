@@ -181,7 +181,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(this.userRoom(userId)).emit('message.read', payload);
   }
 
-  emitPresenceUpdated(userId: string, payload: { isAvailable: boolean }) {
+  emitPresenceUpdated(userId: string, payload: { isAvailable: boolean; userId?: string }) {
     if (!this.server) return;
     this.server.to(this.userRoom(userId)).emit('presence.updated', payload);
   }
@@ -189,6 +189,43 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitChatClosed(userId: string, payload: { chatId: string }) {
     if (!this.server) return;
     this.server.to(this.userRoom(userId)).emit('chat.closed', payload);
+  }
+
+  emitChatTyping(
+    userId: string,
+    payload: { chatId: string; userId: string; isTyping: boolean },
+  ) {
+    if (!this.server) return;
+    this.server.to(this.userRoom(userId)).emit('chat.typing', payload);
+  }
+
+  @SubscribeMessage('chat.typing')
+  async handleChatTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { chatId?: string; isTyping?: boolean },
+  ) {
+    const userId = client.data.userId as string | undefined;
+    if (!userId || !body.chatId) {
+      return { success: false };
+    }
+
+    try {
+      const otherUserId = await this.chatService.getOtherChatParticipantUserId(userId, body.chatId);
+      if (!otherUserId) {
+        return { success: false };
+      }
+      this.emitChatTyping(otherUserId, {
+        chatId: body.chatId,
+        userId,
+        isTyping: body.isTyping !== false,
+      });
+      return { success: true };
+    } catch (error) {
+      this.logger.warn(
+        `WS chat.typing failed: ${error instanceof Error ? error.message : error}`,
+      );
+      return { success: false };
+    }
   }
 
   @SubscribeMessage('message.read')

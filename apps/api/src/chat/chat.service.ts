@@ -469,6 +469,14 @@ export class ChatService {
 
     return chat;
   }
+
+  async getOtherChatParticipantUserId(userId: string, chatId: string): Promise<string | null> {
+    const chat = await this.getChatForUser(userId, chatId);
+    if (chat.status !== ChatStatus.active) {
+      return null;
+    }
+    return chat.match.userAId === userId ? chat.match.userBId : chat.match.userAId;
+  }
 }
 
 function encodeChatCursor(payload: { sortAt: number; id: string }): string {

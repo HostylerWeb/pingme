@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { EventStatus, Prisma } from '@pingme/db';
 import { eventRsvpWithdrawalReasonLabel } from '@pingme/shared';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -93,6 +93,70 @@ export class AdminEventsService {
       total,
       page,
       limit,
+    };
+  }
+
+  async getEvent(eventId: string) {
+    const now = new Date();
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        user: {
+          include: {
+            profile: { select: { displayName: true } },
+            verifications: {
+              where: {
+                OR: [
+                  { type: 'liveness', status: 'passed' },
+                  { type: 'document', status: 'passed' },
+                ],
+              },
+              select: { type: true, status: true },
+            },
+          },
+        },
+        images: { orderBy: { sortOrder: 'asc' } },
+        _count: { select: { withdrawals: true, comments: true, rsvps: true } },
+      },
+    });
+
+    if (!event) {
+      throw new NotFoundException('Event not found');
+    }
+
+    return {
+      id: event.id,
+      title: event.title,
+      description: event.description,
+      status: event.status,
+      startsAt: event.startsAt,
+      endsAt: event.endsAt,
+      placeName: event.placeName,
+      address: event.address,
+      latitude: event.latitude,
+      longitude: event.longitude,
+      goingCount: event.goingCount,
+      maybeCount: event.maybeCount,
+      commentCount: event.commentCount,
+      withdrawalCount: event._count.withdrawals,
+      rsvpCount: event._count.rsvps,
+      allowMessages: event.allowMessages,
+      isEnded: event.status === EventStatus.active && event.endsAt < now,
+      createdAt: event.createdAt,
+      userId: event.userId,
+      hostDisplayName: event.user.profile?.displayName ?? null,
+      coverUrl: event.images.find((image) => image.isCover)?.url ?? event.images[0]?.url ?? null,
+      images: event.images.map((image) => ({
+        id: image.id,
+        url: image.url,
+        isCover: image.isCover,
+      })),
+      hostLivenessVerified: event.user.verifications.some(
+        (v) => v.type === 'liveness' && v.status === 'passed',
+      ),
+      hostIdVerified: event.user.verifications.some(
+        (v) => v.type === 'document' && v.status === 'passed',
+      ),
     };
   }
 

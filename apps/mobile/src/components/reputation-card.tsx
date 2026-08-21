@@ -1,5 +1,5 @@
 import { getReputationTierLabel, type ReputationTierId } from '@pingme/shared';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { radius, spacing, typography, useThemedStyles } from '../theme';
 
 type ReputationCardProps = {
@@ -9,6 +9,7 @@ type ReputationCardProps = {
   pointsToNextTier: number | null;
   nextTierLabel: string | null;
   scoreMax: number;
+  onLearnMore?: () => void;
 };
 
 export function ReputationCard({
@@ -18,6 +19,7 @@ export function ReputationCard({
   pointsToNextTier,
   nextTierLabel,
   scoreMax,
+  onLearnMore,
 }: ReputationCardProps) {
   const styles = useThemedStyles(({ colors }) => ({
     wrap: {
@@ -26,6 +28,7 @@ export function ReputationCard({
       borderTopWidth: 1,
       borderTopColor: colors.divider,
     },
+    wrapPressed: { opacity: 0.92 },
     meta: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -41,6 +44,11 @@ export function ReputationCard({
       ...typography.bodySemiBold,
       color: colors.ink,
       fontSize: 13,
+    },
+    learnMore: {
+      ...typography.caption,
+      color: colors.accent,
+      fontSize: 12,
     },
     hint: {
       ...typography.caption,
@@ -71,19 +79,41 @@ export function ReputationCard({
         ? 'Highest reputation level'
         : getReputationTierLabel(tier);
 
-  return (
-    <View
-      style={styles.wrap}
-      accessibilityLabel={`Reputation level ${tierLabel}. ${hint}`}
-    >
+  const content = (
+    <>
       <View style={styles.meta}>
         <Text style={styles.label}>Reputation</Text>
-        <Text style={styles.tier}>{tierLabel}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Text style={styles.tier}>{tierLabel}</Text>
+          {onLearnMore ? <Text style={styles.learnMore}>Learn more</Text> : null}
+        </View>
       </View>
       <Text style={styles.hint}>{hint}</Text>
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${progress * 100}%` }]} />
       </View>
+    </>
+  );
+
+  if (onLearnMore) {
+    return (
+      <Pressable
+        onPress={onLearnMore}
+        style={({ pressed }) => [styles.wrap, pressed && styles.wrapPressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`Reputation level ${tierLabel}. ${hint}. Learn more.`}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      style={styles.wrap}
+      accessibilityLabel={`Reputation level ${tierLabel}. ${hint}`}
+    >
+      {content}
     </View>
   );
 }

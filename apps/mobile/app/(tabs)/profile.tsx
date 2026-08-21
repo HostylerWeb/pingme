@@ -2,7 +2,7 @@ import { AppIcon } from '../../src/components/ui/app-icon';
 import { genderLabel, type GenderValue } from '@pingme/shared';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { api } from '../../src/lib/api';
@@ -361,6 +361,7 @@ export default function ProfileScreen() {
                 pointsToNextTier={reputation.pointsToNextTier}
                 nextTierLabel={reputation.nextTierLabel}
                 scoreMax={reputation.scoreMax}
+                onLearnMore={() => router.push('/reputation' as Href)}
               />
             ) : null}
           </View>

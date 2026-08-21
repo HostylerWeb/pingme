@@ -46,6 +46,11 @@ export class AdminEventsController {
     });
   }
 
+  @Get(':id')
+  getEvent(@Param('id', ParseUUIDPipe) id: string) {
+    return this.events.getEvent(id);
+  }
+
   @Get(':id/withdrawals')
   listWithdrawals(@Param('id', ParseUUIDPipe) id: string) {
     return this.events.listWithdrawals(id);

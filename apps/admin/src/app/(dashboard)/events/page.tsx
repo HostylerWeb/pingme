@@ -176,7 +176,11 @@ export default function EventsPage() {
             <TBody>
               {data.items.map((event) => (
                 <TR key={event.id}>
-                  <TD className="max-w-xs truncate font-medium">{event.title}</TD>
+                  <TD className="max-w-xs truncate font-medium">
+                    <Link href={`/events/${event.id}`} className="hover:text-accent hover:underline">
+                      {event.title}
+                    </Link>
+                  </TD>
                   <TD>
                     <Link href={`/users/${event.userId}`} className="text-accent hover:underline">
                       {event.hostDisplayName ?? event.userId.slice(0, 8)}

@@ -202,7 +202,12 @@ export class EventsService {
     };
   }
 
-  async listAttending(userId: string, page = 1, limit = 20) {
+  async listAttending(
+    userId: string,
+    page = 1,
+    limit = 20,
+    lifecycle: 'upcoming' | 'past' = 'upcoming',
+  ) {
     const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
     const safeLimit = Math.min(50, Math.max(1, Number.isFinite(limit) ? Math.floor(limit) : 20));
     const offset = (safePage - 1) * safeLimit;
@@ -212,7 +217,9 @@ export class EventsService {
 
     const where: Prisma.EventWhereInput = {
       status: EventStatus.active,
-      endsAt: { gt: now },
+      ...(lifecycle === 'past'
+        ? { endsAt: { lte: now } }
+        : { endsAt: { gt: now } }),
       ...(blockedIds.length > 0 ? { userId: { notIn: blockedIds } } : {}),
       user: { deletedAt: null, NOT: { status: UserStatus.deleted } },
       rsvps: {
@@ -231,7 +238,7 @@ export class EventsService {
           user: { include: { profile: true, subscription: true } },
           rsvps: { where: { userId } },
         },
-        orderBy: { startsAt: 'asc' },
+        orderBy: { startsAt: lifecycle === 'past' ? 'desc' : 'asc' },
         skip: offset,
         take: safeLimit,
       }),

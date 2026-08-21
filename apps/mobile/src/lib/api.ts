@@ -724,12 +724,12 @@ export const api = {
   getMyEvents: () =>
     apiFetch<{ success: boolean; data: EventMineSummary[] }>('/events/mine'),
 
-  getAttendingEvents: (page = 1, limit = 20) =>
+  getAttendingEvents: (page = 1, limit = 20, lifecycle: 'upcoming' | 'past' = 'upcoming') =>
     apiFetch<{
       success: boolean;
       data: EventAttendingSummary[];
       meta: { page: number; limit: number; hasMore: boolean };
-    }>(`/events/attending?page=${page}&limit=${limit}`),
+    }>(`/events/attending?page=${page}&limit=${limit}&lifecycle=${lifecycle}`),
 
   getEvent: (id: string) =>
     apiFetch<{ success: boolean; data: EventDetail }>(`/events/${id}`),

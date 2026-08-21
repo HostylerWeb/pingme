@@ -70,11 +70,13 @@ export class EventsController {
     @CurrentUser() user: User,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('lifecycle') lifecycle?: 'upcoming' | 'past',
   ) {
     return this.eventsService.listAttending(
       user.id,
       page ? Number(page) : 1,
       limit ? Number(limit) : 20,
+      lifecycle ?? 'upcoming',
     );
   }
 

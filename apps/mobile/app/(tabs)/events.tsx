@@ -40,6 +40,7 @@ import { radius, spacing, typography, useTheme, useThemedStyles } from '../../sr
 type EventsTab = 'nearby' | 'attending' | 'hosting';
 type HostingStatus = 'active' | 'cancelled';
 type AttendingFilter = 'all' | 'going' | 'maybe';
+type AttendingLifecycle = 'upcoming' | 'past';
 
 function EventRow({ event, onPress }: { event: EventSummary; onPress: () => void }) {
   const styles = useThemedStyles(({ colors }) => ({
@@ -222,6 +223,8 @@ function EventsTabBar({
   onTabChange,
   attendingFilter,
   onAttendingFilterChange,
+  attendingLifecycle,
+  onAttendingLifecycleChange,
   hostingStatus,
   onHostingStatusChange,
   showHostingFilter,
@@ -230,6 +233,8 @@ function EventsTabBar({
   onTabChange: (tab: EventsTab) => void;
   attendingFilter: AttendingFilter;
   onAttendingFilterChange: (filter: AttendingFilter) => void;
+  attendingLifecycle: AttendingLifecycle;
+  onAttendingLifecycleChange: (lifecycle: AttendingLifecycle) => void;
   hostingStatus: HostingStatus;
   onHostingStatusChange: (status: HostingStatus) => void;
   showHostingFilter: boolean;
@@ -256,17 +261,29 @@ function EventsTabBar({
         onChange={onTabChange}
       />
       {tab === 'attending' ? (
-        <View style={styles.statusFilter}>
-          <SegmentedControl
-            options={[
-              { label: 'All', value: 'all' as const },
-              { label: 'Going', value: 'going' as const },
-              { label: 'Maybe', value: 'maybe' as const },
-            ]}
-            value={attendingFilter}
-            onChange={onAttendingFilterChange}
-          />
-        </View>
+        <>
+          <View style={styles.statusFilter}>
+            <SegmentedControl
+              options={[
+                { label: 'Upcoming', value: 'upcoming' as const },
+                { label: 'Past', value: 'past' as const },
+              ]}
+              value={attendingLifecycle}
+              onChange={onAttendingLifecycleChange}
+            />
+          </View>
+          <View style={styles.statusFilter}>
+            <SegmentedControl
+              options={[
+                { label: 'All', value: 'all' as const },
+                { label: 'Going', value: 'going' as const },
+                { label: 'Maybe', value: 'maybe' as const },
+              ]}
+              value={attendingFilter}
+              onChange={onAttendingFilterChange}
+            />
+          </View>
+        </>
       ) : null}
       {tab === 'hosting' && showHostingFilter ? (
         <View style={styles.statusFilter}>
@@ -299,6 +316,7 @@ export default function EventsScreen() {
   const [tab, setTab] = useState<EventsTab>('nearby');
   const [hostingStatus, setHostingStatus] = useState<HostingStatus>('active');
   const [attendingFilter, setAttendingFilter] = useState<AttendingFilter>('all');
+  const [attendingLifecycle, setAttendingLifecycle] = useState<AttendingLifecycle>('upcoming');
 
   const onTabChange = useCallback((next: EventsTab) => {
     setTab(next);
@@ -307,6 +325,7 @@ export default function EventsScreen() {
     }
     if (next === 'attending') {
       setAttendingFilter('all');
+      setAttendingLifecycle('upcoming');
     }
   }, []);
 
@@ -346,8 +365,8 @@ export default function EventsScreen() {
     isFetchingNextPage: isFetchingNextAttendingPage,
     error: attendingError,
   } = useInfiniteQuery({
-    queryKey: ['events-attending'],
-    queryFn: ({ pageParam }) => api.getAttendingEvents(pageParam, 20),
+    queryKey: ['events-attending', attendingLifecycle],
+    queryFn: ({ pageParam }) => api.getAttendingEvents(pageParam, 20, attendingLifecycle),
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
       lastPage.meta.hasMore ? lastPage.meta.page + 1 : undefined,
@@ -411,7 +430,9 @@ export default function EventsScreen() {
     tab === 'nearby'
       ? `Within ${discoveryLabel}`
       : tab === 'attending'
-        ? 'Events you plan to attend'
+        ? attendingLifecycle === 'past'
+          ? 'Events you attended'
+          : 'Events you plan to attend'
         : 'Events you are hosting';
 
   const listHeader = user ? (
@@ -420,6 +441,8 @@ export default function EventsScreen() {
       onTabChange={onTabChange}
       attendingFilter={attendingFilter}
       onAttendingFilterChange={setAttendingFilter}
+      attendingLifecycle={attendingLifecycle}
+      onAttendingLifecycleChange={setAttendingLifecycle}
       hostingStatus={hostingStatus}
       onHostingStatusChange={setHostingStatus}
       showHostingFilter={myEvents.length > 0}
@@ -464,14 +487,28 @@ export default function EventsScreen() {
               <EmptyState
                 icon="calendar"
                 title={
-                  attendingFilter === 'all'
-                    ? 'No events yet'
-                    : attendingFilter === 'going'
-                      ? 'Nothing marked Going'
-                      : 'Nothing marked Maybe'
+                  attendingLifecycle === 'past'
+                    ? attendingFilter === 'all'
+                      ? 'No past events'
+                      : attendingFilter === 'going'
+                        ? 'Nothing you marked Going'
+                        : 'Nothing you marked Maybe'
+                    : attendingFilter === 'all'
+                      ? 'No upcoming events'
+                      : attendingFilter === 'going'
+                        ? 'Nothing marked Going'
+                        : 'Nothing marked Maybe'
                 }
-                message="Tap Going or Maybe on an event to add it here."
-                action={<Button label="Browse nearby" onPress={() => setTab('nearby')} />}
+                message={
+                  attendingLifecycle === 'past'
+                    ? 'Events you attended will show up here after they end.'
+                    : 'Tap Going or Maybe on an event to add it here.'
+                }
+                action={
+                  attendingLifecycle === 'past' ? undefined : (
+                    <Button label="Browse nearby" onPress={() => setTab('nearby')} />
+                  )
+                }
               />
             }
             renderItem={({ item }) => (

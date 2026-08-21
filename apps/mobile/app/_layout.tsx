@@ -331,6 +331,7 @@ function RootLayoutContent() {
                 <Stack.Screen name="invite" options={{ headerShown: false }} />
                 <Stack.Screen name="premium" options={{ headerShown: false }} />
                 <Stack.Screen name="settings" options={{ headerShown: false }} />
+                <Stack.Screen name="reputation" options={{ headerShown: false }} />
                 <Stack.Screen name="legal" options={{ headerShown: false }} />
                 <Stack.Screen name="delete-account" options={{ headerShown: false }} />
                 <Stack.Screen name="verification-complete" options={{ headerShown: false }} />

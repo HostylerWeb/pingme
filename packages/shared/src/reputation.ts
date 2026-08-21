@@ -146,3 +146,33 @@ export function buildReputationSummary(score: number): ReputationSummary {
     scoreMax: REPUTATION_SCORE_MAX,
   };
 }
+
+export type ReputationExplainerItem = {
+  label: string;
+  points: string;
+  note?: string;
+};
+
+export const REPUTATION_EXPLAINER_INTRO =
+  'Reputation reflects how you show up on PingMe. Earn points through verification and positive activity. Reports and admin actions can reduce your score.';
+
+export const REPUTATION_EXPLAINER_EARN: ReputationExplainerItem[] = [
+  { label: 'Liveness verification', points: '+50', note: 'One time' },
+  { label: 'ID verification', points: '+50', note: 'One time' },
+  { label: 'Email verified', points: '+5', note: 'One time' },
+  { label: 'Phone verified', points: '+5', note: 'One time' },
+  { label: 'First Wall post', points: '+5', note: 'One time' },
+  { label: 'Wall activity', points: '+1', note: 'Up to +2 per day' },
+  { label: 'Icebreaker match', points: '+3', note: 'Up to +4 per day' },
+  { label: 'Host an event', points: '+8', note: 'Once per event' },
+  { label: 'Attend an event', points: '+3', note: 'Once per event, after it ends' },
+];
+
+export const REPUTATION_EXPLAINER_TIERS = REPUTATION_TIER_ORDER.map((tier) => ({
+  tier,
+  label: REPUTATION_TIER_LABELS[tier],
+  minScore: REPUTATION_TIER_THRESHOLDS[tier],
+}));
+
+export const REPUTATION_EXPLAINER_DAILY_CAP =
+  'Wall and Icebreaker activity share a combined daily cap of +6 points.';

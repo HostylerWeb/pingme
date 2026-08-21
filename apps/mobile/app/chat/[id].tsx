@@ -12,6 +12,7 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { api, ChatMessage } from '../../src/lib/api';
+import { useAppSocket } from '../../src/lib/app-socket';
 import { useChatSocket } from '../../src/hooks/use-chat-socket';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useBottomInset } from '../../src/hooks/use-tab-bar-insets';
@@ -108,6 +109,10 @@ export default function ChatThreadScreen() {
   const [reportOpen, setReportOpen] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [peerTyping, setPeerTyping] = useState(false);
+  const typingStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingEmitRef = useRef(0);
+  const { socket } = useAppSocket();
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
   const bottomInset = useBottomInset();
 
@@ -189,6 +194,11 @@ export default function ChatThreadScreen() {
       borderTopColor: colors.divider,
     },
     closedText: { ...typography.bodyMd, color: colors.inkSecondary, textAlign: 'center' },
+    typingRow: {
+      paddingHorizontal: spacing.container,
+      paddingBottom: spacing.xs,
+    },
+    typingText: { ...typography.caption, color: colors.inkTertiary, fontStyle: 'italic' },
   }));
 
   const { data: chatData, isLoading: chatLoading, isError: chatError } = useQuery({
@@ -234,11 +244,13 @@ export default function ChatThreadScreen() {
     onError: (error: Error) => showToast(error.message, 'error'),
   });
 
-  const hideMutation = useMutation({
-    mutationFn: () => api.hideChat(id!),
+  const closeMutation = useMutation({
+    mutationFn: () => api.closeChat(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['chats'] });
-      showToast('Conversation deleted', 'success');
+      queryClient.invalidateQueries({ queryKey: ['chat', id] });
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
+      showToast('Conversation ended', 'success');
       router.back();
     },
     onError: (error: Error) => showToast(error.message, 'error'),
@@ -296,7 +308,41 @@ export default function ChatThreadScreen() {
     [id, queryClient],
   );
 
-  useChatSocket(id, onRealtimeMessage, onRealtimeRead);
+  const onPeerTyping = useCallback((isTyping: boolean) => {
+    setPeerTyping(isTyping);
+  }, []);
+
+  useChatSocket(id, onRealtimeMessage, onRealtimeRead, onPeerTyping);
+
+  useEffect(() => {
+    if (!socket || !id || !canSend) return;
+
+    const emitTyping = (isTyping: boolean) => {
+      socket.emit('chat.typing', { chatId: id, isTyping });
+    };
+
+    if (!draft.trim()) {
+      emitTyping(false);
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current > 1200) {
+      lastTypingEmitRef.current = now;
+      emitTyping(true);
+    }
+
+    if (typingStopRef.current) {
+      clearTimeout(typingStopRef.current);
+    }
+    typingStopRef.current = setTimeout(() => emitTyping(false), 2500);
+
+    return () => {
+      if (typingStopRef.current) {
+        clearTimeout(typingStopRef.current);
+      }
+    };
+  }, [socket, id, draft, canSend]);
 
   useEffect(() => {
     if (!id || !messagesData?.data.length) return;
@@ -416,6 +462,12 @@ export default function ChatThreadScreen() {
           }
         />
 
+        {peerTyping ? (
+          <View style={styles.typingRow}>
+            <Text style={styles.typingText}>{chat.otherUser.displayName} is typing…</Text>
+          </View>
+        ) : null}
+
         {canSend ? (
           <View style={[styles.composer, { paddingBottom: bottomInset + spacing.md }]}>
             <TextInput
@@ -469,7 +521,7 @@ export default function ChatThreadScreen() {
             onPress: () => setTimeout(() => setBlockOpen(true), 280),
           },
           {
-            label: 'Delete conversation',
+            label: 'End conversation',
             destructive: true,
             onPress: () => setTimeout(() => setDeleteOpen(true), 280),
           },
@@ -493,14 +545,14 @@ export default function ChatThreadScreen() {
 
       <ActionSheet
         visible={deleteOpen}
-        title="Delete conversation?"
-        subtitle="This removes the chat from your inbox. Older messages stay hidden if they message you again."
+        title="End conversation?"
+        subtitle="This closes the chat for both of you and ends the match. You can connect again through Icebreaker or Wall."
         onClose={() => setDeleteOpen(false)}
         options={[
           {
-            label: 'Delete conversation',
+            label: 'End conversation',
             destructive: true,
-            onPress: () => hideMutation.mutate(),
+            onPress: () => closeMutation.mutate(),
           },
         ]}
       />

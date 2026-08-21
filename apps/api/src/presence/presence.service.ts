@@ -165,6 +165,17 @@ export class PresenceService {
 
     this.gateway.emitPresenceUpdated(userId, { isAvailable: dto.isAvailable });
 
+    const notifyLat = session?.latitude;
+    const notifyLng = session?.longitude;
+    if (notifyLat != null && notifyLng != null) {
+      await this.notifyNearbyViewersOfPresenceChange(
+        userId,
+        notifyLat,
+        notifyLng,
+        dto.isAvailable,
+      );
+    }
+
     return {
       success: true,
       data: { isAvailable: dto.isAvailable },
@@ -329,5 +340,38 @@ export class PresenceService {
 
   getDistanceBucket(meters: number) {
     return distanceBucket(meters);
+  }
+
+  async notifyNearbyViewersOfPresenceChange(
+    subjectUserId: string,
+    latitude: number,
+    longitude: number,
+    isAvailable: boolean,
+  ) {
+    const maxRadius = this.appConfig.getDistanceConfig().wall.maxMeters;
+    const blockedIds = await this.blocks.getBlockedUserIds(subjectUserId);
+    const blockedSet = new Set(blockedIds);
+
+    const rows = await this.prisma.$queryRaw<{ user_id: string }[]>`
+      SELECT ps.user_id
+      FROM presence_sessions ps
+      INNER JOIN users u ON u.id = ps.user_id
+      WHERE ps.user_id != ${subjectUserId}::uuid
+        AND ps.latitude IS NOT NULL
+        AND ps.longitude IS NOT NULL
+        AND u.deleted_at IS NULL
+        AND u.status <> 'deleted'
+        AND ST_DWithin(
+          ST_SetSRID(ST_MakePoint(ps.longitude, ps.latitude), 4326)::geography,
+          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+          ${maxRadius}
+        )
+    `;
+
+    const payload = { userId: subjectUserId, isAvailable };
+    for (const row of rows) {
+      if (blockedSet.has(row.user_id)) continue;
+      this.gateway.emitPresenceUpdated(row.user_id, payload);
+    }
   }
 }
