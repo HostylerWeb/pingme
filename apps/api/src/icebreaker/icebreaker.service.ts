@@ -279,18 +279,33 @@ export class IcebreakerService {
         s.intro_message,
         ST_Distance(
           ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
-          ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography
+          ST_SetSRID(
+            ST_MakePoint(
+              COALESCE(ps.longitude, s.longitude),
+              COALESCE(ps.latitude, s.latitude)
+            ),
+            4326
+          )::geography
         ) AS distance_meters
       FROM icebreaker_sessions s
       INNER JOIN users u ON u.id = s.user_id
         AND u.deleted_at IS NULL
         AND u.status <> 'deleted'
+      LEFT JOIN presence_sessions ps ON ps.user_id = s.user_id
       WHERE s.user_id != ${userId}::uuid
         AND s.status = 'active'
         AND s.expires_at > ${now}
+        AND COALESCE(ps.latitude, s.latitude) IS NOT NULL
+        AND COALESCE(ps.longitude, s.longitude) IS NOT NULL
         AND ST_DWithin(
           ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
-          ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography,
+          ST_SetSRID(
+            ST_MakePoint(
+              COALESCE(ps.longitude, s.longitude),
+              COALESCE(ps.latitude, s.latitude)
+            ),
+            4326
+          )::geography,
           ${radius}
         )
       ORDER BY distance_meters ASC
@@ -729,12 +744,16 @@ function orderUserIds(a: string, b: string): [string, string] {
 }
 
 function isHiddenFromList(
-  interest: { interested: boolean; hiddenUntil: Date | null } | undefined,
+  interest:
+    | { interested: boolean; hiddenUntil: Date | null; expiredAt?: Date | null }
+    | undefined,
   now: Date,
 ): boolean {
   if (!interest) return false;
   if (interest.interested) return false;
-  if (!interest.hiddenUntil) return true;
+  // Only hide after an explicit "No" (hiddenUntil set). Expired unanswered Yes interests
+  // clear hiddenUntil and should not permanently remove someone from the list.
+  if (!interest.hiddenUntil) return false;
   return interest.hiddenUntil > now;
 }
 

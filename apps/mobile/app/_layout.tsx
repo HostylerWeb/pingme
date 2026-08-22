@@ -206,15 +206,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       pathname.startsWith('/(auth)');
     const onLegalScreen = pathname === '/legal' || pathname.startsWith('/legal/');
     const onInviteScreen = pathname === '/invite' || pathname.startsWith('/invite/');
-    const onSetupVerify = pathname === '/verify' || pathname.startsWith('/verify/');
-    const onSetupProfile = pathname === '/complete-profile';
-    const onSetupLocation = pathname === '/location' || pathname.startsWith('/location/');
-    const onSetupNotifications =
-      pathname === '/notifications' || pathname.startsWith('/notifications/');
-    const onSetupTour = pathname === '/tour' || pathname.startsWith('/tour/');
-    const onSetupLiveness = pathname === '/liveness' || pathname.startsWith('/liveness/');
-    const onSetupKyc = pathname === '/kyc' || pathname.startsWith('/kyc/');
-    const onOnboarding = pathname === '/onboarding' || pathname.startsWith('/onboarding');
+    const onSetupVerify = pathname.includes('/verify');
+    const onSetupProfile = pathname.includes('/complete-profile');
+    const onSetupLocation = pathname.includes('/location');
+    const onSetupNotifications = pathname.includes('/notifications');
+    const onSetupTour = pathname.includes('/tour');
+    const onSetupLiveness = pathname.includes('/liveness');
+    const onSetupKyc = pathname.includes('/kyc');
+    const onOnboarding = pathname.includes('/onboarding');
     const allowWithoutLocation =
       onSetupVerify ||
       onSetupProfile ||

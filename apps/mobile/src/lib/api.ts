@@ -309,10 +309,15 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  updateContact: (payload: { phone?: string | null }) =>
+  updateContact: (payload: { phone?: string | null; email?: string }) =>
     apiFetch<{
       success: boolean;
-      data: { phone: string | null; phoneVerified: boolean };
+      data: {
+        email: string | null;
+        emailVerified: boolean;
+        phone: string | null;
+        phoneVerified: boolean;
+      };
     }>('/users/me/contact', {
       method: 'PATCH',
       body: JSON.stringify(payload),

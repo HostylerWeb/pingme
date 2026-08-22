@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { Profile, Prisma, UserStatus, WallPostStatus, WallReplyStatus } from '@pingme/db';
+import { Profile, Prisma, UserStatus, WallPostStatus, WallReplyStatus, OtpType } from '@pingme/db';
 import { ACCOUNT_DELETION_GRACE_DAYS, PREMIUM_AVATAR_THEMES, CancelAccountDeletionInput, DeleteAccountInput, MediaConfirmInput, MediaPresignInput, UpdateContactInput, UpdateProfileInput, UpdateSettingsInput } from '@pingme/shared';
 import * as bcrypt from 'bcrypt';
 import { AuditService } from '../audit/audit.service';
@@ -124,7 +124,7 @@ export class UsersService {
     dto: UpdateContactInput,
     meta: { ipAddress?: string; userAgent?: string } = {},
   ) {
-    if (dto.phone === undefined) {
+    if (dto.phone === undefined && dto.email === undefined) {
       throw new BadRequestException('No contact fields to update');
     }
 
@@ -133,27 +133,68 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const newPhone = dto.phone;
-    if (newPhone === user.phone) {
-      return { phone: user.phone, phoneVerified: user.phoneVerified };
+    const data: Prisma.UserUpdateInput = {};
+    const auditMeta: Record<string, boolean> = {};
+
+    if (dto.email !== undefined) {
+      if (user.emailVerified) {
+        throw new BadRequestException('Email cannot be changed after verification');
+      }
+      const newEmail = dto.email;
+      if (newEmail !== user.email) {
+        const existing = await this.prisma.user.findUnique({ where: { email: newEmail } });
+        if (existing && existing.id !== userId) {
+          throw new ConflictException('Email already in use');
+        }
+        data.email = newEmail;
+        data.emailVerified = false;
+        auditMeta.emailUpdated = true;
+        await this.prisma.otpCode.updateMany({
+          where: { userId, type: OtpType.email_verify, usedAt: null },
+          data: { usedAt: new Date() },
+        });
+      }
     }
 
-    if (newPhone) {
-      const existing = await this.prisma.user.findUnique({ where: { phone: newPhone } });
-      if (existing && existing.id !== userId) {
-        throw new ConflictException('Phone already in use');
+    if (dto.phone !== undefined) {
+      const newPhone = dto.phone;
+      if (newPhone !== user.phone) {
+        if (newPhone) {
+          const existing = await this.prisma.user.findUnique({ where: { phone: newPhone } });
+          if (existing && existing.id !== userId) {
+            throw new ConflictException('Phone already in use');
+          }
+        } else if (!user.email && dto.email === undefined) {
+          throw new BadRequestException('Add an email before removing your phone number');
+        }
+        data.phone = newPhone;
+        data.phoneVerified = false;
+        auditMeta.phoneUpdated = true;
+        await this.prisma.otpCode.updateMany({
+          where: { userId, type: OtpType.phone_verify, usedAt: null },
+          data: { usedAt: new Date() },
+        });
       }
-    } else if (!user.email) {
-      throw new BadRequestException('Add an email before removing your phone number');
+    }
+
+    if (Object.keys(data).length === 0) {
+      return {
+        email: user.email,
+        emailVerified: user.emailVerified,
+        phone: user.phone,
+        phoneVerified: user.phoneVerified,
+      };
     }
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
-      data: {
-        phone: newPhone,
-        phoneVerified: false,
+      data,
+      select: {
+        email: true,
+        emailVerified: true,
+        phone: true,
+        phoneVerified: true,
       },
-      select: { phone: true, phoneVerified: true },
     });
 
     await this.audit.log({
@@ -162,7 +203,7 @@ export class UsersService {
       entityType: 'user',
       entityId: userId,
       ...meta,
-      metadata: { phoneUpdated: true },
+      metadata: auditMeta,
     });
 
     return updated;

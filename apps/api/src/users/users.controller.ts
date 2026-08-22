@@ -54,7 +54,7 @@ export class UsersController {
   }
 
   @Patch('users/me/contact')
-  @ApiOperation({ summary: 'Update phone number' })
+  @ApiOperation({ summary: 'Update email or phone number' })
   async updateContact(
     @CurrentUser() user: User,
     @Body(new ZodValidationPipe(UpdateContactSchema)) dto: UpdateContactInput,

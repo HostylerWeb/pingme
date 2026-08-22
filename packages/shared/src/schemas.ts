@@ -87,8 +87,13 @@ const phoneE164Schema = z
 export const UpdateContactSchema = z
   .object({
     phone: phoneE164Schema.nullable().optional(),
+    email: normalizedEmailSchema.optional(),
   })
-  .strict();
+  .strict()
+  .refine((data) => data.phone !== undefined || data.email !== undefined, {
+    message: 'No contact fields to update',
+    path: ['email'],
+  });
 
 export const UpdateSettingsSchema = z
   .object({

@@ -135,10 +135,21 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
         void scheduleReconnect();
       });
 
-      nextSocket.on('message.new', (payload: { chatId: string }) => {
+      nextSocket.on('message.new', (payload: { chatId: string; message?: { content?: string } }) => {
         void queryClient.invalidateQueries({ queryKey: ['chats'] });
         void queryClient.invalidateQueries({ queryKey: ['chat', payload.chatId] });
         void queryClient.invalidateQueries({ queryKey: ['chat-messages', payload.chatId] });
+
+        const onChatScreen = pathnameRef.current.includes(`/chat/${payload.chatId}`);
+        if (!onChatScreen) {
+          const preview = payload.message?.content?.trim().slice(0, 100);
+          showIncomingBanner({
+            title: 'New message',
+            body: preview || 'Open chat to read',
+            icon: iconForNotificationType('chat.message'),
+            payload: { type: 'chat.message', chatId: payload.chatId },
+          });
+        }
       });
 
       nextSocket.on('match.updated', (payload: { matchId: string; status: string; chatId?: string | null }) => {
@@ -228,6 +239,8 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
     const onAppStateChange = (state: AppStateStatus) => {
       if (state === 'active') {
         void connect();
+      } else if (state === 'background' || state === 'inactive') {
+        disconnect();
       }
     };
 

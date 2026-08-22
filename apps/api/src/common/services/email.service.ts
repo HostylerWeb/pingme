@@ -14,7 +14,7 @@ export class EmailService {
     await this.sendEmail({
       to,
       subject: 'Your PingMe verification code',
-      text: `Your verification code is ${code}. It expires in 10 minutes.`,
+      text: `Your verification code is ${code}. It expires in 1 hour.`,
     });
   }
 

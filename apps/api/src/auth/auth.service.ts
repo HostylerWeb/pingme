@@ -433,7 +433,7 @@ export class AuthService {
         userId,
         type,
         codeHash,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
       },
     });
 
