@@ -4,7 +4,7 @@ import appJson from './app.json';
 
 const expo = appJson.expo as ExpoConfig;
 
-const OTA_URL = process.env.EXPO_OTA_URL ?? 'https://ota.pingme.hostyler.cloud';
+const OTA_URL = process.env.EXPO_OTA_URL ?? 'https://pingme.hostyler.cloud/ota';
 const OTA_APP_ID = process.env.EXPO_OTA_APP_ID ?? '';
 const OTA_CHANNEL = process.env.EXPO_OTA_CHANNEL ?? 'staging';
 const OTA_BRANCH = process.env.EXPO_OTA_BRANCH ?? 'staging';
