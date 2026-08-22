@@ -132,7 +132,14 @@ export function AppHeader({
             </Text>
             {titleSuffix}
           </View>
-          {subtitle ? <Text style={[styles.subtitle, centerTitle && styles.subtitleCentered]}>{subtitle}</Text> : null}
+          {subtitle ? (
+            <Text
+              style={[styles.subtitle, centerTitle && styles.subtitleCentered]}
+              numberOfLines={2}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
         {right ?? (centerTitle ? <View style={styles.sideSlot} /> : null)}
       </View>

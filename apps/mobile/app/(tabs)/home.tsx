@@ -127,7 +127,7 @@ function PostRow({
 }
 
 function wallSubtitle(radiusMeters: number) {
-  return `A local feed within ~${radiusMeters}m from the last ${WALL_POST_MAX_AGE_HOURS} hours. Post, read replies, and chat after you connect.`;
+  return `Within ~${radiusMeters}m · last ${WALL_POST_MAX_AGE_HOURS}h`;
 }
 
 export default function WallScreen() {
