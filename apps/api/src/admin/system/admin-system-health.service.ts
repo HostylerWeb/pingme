@@ -28,20 +28,23 @@ export class AdminSystemHealthService {
   async getHealth() {
     const timestamp = new Date().toISOString();
     const runMode = getRunMode();
-    const workersEnabled = shouldRunWorkers();
+    const workersInProcess = shouldRunWorkers();
+    const workerProcessSplit = runMode === 'api';
 
     const services: ServiceHealthItem[] = [
       {
         id: 'api',
         label: 'API process',
         status: 'ok',
-        detail: `RUN_MODE=${runMode}`,
+        detail: workerProcessSplit
+          ? `RUN_MODE=${runMode} (background jobs run in pingme-worker)`
+          : `RUN_MODE=${runMode}`,
       },
       await this.checkDatabase(),
       await this.checkRedis(),
-      await this.checkNotificationQueue(),
+      await this.checkNotificationQueue(runMode),
       this.checkPushDelivery(),
-      ...this.checkBackgroundWorkers(),
+      ...this.checkBackgroundWorkers(runMode),
       await this.checkOtaUpdates(),
     ];
 
@@ -51,7 +54,8 @@ export class AdminSystemHealthService {
       overall,
       timestamp,
       runMode,
-      workersEnabled,
+      workersEnabled: workersInProcess,
+      workerProcessSplit,
       services,
     };
   }
@@ -61,6 +65,25 @@ export class AdminSystemHealthService {
     if (services.some((s) => s.status === 'degraded')) return 'degraded';
     if (services.every((s) => s.status === 'disabled' || s.status === 'ok')) return 'ok';
     return 'degraded';
+  }
+
+  private async fetchWithTimeout(url: string, init?: RequestInit, timeoutMs = 8000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private resolveOtaBaseUrl(): string {
+    const raw =
+      this.config.get<string>('EXPO_OTA_URL') ??
+      this.config.get<string>('OTA_MANIFEST_URL') ??
+      'https://pingme.hostyler.cloud/ota';
+    const trimmed = raw.replace(/\/$/, '');
+    return trimmed.endsWith('/manifest') ? trimmed.slice(0, -'/manifest'.length) : trimmed;
   }
 
   private async checkDatabase(): Promise<ServiceHealthItem> {
@@ -101,19 +124,39 @@ export class AdminSystemHealthService {
     }
   }
 
-  private async checkNotificationQueue(): Promise<ServiceHealthItem> {
+  private formatQueueCounts(
+    counts: {
+      active: number;
+      waiting: number;
+      delayed: number;
+      failed: number;
+      completed: number;
+    },
+  ) {
+    return `waiting ${counts.waiting}, active ${counts.active}, failed ${counts.failed}`;
+  }
+
+  private async checkNotificationQueue(runMode: ReturnType<typeof getRunMode>): Promise<ServiceHealthItem> {
     const queueHealth = await this.notificationQueue.getQueueHealth();
     const counts = queueHealth.counts;
-    const countDetail = counts
-      ? `waiting ${counts.waiting}, active ${counts.active}, failed ${counts.failed}`
-      : 'Queue unavailable';
+    const countDetail = counts ? this.formatQueueCounts(counts) : 'Queue unavailable';
+
+    if (queueHealth.status === 'disabled' && runMode === 'api' && counts) {
+      const failed = counts.failed ?? 0;
+      return {
+        id: 'notification_queue',
+        label: 'Push notification queue',
+        status: failed > 25 ? 'degraded' : 'ok',
+        detail: `Processed by pingme-worker — ${countDetail}`,
+      };
+    }
 
     if (queueHealth.status === 'disabled') {
       return {
         id: 'notification_queue',
         label: 'Push notification queue',
         status: 'disabled',
-        detail: 'Worker disabled (RUN_MODE=api) — pushes enqueue but may not deliver',
+        detail: 'Worker not running in this process',
       };
     }
 
@@ -135,8 +178,8 @@ export class AdminSystemHealthService {
     };
   }
 
-  private checkBackgroundWorkers(): ServiceHealthItem[] {
-    const workersEnabled = shouldRunWorkers();
+  private checkBackgroundWorkers(runMode: ReturnType<typeof getRunMode>): ServiceHealthItem[] {
+    const workersInProcess = shouldRunWorkers();
     const workerNames = [
       'Notification worker',
       'Presence expiry',
@@ -151,33 +194,65 @@ export class AdminSystemHealthService {
     return workerNames.map((name, index) => ({
       id: `worker_${index}`,
       label: name,
-      status: workersEnabled ? 'ok' : 'disabled',
-      detail: workersEnabled ? 'Expected to run in this process' : 'Skipped — use RUN_MODE=all or worker',
+      status: workersInProcess || runMode === 'api' ? 'ok' : 'disabled',
+      detail: workersInProcess
+        ? 'Runs in this process'
+        : runMode === 'api'
+          ? 'Runs in pingme-worker service'
+          : 'Skipped — set RUN_MODE=worker or all',
     }));
   }
 
   private async checkOtaUpdates(): Promise<ServiceHealthItem> {
-    const otaUrl =
-      this.config.get<string>('EXPO_OTA_URL') ??
-      this.config.get<string>('OTA_MANIFEST_URL') ??
-      'https://pingme.hostyler.cloud/ota/manifest';
+    const otaBase = this.resolveOtaBaseUrl();
+    const hcUrl = `${otaBase}/hc`;
+    const manifestUrl = `${otaBase}/manifest`;
 
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const response = await fetch(otaUrl, {
-        method: 'GET',
-        signal: controller.signal,
-        headers: { Accept: 'application/json' },
-      });
-      clearTimeout(timeout);
-
-      if (!response.ok) {
+      const hcResponse = await this.fetchWithTimeout(hcUrl, { method: 'GET' });
+      if (!hcResponse.ok) {
         return {
           id: 'ota_updates',
           label: 'OTA updates (xprem)',
           status: 'degraded',
-          detail: `HTTP ${response.status} from ${otaUrl}`,
+          detail: `Health check HTTP ${hcResponse.status} from ${hcUrl}`,
+        };
+      }
+
+      const appId = this.config.get<string>('EXPO_OTA_APP_ID');
+      if (!appId) {
+        return {
+          id: 'ota_updates',
+          label: 'OTA updates (xprem)',
+          status: 'ok',
+          detail: `OTA server reachable (${hcUrl}) — set EXPO_OTA_APP_ID to verify manifest`,
+        };
+      }
+
+      const channel = this.config.get<string>('EXPO_OTA_CHANNEL') ?? 'staging';
+      const runtimeVersion =
+        this.config.get<string>('EXPO_OTA_RUNTIME_VERSION') ??
+        this.config.get<string>('OTA_HEALTH_RUNTIME_VERSION') ??
+        '0.1.0';
+
+      const manifestResponse = await this.fetchWithTimeout(manifestUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'expo-app-id': appId,
+          'expo-channel-name': channel,
+          'expo-runtime-version': runtimeVersion,
+          'expo-platform': 'android',
+          'expo-protocol-version': '1',
+        },
+      });
+
+      if (!manifestResponse.ok) {
+        return {
+          id: 'ota_updates',
+          label: 'OTA updates (xprem)',
+          status: 'degraded',
+          detail: `Manifest HTTP ${manifestResponse.status} (HC ok) — ${manifestUrl}`,
         };
       }
 
@@ -185,7 +260,7 @@ export class AdminSystemHealthService {
         id: 'ota_updates',
         label: 'OTA updates (xprem)',
         status: 'ok',
-        detail: `Manifest reachable (${otaUrl})`,
+        detail: `Manifest reachable (${manifestUrl}, channel ${channel})`,
       };
     } catch (error) {
       this.logger.warn(`OTA health check failed: ${error instanceof Error ? error.message : error}`);
@@ -193,7 +268,7 @@ export class AdminSystemHealthService {
         id: 'ota_updates',
         label: 'OTA updates (xprem)',
         status: 'error',
-        detail: error instanceof Error ? error.message : 'Manifest unreachable',
+        detail: error instanceof Error ? error.message : 'OTA server unreachable',
       };
     }
   }

@@ -20,6 +20,7 @@ interface SystemHealthResponse {
   timestamp: string;
   runMode: string;
   workersEnabled: boolean;
+  workerProcessSplit?: boolean;
   services: ServiceHealthItem[];
 }
 
@@ -105,7 +106,11 @@ export function SystemHealthPanel() {
               </p>
               <p className="text-sm text-ink-tertiary">
                 RUN_MODE={health.runMode}
-                {health.workersEnabled ? ' · workers active' : ' · workers disabled in this process'}
+                {health.workerProcessSplit
+                  ? ' · background workers run in pingme-worker service'
+                  : health.workersEnabled
+                    ? ' · workers active in this process'
+                    : ' · workers disabled in this process'}
               </p>
             </div>
             <p className="text-xs text-ink-tertiary">
