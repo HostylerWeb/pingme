@@ -195,7 +195,7 @@ export default function WallScreen() {
       paddingVertical: spacing.sm,
     },
     toggleLabel: { ...typography.bodyMd, color: colors.ink },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     headerIconBtn: {
       width: 40,
       height: 40,
@@ -394,6 +394,7 @@ export default function WallScreen() {
         <AppHeader
           large
           title="Wall"
+          showBrand={false}
           subtitle={wallSubtitle(radiusMeters)}
         />
         <View style={styles.center}>
@@ -452,7 +453,9 @@ export default function WallScreen() {
   return (
     <Screen padded={false} edges={[]}>
       <AppHeader
+        large
         title="Wall"
+        showBrand={false}
         subtitle={wallSubtitle(radiusMeters)}
         right={
           <View style={styles.headerActions}>

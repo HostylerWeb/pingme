@@ -64,7 +64,7 @@ Use this section to see what is left without reading the full plan. Details live
 |--------|------:|----------|
 | **Done** | 36 | Includes Reputation #40, Events #33/#38, admin map #21 |
 | **Partial** | 0 | — |
-| **UNDONE** | 4 | IAP (#9, #31), self-hosted OTA, venues (Phase 9), paid event tickets (#39) |
+| **UNDONE** | 3 | IAP (#9, #31), venues (Phase 9), paid event tickets (#39) |
 
 Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events E1–E5: **Done**. Reputation R1: **Done**.
 
@@ -75,8 +75,7 @@ Full tables: [Feature roadmap](#feature-roadmap-product-backlog). Events E1–E5
 | **Device test pass** | Two-phone checklist on staging — Wall, icebreaker, chat, events, premium, invite, reputation badges |
 | **Store prep** | Legal pages finalized, App Store / Play screenshots, production URLs |
 | **Stripe go-live** | Code shipped (`StripeGateway`); set `PAYMENT_PROVIDER=stripe` + keys on VPS when ready to charge |
-| **Self-hosted OTA** | xprem + `expo-updates` on VPS — documented, not wired |
-| **Production domain** | Move off `hostyler.cloud` when ready — DNS, TLS, env cutover |
+| **Production domain** | Move off `hostyler.cloud` when ready — DNS, TLS, env cutover, OTA nginx paths on new host |
 | **Paid event tickets** | E6.4–E6.8 — in-app pay + app-only QR check-in (#39) |
 
 ### **Partial** — none remaining
@@ -120,7 +119,7 @@ Radius-based (~250m default) proximity social app. Users turn **Available** ON t
 |-------|--------|
 | Framework | Expo SDK 52+ (React Native, New Architecture) |
 | Dev builds | **expo-dev-client** (required — not Expo Go) |
-| Builds / OTA | **Local native builds** (Gradle / Xcode). **Self-hosted OTA** via xprem on VPS (planned — see [Mobile builds, splash & OTA](#mobile-builds-splash--ota-self-hosted)) |
+| Builds / OTA | **Local native builds** (Gradle / Xcode). **Self-hosted OTA** via xprem on VPS — **live on staging** (see [Mobile builds, splash & OTA](#mobile-builds-splash--ota-self-hosted)) |
 | Language | TypeScript |
 | Navigation | Expo Router |
 | Server state | TanStack Query |
@@ -185,14 +184,14 @@ Radius-based (~250m default) proximity social app. Users turn **Available** ON t
 
 ## Mobile builds, splash & OTA (self-hosted)
 
-PingMe does **not** use EAS Build or EAS Update. Mobile ships as locally built binaries; JS updates will be delivered over-the-air from our own VPS when OTA is wired up.
+PingMe does **not** use EAS Build or EAS Update. Mobile ships as locally built binaries; **JS/UI updates are delivered over-the-air** from our own VPS (xprem + `expo-updates`).
 
 ### Two ways the app gets new JavaScript
 
 | Method | When | Requires |
 |--------|------|----------|
 | **Metro reload** | Daily development | Dev client APK/IPA + `pnpm start` on same network |
-| **OTA publish** | Staging / production testers (planned) | Release build + xprem server on VPS |
+| **OTA publish** | Staging / production testers | Release build + `bash apps/mobile/scripts/publish-ota.sh` |
 
 Metro reload is **not** OTA. Editing files on the VPS does nothing until a bundle is published to the OTA server.
 
@@ -224,7 +223,7 @@ open ios/*.xcworkspace
 | Build | Use for | Updates via |
 |-------|---------|-------------|
 | Dev client (`expo-dev-client`) | Your daily dev | Metro on LAN |
-| Release APK/IPA | Testers, store, OTA | xprem publish (once configured) |
+| Release APK/IPA | Testers, store, OTA | `publish-ota.sh` / `eoas publish` |
 
 ### Splash screen
 
@@ -238,142 +237,219 @@ Configured in `apps/mobile/app.json` (`splash` + `expo-splash-screen` plugin). A
 
 Light background: `#FAF9F6`. Dark: `#121110`.
 
-### Self-hosted OTA (planned — xprem)
+### Self-hosted OTA (xprem) — **implemented on staging**
 
-**Status:** Not implemented yet. Track here before building.
+**Status:** **Done** on `pingme.hostyler.cloud` (Aug 2026). Use this section when standing up a **new VPS** or **production domain** so you do not repeat the nginx / `BASE_URL` pitfalls below.
 
-**Goal:** Push JS/UI fixes to installed release builds without Play Store / App Store review. Native changes (splash, permissions, new native npm packages) still require a new APK/IPA.
+**Goal:** Push JS/UI fixes to installed **release** builds without Play Store / App Store review. Native changes (splash, permissions, new native npm packages) still require a new APK/IPA and usually a `version` bump in `app.json`.
 
-**Recommended server:** [xprem](https://github.com/mercuretechnologies/xprem) — open-source, implements the official Expo Updates protocol (`expo-updates`), self-hosted on our VPS.
+**Server:** [xprem](https://github.com/mercuretechnologies/xprem) — open-source Expo Updates protocol (`expo-updates`), Docker image `ghcr.io/mercuretechnologies/xprem:latest`.
 
-#### Architecture
+#### Architecture (staging — what we actually run)
+
+We do **not** use a separate `ota.*` subdomain on staging (DNS for `ota.pingme.hostyler.cloud` was NXDOMAIN). OTA is mounted on the **same host** as the API:
 
 ```
-[Laptop]  npx eoas publish  →  [VPS: ota.pingme.hostyler.cloud]
-                                      xprem + Postgres + storage
-                                           ↑
-[Phone]  release APK/IPA  ────────────────┘  checks manifest on launch
+[Laptop]  bash apps/mobile/scripts/publish-ota.sh
+              → eoas publish --serverUrl https://pingme.hostyler.cloud
+              → xprem at 127.0.0.1:3010 (via nginx)
+
+[Phone]   release APK checks https://pingme.hostyler.cloud/ota/manifest
+          downloads bundles from https://pingme.hostyler.cloud/assets?...
 ```
 
-#### Phase 1 — VPS (when we implement)
+**Three nginx paths must proxy to xprem** (not the Nest API):
 
-1. Subdomain, e.g. `ota.pingme.hostyler.cloud` (nginx TLS → xprem Docker)
-2. Postgres + storage (local disk for staging; S3/MinIO for production)
-3. xprem dashboard: create **PingMe** app → App ID, API token, signing certificate
-4. Channels: `staging` → branch `staging`, `production` → branch `production`
+| Path | Purpose |
+|------|---------|
+| `/ota/` | Manifest (`/ota/manifest`), dashboard, health (`/ota/hc` on public URL) |
+| `/assets` | Bundle + font/image downloads (manifest asset URLs use **origin** `/assets`, not `/ota/assets`) |
+| `/{app-uuid}/...` | `eoas publish` API (`requestUploadUrl`, `uploadLocalFile`, etc.) — UUID regex location |
 
-#### Phase 2 — Mobile app (when we implement)
+Template: `infrastructure/nginx/pingme.conf`. On Hostyler VPS the **live** file is `/etc/nginx/sites-enabled/pingme.hostyler.cloud` (a regular file, not always a symlink to `sites-available`).
 
-1. `npx expo install expo-updates`
-2. `app.json` / `app.config.ts`:
-   - `runtimeVersion` — use `{ "policy": "appVersion" }` (ties OTA to `version` in app.json)
-   - `updates.url` → `https://ota.pingme.hostyler.cloud/manifest`
-   - `updates.requestHeaders.expo-channel-name` → `staging` or `production` per build
-   - `codeSigningCertificate` → `./certs/certificate.pem` (from xprem dashboard)
-3. `npx eoas init` in `apps/mobile`
-4. `npx expo prebuild --clean` — embeds update URL in native binary (**one-time per channel/version**)
+#### Repo layout
 
-#### Phase 3 — Release binaries
+| Path | Purpose |
+|------|---------|
+| `infrastructure/ota/docker-compose.yml` | xprem + Postgres on `127.0.0.1:3010` |
+| `infrastructure/ota/.env` | VPS secrets (`XPREM_*`) — **never commit** |
+| `infrastructure/ota/.env.example` | Template for new VPS |
+| `infrastructure/ota/bootstrap.secrets.env` | Local publish secrets (`EOO_TOKEN`, app id) — **gitignored** |
+| `scripts/bootstrap-xprem.sh` | Create app, branch, channel, API key, download `certificate.pem` |
+| `scripts/deploy-ota-vps.sh` | Push git, docker compose up, merge nginx locations |
+| `apps/mobile/scripts/publish-ota.sh` | Wrapper around `npx eoas publish` |
+| `apps/mobile/app.config.ts` | `expo-updates` URL, channel headers, signing cert plugin |
+| `apps/mobile/certs/certificate.pem` | Code-signing public cert from xprem — **gitignored** |
+| `apps/mobile/src/hooks/use-ota-updates.ts` | Check on launch + foreground, fetch update |
+| `apps/mobile/src/components/ota-update-prompt.tsx` | “Restart now” / “Later” bottom sheet |
 
-Build **release** APK (Android) and IPA (iOS) **after** OTA config is in the binary. Dev client builds are not the OTA target.
+#### Phase 1 — VPS (new domain checklist)
 
-#### Phase 4 — Day-to-day publish
+1. **DNS** — Point your API host (e.g. `api.yourdomain.com` or single `yourdomain.com`) to the VPS. A dedicated `ota.yourdomain.com` is optional; path-prefix (`/ota/`) works and is what staging uses.
+2. **Deploy xprem stack:**
+   ```bash
+   cd /var/www/sites/pingme/infrastructure/ota
+   cp .env.example .env
+   # Edit .env — see XPREM_BASE_URL below
+   docker compose up -d
+   curl -fsS http://127.0.0.1:3010/hc
+   ```
+3. **`XPREM_BASE_URL` (critical):** Set to the **site origin without a path**, e.g. `https://yourdomain.com` — **not** `https://yourdomain.com/ota`.
+   - xprem uses `BASE_URL` when generating asset URLs in the manifest (`/assets?...` on the origin).
+   - `eoas publish` uses `serverUrl` origin for upload APIs (`/{appId}/requestUploadUrl`).
+   - If `BASE_URL` includes `/ota`, publish uploads break (401 auth) and phones may get wrong asset hosts.
+4. **Admin password:** xprem requires a strong `XPREM_ADMIN_PASSWORD` (include a special character). Deploy script generates `PingMeOta<hex>!` style passwords.
+5. **Container user:** Run xprem as `user: "0:0"` in docker-compose if the updates volume hits permission errors on first boot.
+6. **Image tag:** Use `:latest` (specific tags like `3.1.2` may not exist on GHCR).
+7. **Nginx** — Add all three locations from `infrastructure/nginx/pingme.conf` to the **active** site file (`sites-enabled`), then `nginx -t && systemctl reload nginx`.
+8. **Verify from laptop:**
+   ```bash
+   curl -fsS https://yourdomain.com/ota/hc
+   curl -sD - "https://yourdomain.com/ota/manifest" \
+     -H "expo-app-id: <APP_ID>" \
+     -H "expo-channel-name: staging" \
+     -H "expo-runtime-version: 0.1.0" \
+     -H "expo-platform: android" \
+     -H "expo-protocol-version: 1" | head
+   ```
+9. **Bootstrap app on xprem** (from laptop or VPS):
+   ```bash
+   XPREM_URL=https://yourdomain.com/ota \
+   XPREM_ADMIN_EMAIL=admin@yourdomain.com \
+   XPREM_ADMIN_PASSWORD='...' \
+   bash scripts/bootstrap-xprem.sh
+   ```
+   Writes `apps/mobile/certs/certificate.pem` and `infrastructure/ota/bootstrap.secrets.env`.
+
+Or run `bash scripts/deploy-ota-vps.sh` from laptop (needs `sshpass.txt`) to deploy stack + nginx merges on Hostyler staging.
+
+#### Phase 2 — Mobile app
+
+1. `expo-updates` is installed; OTA is enabled when `EXPO_OTA_APP_ID` is set at build time.
+2. **`apps/mobile/.env`** (local, gitignored) — copy from bootstrap output:
+   ```bash
+   EXPO_OTA_URL=https://yourdomain.com/ota
+   EXPO_OTA_APP_ID=<uuid from xprem>
+   EXPO_OTA_CHANNEL=staging
+   EXPO_OTA_BRANCH=staging
+   ```
+3. **`app.config.ts`** sets:
+   - `runtimeVersion: { policy: 'appVersion' }` — ties OTA to `version` in `app.json`
+   - `updates.url` → `${EXPO_OTA_URL}/manifest`
+   - `requestHeaders`: `expo-channel-name`, `expo-app-id`, `xprem-branch`
+   - `expo-updates` plugin with `codeSigningCertificate: ./certs/certificate.pem`
+4. **Embed in native binary** (once per channel / when OTA config changes):
+   ```bash
+   cd apps/mobile
+   npx expo prebuild
+   cd android && ./gradlew assembleRelease   # or Xcode archive
+   ```
+   Dev client builds are **not** the OTA target (`useOtaUpdates` skips `__DEV__`).
+
+#### Phase 3 — Day-to-day publish (JS/UI only)
 
 ```bash
-cd apps/mobile
-export EOO_TOKEN=eoo_<api_key>
-export RELEASE_CHANNEL=staging
-npx eoas publish --branch staging
+source infrastructure/ota/bootstrap.secrets.env
+cd apps/mobile && source .env
+export EOO_TOKEN RELEASE_CHANNEL=staging
+bash scripts/publish-ota.sh
 ```
 
-Verify manifest:
+Equivalent:
 
 ```bash
-curl -sD - "https://ota.pingme.hostyler.cloud/manifest" \
+npx eoas publish --branch staging --platform android --nonInteractive \
+  --serverUrl https://yourdomain.com \
+  --message "Your changelog"
+```
+
+**No APK rebuild** unless you changed native code or bumped `app.json` `version` (new `runtimeVersion`).
+
+Verify manifest (replace host / app id / runtime version):
+
+```bash
+curl -sD - "https://yourdomain.com/ota/manifest" \
   -H "expo-app-id: <APP_ID>" \
   -H "expo-channel-name: staging" \
-  -H "expo-runtime-version: 0.0.1" \
+  -H "expo-runtime-version: 0.1.0" \
   -H "expo-platform: android" \
   -H "expo-protocol-version: 1"
 ```
 
+Verify a launch asset URL returns **200** (not 404 from API):
+
+```bash
+curl -sD - -o /dev/null \
+  -H "expo-app-id: <APP_ID>" \
+  -H "expo-platform: android" \
+  -H "expo-runtime-version: 0.1.0" \
+  -H "expo-channel-name: staging" \
+  "https://yourdomain.com/assets?asset=_expo/static/js/android/entry-....hbc&branch=staging&platform=android&runtimeVersion=0.1.0&updateId=..."
+```
+
 #### Applying updates on the device
 
-While a user has the app **open and active**, they are running the **old JS bundle**. Publishing OTA does **not** change what is on screen until the app reloads.
+While the app is **open**, the user runs the **old JS bundle**. Publishing OTA does **not** change the UI until reload.
 
 | Moment | What happens |
 |--------|----------------|
 | OTA published to xprem | Nothing on the phone yet |
-| App opens / returns to foreground | `expo-updates` can check VPS, download new bundle in background |
-| Bundle downloaded | Still on old UI until reload |
-| `Updates.reloadAsync()` or cold start | New JS runs — user sees changes |
+| App opens / returns to foreground | `useOtaUpdates` → `checkForUpdateAsync` → `fetchUpdateAsync` |
+| Bundle downloaded | Still old UI until reload |
+| User taps **Restart now** on prompt | `Updates.reloadAsync()` → new JS |
+| Cold start | Also applies a staged update |
 
-**Full force-close from recents is not required.** `Updates.reloadAsync()` reloads the JS runtime with the downloaded bundle (feels like a restart). Cold start also applies a staged update.
+**Implemented:** `OtaUpdatePrompt` in root `_layout.tsx` — PingMe-styled bottom sheet, not a system alert. Checks on launch and when `AppState` becomes `active`. Skipped in `__DEV__`.
 
-**You cannot programmatically force-quit the app** (iOS forbids it; same idea on Android). Use an in-app prompt instead.
-
-#### Push notification + OTA (optional nudge)
-
-A push does **not** download or apply an update by itself. It only tells the user to open the app (or reminds them while it is backgrounded).
-
-**When a push is sent after an OTA publish:**
-
-1. **Push arrives** — banner / lock screen only. App code is unchanged.
-2. **User taps it or opens the app** — app launches or comes to foreground.
-3. **Update gate runs** (planned in root layout) — `checkForUpdateAsync()` → if newer bundle exists, `fetchUpdateAsync()` downloads it.
-4. **In-app prompt** — e.g. “PingMe has been updated. Restart to continue.”
-5. **User taps Restart** — `Updates.reloadAsync()` → new UI loads.
-
-If the user ignores the push and keeps using the app, **nothing changes** until the update gate runs (next open, foreground check, or cold start).
-
-Backend can send a generic push after publish (e.g. “Update available — open PingMe”) via existing FCM/APNs; no special OTA payload is required unless we add custom data later.
-
-#### Update gate (planned — mobile root layout)
-
-Implement when `expo-updates` is wired up:
-
-1. On **app launch** and when app returns to **foreground** (`AppState` → `active`): check for update, fetch if available.
-2. Show a **PingMe-styled modal or bottom sheet** — not a system alert.
-3. **Normal updates:** “Restart now” / “Later” → `reloadAsync()` only if user confirms.
-4. **Critical updates** (breaking API, security): blocking modal — must restart to continue.
-5. Optional: **Settings → Check for updates** for manual check.
-
-Set `updates.checkAutomatically` to `ON_LOAD` or `ON_ERROR_RECOVERY` and run explicit checks on foreground so behavior is predictable and we control the restart UX.
-
-```ts
-// Planned pattern (release builds only — skip in __DEV__)
-const result = await Updates.checkForUpdateAsync();
-if (result.isAvailable) {
-  await Updates.fetchUpdateAsync();
-  // show UpdatePrompt → on confirm:
-  await Updates.reloadAsync();
-}
-```
+Push after publish is optional (nudge only — does not download or apply OTA by itself).
 
 #### `runtimeVersion` rules
 
 | Change | Action |
 |--------|--------|
-| JS / UI only | `eoas publish` only |
+| JS / UI only | `publish-ota.sh` only |
 | New native package, splash, permissions, `app.json` native config | Bump `version` in `app.json`, rebuild APK/IPA, then publish for new runtime |
 
 #### Security
 
-- HTTPS only on OTA host
+- HTTPS only
 - Code signing: xprem signs bundles; app verifies with embedded `certificate.pem`
-- Separate staging / production channels; rotate API tokens; do not expose dashboard publicly without auth
+- Separate `staging` / `production` channels; rotate `EOO_TOKEN`; restrict xprem dashboard (auth + firewall)
+- Never commit `bootstrap.secrets.env`, `infrastructure/ota/.env`, or `certificate.pem`
 
-#### Checklist (tick when done)
+#### Challenges we hit on staging (read before a new VPS)
 
-- [ ] xprem deployed on VPS
-- [ ] `expo-updates` installed and configured
-- [ ] Signing cert in `apps/mobile/certs/`
-- [ ] Staging release APK built and installed
-- [ ] First `eoas publish` verified on device (cold start or `reloadAsync` after prompt)
-- [ ] Update gate in root layout (foreground check + restart prompt)
+| Symptom | Root cause | Fix |
+|---------|------------|-----|
+| `ota.pingme.hostyler.cloud` NXDOMAIN | No DNS record | Use path `/ota/` on main API host, or add DNS for `ota.*` |
+| xprem container crash loop | `ADMIN_PASSWORD` too weak | Password with special char; see deploy script |
+| xprem volume permission denied | Container UID vs volume | `user: "0:0"` on xprem service |
+| Image `xprem:3.1.2` not found | Tag missing on registry | Use `:latest` |
+| Public `/ota/manifest` 404 | nginx `sites-enabled` not updated | Edit **active** file in `sites-enabled`, reload nginx |
+| `eoas publish` NOT_FOUND | Upload API at origin, not `/ota` | nginx UUID regex → `127.0.0.1:3010` |
+| `eoas publish` 401 on file upload | `XPREM_BASE_URL` included `/ota` | Set `XPREM_BASE_URL=https://host` (no path); recreate xprem |
+| Phone finds update but download fails | `/assets` proxied to API | Add `location /assets` → xprem (see nginx template) |
+| `git safe.directory` on VPS | Repo owned by different user | `git -c safe.directory=...` in deploy scripts |
+| Gradle OOM on full rebuild | Large native project | `arm64-v8a` only, `GRADLE_OPTS=-Xmx3g`, `--no-daemon` |
+| Manifest `isVerified: false` in logs | Expected with current cert setup | Update still downloads if assets return 200 |
+
+**Debugging on Android:** `adb logcat | grep dev.expo.updates` — look for `CheckCompleteAvailable`, `DownloadError`, `isUpdatePending=true`, `Restart`.
+
+#### Checklist
+
+- [x] xprem deployed on VPS (`infrastructure/ota/docker-compose.yml`)
+- [x] nginx: `/ota/`, `/assets`, and UUID paths → xprem
+- [x] `XPREM_BASE_URL` = origin without `/ota` path
+- [x] `expo-updates` + `app.config.ts` + signing cert
+- [x] `scripts/bootstrap-xprem.sh` + `publish-ota.sh`
+- [x] Staging release APK built and installed
+- [x] First `eoas publish` verified on device (restart prompt)
+- [x] Update gate in root layout (`useOtaUpdates` + `OtaUpdatePrompt`)
+- [ ] Production channel + domain cutover (`production` branch/channel, new URLs in `.env`)
+- [ ] iOS release build on MacBook with same OTA config
 - [ ] Optional: push notification after publish (nudge only)
-- [ ] iOS release build on MacBook
-- [ ] Production channel + publish script in CI (optional)
+- [ ] Optional: CI job for `publish-ota.sh` on merge to main
 
 ---
 
@@ -391,6 +467,8 @@ PingMe/
 │   └── config/                 # ESLint, TSConfig shared
 ├── infrastructure/
 │   ├── docker/                 # docker-compose.dev.yml
+│   ├── nginx/                  # pingme.conf (API + OTA proxy template)
+│   ├── ota/                    # xprem docker-compose + VPS .env
 │   └── scripts/                # deploy, seed, backup
 ├── docs/
 │   ├── getting-started/        # howtorun.md
@@ -1309,7 +1387,10 @@ EXPO_PUBLIC_SENTRY_DSN=
 |-----------------|--------|
 | `GOOGLE_SERVICES_JSON` | Path or secret content for `app.config.ts` → Android FCM (required for push on Android) |
 | `google-services.json` | Local file at `apps/mobile/google-services.json` (from Firebase console; **never commit**) |
-| `expo-updates` URL + channel | When OTA is wired (see [Self-hosted OTA](#self-hosted-ota-planned--xprem)) |
+| `EXPO_OTA_URL` | OTA manifest base, e.g. `https://yourdomain.com/ota` → see [Self-hosted OTA](#self-hosted-ota-xprem--implemented-on-staging) |
+| `EXPO_OTA_APP_ID` | xprem app UUID — required to embed `expo-updates` in release build |
+| `EXPO_OTA_CHANNEL` / `EXPO_OTA_BRANCH` | Channel + branch (e.g. `staging` / `production`) |
+| `EOO_TOKEN` | Publish API key from xprem (local only; `bootstrap.secrets.env`) |
 
 **iOS push:** Configure push capability + APNs key in Apple Developer; Expo handles token via `expo-notifications` in dev/release builds.
 
@@ -1332,7 +1413,7 @@ Use this when switching from staging (`hostyler.cloud`) to a **real domain** or 
 - [ ] `api.yourdomain.com` → VPS (A/AAAA)
 - [ ] `admin.yourdomain.com` → VPS
 - [ ] `yourdomain.com` or `www` → **marketing landing page** (download links, not a web app)
-- [ ] `ota.yourdomain.com` → VPS (when self-hosted OTA ships)
+- [ ] `ota.yourdomain.com` → VPS **or** serve OTA under `/ota/` on API host (see [Self-hosted OTA](#self-hosted-ota-xprem--implemented-on-staging))
 - [ ] TLS certificates (Let's Encrypt via Certbot / Nginx)
 
 ### 2. VPS services (Docker)
@@ -1433,11 +1514,16 @@ pnpm build
 - [ ] `PAYMENT_PROVIDER=stripe`
 - [ ] Mobile Premium screen → checkout URL
 
-### 11. OTA (when ready)
+### 11. OTA (production cutover)
 
-- [ ] xprem on `ota.yourdomain.com`
-- [ ] `expo-updates` URL + signing cert in release binary
-- [ ] Publish channel `production` after JS-only fixes
+Follow [Self-hosted OTA](#self-hosted-ota-xprem--implemented-on-staging) on the new domain:
+
+- [ ] xprem stack + `infrastructure/ota/.env` with `XPREM_BASE_URL=https://yourdomain.com` (no `/ota` path)
+- [ ] nginx: `/ota/`, `/assets`, and `/{app-uuid}/` → `127.0.0.1:3010`
+- [ ] `bash scripts/bootstrap-xprem.sh` → production channel/branch
+- [ ] Release APK/IPA with `EXPO_OTA_*` pointed at production URLs
+- [ ] `bash apps/mobile/scripts/publish-ota.sh` with `RELEASE_CHANNEL=production`
+- [ ] Verify manifest + `/assets` return 200; test restart prompt on device
 
 ### 12. Post-launch smoke (two phones)
 
@@ -2253,8 +2339,7 @@ Priority order for the next sprint:
 | 1 | **Device test checklist** | Two phones — Wall, icebreaker push, chat, events, premium, invite deep link |
 | 2 | **Store prep** | Legal pages live, screenshots, production `EXPO_PUBLIC_*` URLs |
 | 3 | **Stripe go-live** (optional) | When ready: `PAYMENT_PROVIDER=stripe` + webhook secret on VPS |
-| 4 | **Production domain cutover** | Real API/admin URLs, TLS, `CORS_ORIGINS`, mobile rebuild |
-| 5 | **Self-hosted OTA** (optional) | xprem on VPS for JS-only updates without store rebuild |
+| 4 | **Production domain cutover** | Real API/admin URLs, TLS, `CORS_ORIGINS`, mobile rebuild, OTA nginx on new host |
 
 **Staging deploy checklist (VPS):**
 ```bash
@@ -2605,7 +2690,7 @@ GET /config       → public app limits (distance radii); mobile prefetches at l
 | **Monetize soon** | Stripe go-live → 10 (subscription history) → 31 (IAP) |
 | **Grow / test** | Device test checklist → invite funnel (#30) → analytics (#35) |
 | **Launch prep** | Legal pages → store screenshots → production domain → mobile release build |
-| **Polish** | Self-hosted OTA → E2E tests (Detox/Maestro) → wall feed cache |
+| **Polish** | E2E tests (Detox/Maestro) → wall feed cache → production OTA channel |
 
 ---
 

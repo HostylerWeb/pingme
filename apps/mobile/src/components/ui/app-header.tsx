@@ -42,6 +42,7 @@ export function AppHeader({
       justifyContent: 'space-between',
       gap: spacing.md,
     },
+    rowWithRight: { alignItems: 'center' },
     rowCentered: { alignItems: 'center' },
     sideSlot: {
       width: 40,
@@ -78,7 +79,6 @@ export function AppHeader({
       paddingHorizontal: spacing.md,
       paddingVertical: 6,
       borderRadius: 999,
-      marginTop: 4,
     },
     chipOn: { backgroundColor: colors.onlineSoft },
     chipOff: { backgroundColor: colors.surfaceMuted },
@@ -107,7 +107,7 @@ export function AppHeader({
 
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + spacing.sm }]}>
-      <View style={[styles.row, centerTitle && styles.rowCentered]}>
+      <View style={[styles.row, centerTitle && styles.rowCentered, right && !centerTitle && styles.rowWithRight]}>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={8} style={styles.sideSlot} accessibilityRole="button" accessibilityLabel="Go back">
             <AppIcon name="back" size={22} color={colors.ink} />
@@ -155,7 +155,6 @@ export function AvailableChip({
       paddingHorizontal: spacing.md,
       paddingVertical: 6,
       borderRadius: 999,
-      marginTop: 4,
     },
     chipOn: { backgroundColor: colors.onlineSoft },
     chipOff: { backgroundColor: colors.surfaceMuted },

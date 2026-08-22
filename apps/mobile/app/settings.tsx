@@ -25,7 +25,6 @@ const NOTIFICATION_OPTIONS: Array<{
   key: NotificationKey;
   label: string;
   hint: string;
-  variant?: 'accent' | 'online' | 'premium' | 'icebreaker';
 }> = [
   {
     key: 'allowPushReplies',
@@ -41,7 +40,6 @@ const NOTIFICATION_OPTIONS: Array<{
     key: 'allowPushIcebreakerNearby',
     label: 'Nearby Break the ice',
     hint: 'When someone nearby turns Break the ice on — even if you have not',
-    variant: 'icebreaker',
   },
   {
     key: 'allowPushEventsNearby',
@@ -52,7 +50,6 @@ const NOTIFICATION_OPTIONS: Array<{
     key: 'allowPushIcebreaker',
     label: 'Break the ice matches',
     hint: 'When someone says yes to you or you match nearby',
-    variant: 'icebreaker',
   },
 ];
 
@@ -233,7 +230,6 @@ export default function SettingsScreen() {
               hint="Use dark appearance across the app"
               value={darkMode}
               onChange={setDarkMode}
-              variant="accent"
               isLast
             />
           </View>
@@ -272,7 +268,6 @@ export default function SettingsScreen() {
                 value={settings[option.key] ?? true}
                 disabled={mutation.isPending}
                 onChange={(value) => mutation.mutate({ [option.key]: value })}
-                variant={option.variant ?? 'online'}
                 isLast={index === NOTIFICATION_OPTIONS.length - 1}
               />
             ))}

@@ -38,7 +38,7 @@ if [[ ! -f "\$ENV_FILE" ]]; then
   DBPASS=\$(openssl rand -hex 16)
   ADMIN_PASS="PingMeOta\$(openssl rand -hex 3)!"
   cat > "\$ENV_FILE" <<EOF
-XPREM_BASE_URL=https://pingme.hostyler.cloud/ota
+XPREM_BASE_URL=https://pingme.hostyler.cloud
 XPREM_DB_PASSWORD=\$DBPASS
 XPREM_DB_KEYS_MASTER_KEY_B64=\$DBKEY
 XPREM_JWT_SECRET=\$JWT
@@ -55,20 +55,20 @@ else
     echo "Updated admin password in \$ENV_FILE to meet xprem policy."
     docker compose -f "\$OTA_DIR/docker-compose.yml" --env-file "\$ENV_FILE" down -v || true
   fi
-  if ! grep -q 'pingme.hostyler.cloud/ota' "\$ENV_FILE"; then
-    sed -i 's|^XPREM_BASE_URL=.*|XPREM_BASE_URL=https://pingme.hostyler.cloud/ota|' "\$ENV_FILE"
+  if grep -q 'XPREM_BASE_URL=https://pingme.hostyler.cloud/ota' "\$ENV_FILE"; then
+    sed -i 's|^XPREM_BASE_URL=.*|XPREM_BASE_URL=https://pingme.hostyler.cloud|' "\$ENV_FILE"
+    docker compose -f "\$OTA_DIR/docker-compose.yml" --env-file "\$ENV_FILE" up -d --force-recreate xprem || true
   fi
 fi
 
 docker compose -f "\$OTA_DIR/docker-compose.yml" --env-file "\$ENV_FILE" pull
 docker compose -f "\$OTA_DIR/docker-compose.yml" --env-file "\$ENV_FILE" up -d
 
-# Merge OTA location into main PingMe nginx site (no separate DNS needed).
-PINGME_SITE=/etc/nginx/sites-available/pingme.hostyler.cloud
+# Merge OTA locations into live nginx site (sites-enabled is the active file on VPS).
+PINGME_SITE=/etc/nginx/sites-enabled/pingme.hostyler.cloud
 if [[ -f "\$PINGME_SITE" ]] && ! grep -q 'location /ota/' "\$PINGME_SITE"; then
   awk '
-    /# REST API/ && !inserted {
-      print "    # Self-hosted OTA (xprem)"
+    /location \/socket\.io\/ \{/ && !inserted {
       print "    location /ota/ {"
       print "        proxy_pass http://127.0.0.1:3010/;"
       print "        proxy_http_version 1.1;"
@@ -76,8 +76,44 @@ if [[ -f "\$PINGME_SITE" ]] && ! grep -q 'location /ota/' "\$PINGME_SITE"; then
       print "        proxy_set_header X-Real-IP \$remote_addr;"
       print "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;"
       print "        proxy_set_header X-Forwarded-Proto \$scheme;"
-      print "        proxy_read_timeout 300s;"
-      print "        proxy_send_timeout 300s;"
+      print "        client_max_body_size 128m;"
+      print "    }"
+      print ""
+      print "    location /assets {"
+      print "        proxy_pass http://127.0.0.1:3010;"
+      print "        proxy_http_version 1.1;"
+      print "        proxy_set_header Host \$host;"
+      print "        proxy_set_header X-Real-IP \$remote_addr;"
+      print "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;"
+      print "        proxy_set_header X-Forwarded-Proto \$scheme;"
+      print "        client_max_body_size 128m;"
+      print "    }"
+      print ""
+      print "    location ~ \"^/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/\" {"
+      print "        proxy_pass http://127.0.0.1:3010;"
+      print "        proxy_http_version 1.1;"
+      print "        proxy_set_header Host \$host;"
+      print "        proxy_set_header X-Real-IP \$remote_addr;"
+      print "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;"
+      print "        proxy_set_header X-Forwarded-Proto \$scheme;"
+      print "        client_max_body_size 128m;"
+      print "    }"
+      print ""
+      inserted=1
+    }
+    { print }
+  ' "\$PINGME_SITE" > "\$PINGME_SITE.tmp" && mv "\$PINGME_SITE.tmp" "\$PINGME_SITE"
+fi
+if [[ -f "\$PINGME_SITE" ]] && ! grep -q 'location /assets' "\$PINGME_SITE"; then
+  awk '
+    /location \/ota\/ \{/ && !inserted {
+      print "    location /assets {"
+      print "        proxy_pass http://127.0.0.1:3010;"
+      print "        proxy_http_version 1.1;"
+      print "        proxy_set_header Host \$host;"
+      print "        proxy_set_header X-Real-IP \$remote_addr;"
+      print "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;"
+      print "        proxy_set_header X-Forwarded-Proto \$scheme;"
       print "        client_max_body_size 128m;"
       print "    }"
       print ""
