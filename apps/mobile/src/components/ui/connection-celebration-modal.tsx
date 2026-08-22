@@ -114,10 +114,10 @@ export function ConnectionCelebrationModal({
         ? `You and ${displayName} can chat now.`
         : 'Your private chat is ready.'
       : displayName
-        ? `You and ${displayName} want to connect. Accept to open a private chat.`
-        : 'Accept the connection request to open a private chat.';
+        ? `You and ${displayName} both said yes.`
+        : 'You both said yes.';
 
-  const primaryLabel = kind === 'connected' ? 'Open chat' : 'Review request';
+  const primaryLabel = kind === 'connected' ? 'Open chat' : 'Open chat';
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>

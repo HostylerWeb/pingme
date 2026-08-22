@@ -163,7 +163,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return sockets.length > 0;
   }
 
-  emitMatchUpdated(userId: string, payload: { matchId: string; status: string; chatId?: string | null }) {
+  emitMatchUpdated(
+    userId: string,
+    payload: {
+      matchId: string;
+      status: string;
+      chatId?: string | null;
+      source?: string;
+    },
+  ) {
     this.server.to(this.userRoom(userId)).emit('match.updated', payload);
   }
 

@@ -152,7 +152,12 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
         }
       });
 
-      nextSocket.on('match.updated', (payload: { matchId: string; status: string; chatId?: string | null }) => {
+      nextSocket.on('match.updated', (payload: {
+        matchId: string;
+        status: string;
+        chatId?: string | null;
+        source?: string;
+      }) => {
         void queryClient.invalidateQueries({ queryKey: ['matches'] });
         void queryClient.invalidateQueries({ queryKey: ['match', payload.matchId] });
         void queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
@@ -160,6 +165,7 @@ export function AppSocketProvider({ children }: { children: ReactNode }) {
         void queryClient.invalidateQueries({ queryKey: ['notification-summary'] });
         if (
           payload.status === 'pending' &&
+          payload.source !== 'icebreaker' &&
           !isMatchPromptDismissed(payload.matchId) &&
           shouldOpenMatchPrompt(pathnameRef.current)
         ) {

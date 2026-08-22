@@ -644,7 +644,7 @@ export const api = {
   setIcebreakerInterest: (payload: { targetUserId: string; interested: boolean }) =>
     apiFetch<{
       success: boolean;
-      data: { matched: boolean; matchId?: string; waiting?: boolean };
+      data: { matched: boolean; matchId?: string; waiting?: boolean; chatId?: string };
     }>('/icebreaker/interest', {
       method: 'POST',
       body: JSON.stringify(payload),

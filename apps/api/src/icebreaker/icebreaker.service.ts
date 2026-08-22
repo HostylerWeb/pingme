@@ -24,6 +24,8 @@ import { RateLimitService } from '../common/services/rate-limit.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { isPrismaUniqueConflict } from '../common/utils/prisma-error.util';
+import { activateMatchIfReady } from '../matches/match.utils';
+import { ReputationService } from '../reputation/reputation.service';
 import { StartIcebreakerDto } from './dto/icebreaker.dto';
 
 interface NearbySessionRow {
@@ -46,6 +48,7 @@ export class IcebreakerService {
     private readonly rateLimit: RateLimitService,
     private readonly notifications: NotificationService,
     private readonly nearbyPush: IcebreakerNearbyPushService,
+    private readonly reputation: ReputationService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly gateway: ChatGateway,
   ) {}
@@ -584,14 +587,24 @@ export class IcebreakerService {
       },
     });
     if (existingMatch) {
+      const activated = await this.activateIcebreakerMatch(
+        existingMatch.id,
+        userId,
+        targetUserId,
+      );
       return {
         success: true,
-        data: { matched: true, matchId: existingMatch.id },
+        data: {
+          matched: true,
+          matchId: existingMatch.id,
+          chatId: activated?.chat?.id ?? undefined,
+        },
       };
     }
 
     let match;
     try {
+      const now = new Date();
       match = await this.prisma.$transaction(async (tx) => {
         const expiresAt = new Date(Date.now() + MATCH_EXPIRY_MINUTES * 60 * 1000);
         const createdMatch = await tx.match.create({
@@ -601,6 +614,8 @@ export class IcebreakerService {
             source: 'icebreaker',
             sourceReferenceId: mySession.id,
             expiresAt,
+            userAAcceptedAt: now,
+            userBAcceptedAt: now,
           },
         });
 
@@ -629,7 +644,7 @@ export class IcebreakerService {
           data: { expiresAt: null, expiredAt: null },
         });
 
-        return createdMatch;
+        return activateMatchIfReady(tx, createdMatch.id);
       });
     } catch (error) {
       if (isPrismaUniqueConflict(error)) {
@@ -641,13 +656,22 @@ export class IcebreakerService {
           },
         });
         if (raced) {
+          const activated = await this.activateIcebreakerMatch(raced.id, userId, targetUserId);
           return {
             success: true,
-            data: { matched: true, matchId: raced.id },
+            data: {
+              matched: true,
+              matchId: raced.id,
+              chatId: activated?.chat?.id ?? undefined,
+            },
           };
         }
       }
       throw error;
+    }
+
+    if (!match) {
+      throw new NotFoundException('Match not found');
     }
 
     await this.audit.log({
@@ -658,31 +682,96 @@ export class IcebreakerService {
       metadata: { otherUserId: targetUserId },
     });
 
-    await this.notifications.sendToUser(userId, {
-      type: NOTIFICATION_TYPES.ICEBREAKER_MATCH,
-      title: 'Someone nearby wants to connect',
-      body: 'Open PingMe to accept or decline.',
-      data: { type: NOTIFICATION_TYPES.ICEBREAKER_MATCH, matchId: match.id },
+    await this.notifyIcebreakerConnected(match.id, userId, targetUserId, match.chat?.id ?? null);
+
+    await Promise.all([
+      this.reputation.grantMutualMatch(userId, match.id),
+      this.reputation.grantMutualMatch(targetUserId, match.id),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        matched: true,
+        matchId: match.id,
+        chatId: match.chat?.id ?? undefined,
+      },
+    };
+  }
+
+  /** Mutual Yes on Break the ice opens chat immediately — no second accept step. */
+  private async activateIcebreakerMatch(
+    matchId: string,
+    userId: string,
+    otherUserId: string,
+  ) {
+    const current = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      include: { chat: { select: { id: true } } },
     });
-    await this.notifications.sendToUser(targetUserId, {
-      type: NOTIFICATION_TYPES.ICEBREAKER_MATCH,
-      title: 'Someone nearby wants to connect',
-      body: 'Open PingMe to accept or decline.',
-      data: { type: NOTIFICATION_TYPES.ICEBREAKER_MATCH, matchId: match.id },
+    if (!current) return null;
+    if (current.status === MatchStatus.active) {
+      return current;
+    }
+
+    const now = new Date();
+    const activated = await this.prisma.$transaction(async (tx) => {
+      await tx.match.update({
+        where: { id: matchId },
+        data: {
+          userAAcceptedAt: now,
+          userBAcceptedAt: now,
+        },
+      });
+      return activateMatchIfReady(tx, matchId);
     });
+
+    if (!activated || activated.status !== MatchStatus.active) {
+      return activated;
+    }
+
+    await this.notifyIcebreakerConnected(matchId, userId, otherUserId, activated.chat?.id ?? null);
+
+    await Promise.all([
+      this.reputation.grantMutualMatch(userId, matchId),
+      this.reputation.grantMutualMatch(otherUserId, matchId),
+    ]);
+
+    return activated;
+  }
+
+  private async notifyIcebreakerConnected(
+    matchId: string,
+    userId: string,
+    otherUserId: string,
+    chatId: string | null,
+  ) {
+    const notification = {
+      type: NOTIFICATION_TYPES.MATCH_REQUEST,
+      title: "You're connected!",
+      body: 'You both said yes — open PingMe to start chatting.',
+      data: {
+        type: NOTIFICATION_TYPES.MATCH_REQUEST,
+        matchId,
+        ...(chatId ? { chatId } : {}),
+      },
+    };
+
+    await this.notifications.sendToUser(userId, notification);
+    await this.notifications.sendToUser(otherUserId, notification);
 
     this.gateway.emitMatchUpdated(userId, {
-      matchId: match.id,
-      status: 'pending',
-      chatId: null,
+      matchId,
+      status: 'active',
+      chatId,
+      source: 'icebreaker',
     });
-    this.gateway.emitMatchUpdated(targetUserId, {
-      matchId: match.id,
-      status: 'pending',
-      chatId: null,
+    this.gateway.emitMatchUpdated(otherUserId, {
+      matchId,
+      status: 'active',
+      chatId,
+      source: 'icebreaker',
     });
-
-    return { success: true, data: { matched: true, matchId: match.id } };
   }
 
   async expireSessions() {

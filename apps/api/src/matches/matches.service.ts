@@ -331,12 +331,13 @@ export class MatchesService {
 
   private emitMatchUpdate(
     userId: string,
-    match: { id: string; status: MatchStatus; chat?: { id: string } | null },
+    match: { id: string; status: MatchStatus; source: MatchSource; chat?: { id: string } | null },
   ) {
     this.gateway.emitMatchUpdated(userId, {
       matchId: match.id,
       status: match.status,
       chatId: match.chat?.id ?? null,
+      source: match.source,
     });
   }
 

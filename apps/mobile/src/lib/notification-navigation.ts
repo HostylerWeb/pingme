@@ -69,7 +69,10 @@ export function getNotificationHref(payload: NotificationNavigationPayload): Hre
   if (payload.type === 'chat.message' && payload.chatId) {
     return `/chat/${payload.chatId}`;
   }
-  if (payload.type === 'match.request' && payload.chatId) {
+  if (
+    (payload.type === 'match.request' || payload.type === 'icebreaker.match') &&
+    payload.chatId
+  ) {
     return `/chat/${payload.chatId}`;
   }
   if (

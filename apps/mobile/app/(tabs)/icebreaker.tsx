@@ -24,6 +24,7 @@ import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { forceLocationPing } from '../../src/lib/throttled-location-ping';
+import { useAppSocket } from '../../src/lib/app-socket';
 import {
   getIcebreakerShowPhotoPreference,
   setIcebreakerShowPhotoPreference,
@@ -267,8 +268,8 @@ function IcebreakerHelpSheet({
   const steps = [
     `Turn on Break the ice when you're open to meeting people ${radiusText.toLowerCase()}.`,
     `You'll appear to others who also have it on — and you can browse who's nearby.`,
-    `Tap Yes on someone you'd like to meet. If they tap Yes on you too, you'll both get a connection request.`,
-    `Accept the request to start chatting. Say No to pass — they won't be notified.`,
+    `Tap Yes on someone you'd like to meet. If they tap Yes on you too, a private chat opens right away.`,
+    `Say No to pass — they won't be notified.`,
     `Your session stays on for about ${formatDurationMinutes(windowMinutes)}, or until you turn it off.`,
     `If someone doesn't respond within ${formatDurationMinutes(interestExpiryMinutes)}, the request expires quietly.`,
   ];
@@ -277,7 +278,7 @@ function IcebreakerHelpSheet({
     <BottomSheet visible={visible} title="How Break the ice works" onClose={onClose}>
       <Text style={styles.intro}>
         Break the ice is for meeting people in person nearby — not anonymous browsing. Both
-        people have to opt in. (OTA update active)
+        people have to opt in.
       </Text>
       {steps.map((body, index) => (
         <View key={body} style={styles.step}>
@@ -448,16 +449,12 @@ function IcebreakerRow({
   person,
   onYes,
   onNo,
-  onAccept,
-  onDecline,
   onBlock,
   loading,
 }: {
   person: IcebreakerNearbyUser;
   onYes: () => void;
   onNo: () => void;
-  onAccept: () => void;
-  onDecline: () => void;
   onBlock: () => void;
   loading: boolean;
 }) {
@@ -466,7 +463,7 @@ function IcebreakerRow({
   const icebreakerRadiusText = icebreakerRadiusLabel(distanceConfig.icebreaker.radiusMeters);
   const interestExpiryLabel = formatDurationMinutes(distanceConfig.icebreaker.interestExpiryMinutes);
   const featured = person.highlight !== null;
-  const waiting = person.myResponse === 'yes' && person.highlight !== 'mutual_match';
+  const waiting = person.myResponse === 'yes' && person.highlight !== 'interested_in_you';
 
   const styles = useThemedStyles(({ colors }) => ({
     personCard: { marginBottom: 0 },
@@ -558,16 +555,10 @@ function IcebreakerRow({
         <Text style={styles.personIntro}>&ldquo;{person.introMessage}&rdquo;</Text>
       ) : null}
 
-      {person.highlight === 'mutual_match' && person.matchId ? (
-        <View style={styles.responseRow}>
-          <ResponsePill label="Not now" filled={false} onPress={onDecline} disabled={loading} />
-          <ResponsePill
-            label="Accept"
-            filled
-            onPress={onAccept}
-            disabled={loading}
-            successHaptic
-          />
+      {person.highlight === 'mutual_match' ? (
+        <View style={styles.waitingRow}>
+          <AppIcon name="check-circle" size={14} color={colors.accent} />
+          <Text style={styles.waitingText}>You&apos;re connected — open Chats to message.</Text>
         </View>
       ) : waiting ? (
         <View style={styles.waitingRow}>
@@ -587,6 +578,7 @@ function IcebreakerRow({
 export default function IcebreakerScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { socket } = useAppSocket();
   const { contentBottom } = useTabBarInsets();
   const { colors } = useTheme();
   const [screenFocused, setScreenFocused] = useState(false);
@@ -608,9 +600,8 @@ export default function IcebreakerScreen() {
   const icebreakerRadiusText = icebreakerRadiusLabel(distanceConfig.icebreaker.radiusMeters);
   const icebreakerRadiusTextLower = icebreakerRadiusText.toLowerCase();
   const [celebration, setCelebration] = useState<{
-    kind: 'mutual_yes' | 'connected';
-    matchId?: string;
-    chatId?: string;
+    kind: 'connected';
+    chatId: string;
     displayName?: string;
   } | null>(null);
   const [blockTarget, setBlockTarget] = useState<{ userId: string; displayName: string } | null>(
@@ -759,7 +750,8 @@ export default function IcebreakerScreen() {
     placeholderData: keepPreviousData,
     staleTime: 10_000,
     refetchInterval: (query) => {
-      const serverActive = query.state.data?.data?.session?.status === 'active';
+      const status = query.state.data?.data?.session?.status;
+      const serverActive = status === 'active' || status === 'matched';
       const on = optimisticIcebreakerOn ?? serverActive;
       return on ? statusRefetchIntervalActive : statusRefetchIntervalIdle;
     },
@@ -768,7 +760,8 @@ export default function IcebreakerScreen() {
 
   const session = icebreakerData?.data?.session ?? null;
   const unanswered = icebreakerData?.data?.unanswered ?? [];
-  const serverIcebreakerActive = session?.status === 'active';
+  const serverIcebreakerActive =
+    session?.status === 'active' || session?.status === 'matched';
   const icebreakerOn = optimisticIcebreakerOn ?? serverIcebreakerActive;
   const nearbyPromptCount = useIcebreakerNearbyPromptStore((state) => state.nearbyCount);
 
@@ -818,14 +811,11 @@ export default function IcebreakerScreen() {
     refetchIntervalInBackground: false,
   });
 
-  const pendingConnections = (matchesData?.data ?? []).filter((m) => m.status === 'pending');
-  const pendingUserIds = new Set(
-    pendingConnections.map((m) => m.otherUser.id).filter((id): id is string => !!id),
+  const pendingWallConnections = (matchesData?.data ?? []).filter(
+    (m) => m.status === 'pending' && m.source === 'wall_reply',
   );
 
-  const hasPendingMatch = pendingConnections.some((m) => m.source === 'icebreaker');
-
-  const canBrowse = icebreakerOn || hasPendingMatch;
+  const canBrowse = icebreakerOn;
 
   const {
     data: nearbyData,
@@ -848,10 +838,25 @@ export default function IcebreakerScreen() {
   });
 
   const people = nearbyData?.data ?? [];
-  const nearbyPeople = people.filter(
-    (person) => !(person.highlight === 'mutual_match' && pendingUserIds.has(person.userId)),
-  );
+  const nearbyPeople = people;
   const featuredCount = nearbyPeople.filter((p) => p.highlight !== null).length;
+
+  useEffect(() => {
+    if (!socket) return;
+    const onMatchUpdated = (payload: {
+      status: string;
+      chatId?: string | null;
+      source?: string;
+    }) => {
+      if (payload.status === 'active' && payload.chatId && payload.source === 'icebreaker') {
+        setCelebration({ kind: 'connected', chatId: payload.chatId });
+      }
+    };
+    socket.on('match.updated', onMatchUpdated);
+    return () => {
+      socket.off('match.updated', onMatchUpdated);
+    };
+  }, [socket]);
 
   const ensureServerLocation = useCallback(async () => {
     const located = coords ?? (await ping({ preferCached: false }));
@@ -993,12 +998,12 @@ export default function IcebreakerScreen() {
       queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
       queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
       queryClient.invalidateQueries({ queryKey: ['matches'] });
-      if (result.data?.matched && result.data.matchId) {
+      if (result.data?.matched && result.data.chatId) {
         const nearby = queryClient.getQueryData<{ data: IcebreakerNearbyUser[] }>(['icebreaker-nearby']);
         const person = nearby?.data?.find((item) => item.userId === targetUserId);
         setCelebration({
-          kind: 'mutual_yes',
-          matchId: result.data.matchId,
+          kind: 'connected',
+          chatId: result.data.chatId,
           displayName: person?.displayName,
         });
       }
@@ -1189,10 +1194,10 @@ export default function IcebreakerScreen() {
           />
         </View>
 
-        {pendingConnections.length > 0 ? (
+        {pendingWallConnections.length > 0 ? (
           <View style={styles.pendingSection}>
             <SectionLabel>Connection requests</SectionLabel>
-            {pendingConnections.map((connection) => (
+            {pendingWallConnections.map((connection) => (
               <PendingConnectionCard
                 key={connection.id}
                 connection={connection}
@@ -1215,7 +1220,7 @@ export default function IcebreakerScreen() {
           </View>
         ) : null}
 
-        {!icebreakerOn && pendingConnections.length === 0 ? (
+        {!icebreakerOn && pendingWallConnections.length === 0 ? (
           showNearbyPrompt ? (
             <Text style={styles.nearbyFootnote}>
               Tap Turn on &amp; browse above to see who&apos;s nearby.
@@ -1225,7 +1230,7 @@ export default function IcebreakerScreen() {
             icon="people"
             scene="ice"
             title="You're hidden for now"
-            message={`Turn on Break the ice to browse people ${icebreakerRadiusTextLower} who also want to connect. Tap yes on someone — if they tap yes too, you can start chatting.`}
+            message={`Turn on Break the ice to browse people ${icebreakerRadiusTextLower} who also want to connect. Tap yes on someone — if they tap yes too, you can chat right away.`}
             action={
               <Button
                 label="Turn on Break the ice"
@@ -1281,10 +1286,7 @@ export default function IcebreakerScreen() {
                   <IcebreakerRow
                     key={person.userId}
                     person={person}
-                    loading={
-                      respondingTo === person.userId ||
-                      (!!person.matchId && respondingTo === person.matchId)
-                    }
+                    loading={respondingTo === person.userId}
                     onYes={() => {
                       if (!ensureVerified()) return;
                       interestMutation.mutate({ targetUserId: person.userId, interested: true });
@@ -1292,15 +1294,6 @@ export default function IcebreakerScreen() {
                     onNo={() =>
                       interestMutation.mutate({ targetUserId: person.userId, interested: false })
                     }
-                    onAccept={() => {
-                      if (!person.matchId) return;
-                      if (!ensureVerified()) return;
-                      acceptMutation.mutate(person.matchId);
-                    }}
-                    onDecline={() => {
-                      if (!person.matchId) return;
-                      declineMutation.mutate(person.matchId);
-                    }}
                     onBlock={() =>
                       setBlockTarget({
                         userId: person.userId,
@@ -1364,13 +1357,11 @@ export default function IcebreakerScreen() {
 
       <ConnectionCelebrationModal
         visible={celebration !== null}
-        kind={celebration?.kind ?? 'mutual_yes'}
+        kind="connected"
         displayName={celebration?.displayName}
         onPrimary={() => {
-          if (celebration?.kind === 'connected' && celebration.chatId) {
+          if (celebration?.chatId) {
             router.push(`/chat/${celebration.chatId}`);
-          } else if (celebration?.matchId) {
-            router.push(`/match/${celebration.matchId}`);
           }
           setCelebration(null);
         }}

@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { ChatModule } from '../chat/chat.module';
 import { BlocksService } from '../common/services/blocks.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ReputationModule } from '../reputation/reputation.module';
 import { VerificationModule } from '../verification/verification.module';
 import { IcebreakerController } from './icebreaker.controller';
 import { IcebreakerMatchingService } from './icebreaker-matching.service';
@@ -9,7 +10,7 @@ import { IcebreakerNearbyPushService } from './icebreaker-nearby-push.service';
 import { IcebreakerService } from './icebreaker.service';
 
 @Module({
-  imports: [NotificationsModule, VerificationModule, forwardRef(() => ChatModule)],
+  imports: [NotificationsModule, VerificationModule, ReputationModule, forwardRef(() => ChatModule)],
   controllers: [IcebreakerController],
   providers: [
     IcebreakerService,
