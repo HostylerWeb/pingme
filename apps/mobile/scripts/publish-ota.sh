@@ -7,8 +7,10 @@ ROOT_DIR="$(cd "${MOBILE_DIR}/../.." && pwd)"
 SECRETS_FILE="${ROOT_DIR}/infrastructure/ota/bootstrap.secrets.env"
 
 if [[ -f "${SECRETS_FILE}" ]]; then
+  set -a
   # shellcheck disable=SC1090
   source "${SECRETS_FILE}"
+  set +a
 fi
 
 : "${EOO_TOKEN:?Set EOO_TOKEN or run scripts/bootstrap-xprem.sh first}"
