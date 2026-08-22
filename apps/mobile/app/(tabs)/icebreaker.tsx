@@ -24,6 +24,10 @@ import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
 import { forceLocationPing } from '../../src/lib/throttled-location-ping';
+import {
+  getIcebreakerShowPhotoPreference,
+  setIcebreakerShowPhotoPreference,
+} from '../../src/lib/icebreaker-preferences-storage';
 import { useToastStore, showToast } from '../../src/stores/toast-store';
 import {
   clearIcebreakerNearbyPrompt,
@@ -595,7 +599,7 @@ export default function IcebreakerScreen() {
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
   const [icebreakerSetupOpen, setIcebreakerSetupOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [showPhoto, setShowPhoto] = useState(false);
+  const [showPhoto, setShowPhoto] = useState(() => getIcebreakerShowPhotoPreference());
   const [introMessage, setIntroMessage] = useState('');
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
   const [optimisticIcebreakerOn, setOptimisticIcebreakerOn] = useState<boolean | null>(null);
@@ -748,6 +752,27 @@ export default function IcebreakerScreen() {
   const serverIcebreakerActive = session?.status === 'active';
   const icebreakerOn = optimisticIcebreakerOn ?? serverIcebreakerActive;
   const nearbyPromptCount = useIcebreakerNearbyPromptStore((state) => state.nearbyCount);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!icebreakerOn) return;
+      void (async () => {
+        const located = coords ?? (await ping({ preferCached: false }));
+        if (located) {
+          await forceLocationPing(located);
+          await queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
+        }
+      })();
+    }, [coords, icebreakerOn, ping, queryClient]),
+  );
+
+  useEffect(() => {
+    if (session?.showPhoto != null) {
+      setShowPhoto(session.showPhoto);
+      setIcebreakerShowPhotoPreference(session.showPhoto);
+    }
+  }, [session?.showPhoto]);
+
   const showNearbyPrompt = !icebreakerOn && nearbyPromptCount != null && nearbyPromptCount > 0;
   const timeRemainingLabel = useIcebreakerCountdown(session?.expiresAt, icebreakerOn);
 
@@ -848,7 +873,7 @@ export default function IcebreakerScreen() {
       }
       return api.startIcebreaker(
         action === 'start-quick'
-          ? {}
+          ? { showPhoto: getIcebreakerShowPhotoPreference() }
           : {
               showPhoto,
               introMessage: introMessage.trim() || undefined,
@@ -1284,7 +1309,14 @@ export default function IcebreakerScreen() {
         </Text>
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Show my photo</Text>
-          <AppSwitch variant="accent" value={showPhoto} onValueChange={setShowPhoto} />
+          <AppSwitch
+            variant="accent"
+            value={showPhoto}
+            onValueChange={(value) => {
+              setShowPhoto(value);
+              setIcebreakerShowPhotoPreference(value);
+            }}
+          />
         </View>
         <Input
           label="Intro (optional)"
