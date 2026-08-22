@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable } from 'react-native';
-import { useTheme, useThemedStyles } from '../../theme';
+import { radius, useTheme, useThemedStyles } from '../../theme';
 import { AppIcon } from './app-icon';
 
 export function HeaderRefreshButton({
@@ -12,12 +12,16 @@ export function HeaderRefreshButton({
   accessibilityLabel?: string;
 }) {
   const { colors } = useTheme();
-  const styles = useThemedStyles(() => ({
+  const styles = useThemedStyles(({ colors }) => ({
     btn: {
       width: 40,
       height: 40,
+      borderRadius: radius.full,
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     pressed: { opacity: 0.85 },
   }));
