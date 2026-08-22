@@ -1,13 +1,15 @@
 import * as Updates from 'expo-updates';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
 export type OtaUpdateState =
   | { status: 'idle' }
   | { status: 'checking' }
   | { status: 'downloading' }
-  | { status: 'ready'; onRestart: () => Promise<void> }
+  | { status: 'ready'; updateId?: string; onRestart: () => Promise<void> }
   | { status: 'error'; message: string };
+
+const FOREGROUND_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 
 function shouldCheckForUpdates(): boolean {
   if (__DEV__) return false;
@@ -16,32 +18,25 @@ function shouldCheckForUpdates(): boolean {
 }
 
 export function useOtaUpdates(): OtaUpdateState {
-  const [state, setState] = useState<OtaUpdateState>({ status: 'idle' });
+  const {
+    isUpdateAvailable,
+    isUpdatePending,
+    isChecking,
+    isDownloading,
+    checkError,
+    downloadError,
+    downloadedUpdate,
+  } = Updates.useUpdates();
+
   const checkingRef = useRef(false);
 
   const check = useCallback(async () => {
     if (!shouldCheckForUpdates() || checkingRef.current) return;
     checkingRef.current = true;
-    setState({ status: 'checking' });
-
     try {
-      const result = await Updates.checkForUpdateAsync();
-      if (!result.isAvailable) {
-        setState({ status: 'idle' });
-        return;
-      }
-
-      setState({ status: 'downloading' });
-      await Updates.fetchUpdateAsync();
-      setState({
-        status: 'ready',
-        onRestart: async () => {
-          await Updates.reloadAsync();
-        },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Update check failed';
-      setState({ status: 'error', message });
+      await Updates.checkForUpdateAsync();
+    } catch {
+      // useUpdates surfaces errors via checkError
     } finally {
       checkingRef.current = false;
     }
@@ -61,5 +56,50 @@ export function useOtaUpdates(): OtaUpdateState {
     return () => sub.remove();
   }, [check]);
 
-  return state;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        void check();
+      }
+    }, FOREGROUND_CHECK_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [check]);
+
+  useEffect(() => {
+    if (!shouldCheckForUpdates()) return;
+    if (isUpdateAvailable && !isUpdatePending && !isDownloading) {
+      void Updates.fetchUpdateAsync();
+    }
+  }, [isUpdateAvailable, isUpdatePending, isDownloading]);
+
+  if (!shouldCheckForUpdates()) {
+    return { status: 'idle' };
+  }
+
+  const error = downloadError ?? checkError;
+  if (error) {
+    return { status: 'error', message: error.message };
+  }
+
+  if (isUpdatePending) {
+    const updateId =
+      downloadedUpdate?.type === 'new' ? downloadedUpdate.updateId : undefined;
+    return {
+      status: 'ready',
+      updateId,
+      onRestart: async () => {
+        await Updates.reloadAsync();
+      },
+    };
+  }
+
+  if (isDownloading) {
+    return { status: 'downloading' };
+  }
+
+  if (isChecking) {
+    return { status: 'checking' };
+  }
+
+  return { status: 'idle' };
 }

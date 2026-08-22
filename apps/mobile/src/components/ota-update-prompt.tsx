@@ -6,7 +6,7 @@ import { BottomSheet, Button } from './ui';
 
 export function OtaUpdatePrompt({ state }: { state: OtaUpdateState }) {
   const [restarting, setRestarting] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissedUpdateId, setDismissedUpdateId] = useState<string | null>(null);
   const styles = useThemedStyles(({ colors }) => ({
     body: {
       ...typography.bodyMd,
@@ -17,6 +17,9 @@ export function OtaUpdatePrompt({ state }: { state: OtaUpdateState }) {
     actions: { gap: spacing.sm },
   }));
 
+  const pendingUpdateId = state.status === 'ready' ? state.updateId : undefined;
+  const dismissed = pendingUpdateId != null && dismissedUpdateId === pendingUpdateId;
+
   if (state.status !== 'ready' || dismissed) {
     return null;
   }
@@ -26,7 +29,11 @@ export function OtaUpdatePrompt({ state }: { state: OtaUpdateState }) {
       visible
       title="Update available"
       subtitle="A new version of PingMe is ready."
-      onClose={() => setDismissed(true)}
+      onClose={() => {
+        if (pendingUpdateId) {
+          setDismissedUpdateId(pendingUpdateId);
+        }
+      }}
     >
       <Text style={styles.body}>
         Restart to load the latest improvements. Your session stays signed in.
@@ -44,7 +51,15 @@ export function OtaUpdatePrompt({ state }: { state: OtaUpdateState }) {
             }
           }}
         />
-        <Button label="Later" variant="ghost" onPress={() => setDismissed(true)} />
+        <Button
+          label="Later"
+          variant="ghost"
+          onPress={() => {
+            if (pendingUpdateId) {
+              setDismissedUpdateId(pendingUpdateId);
+            }
+          }}
+        />
       </View>
     </BottomSheet>
   );
