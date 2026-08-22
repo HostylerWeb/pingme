@@ -39,6 +39,7 @@ import {
   DistancePill,
   DisplayNameWithFlair,
   EmptyState,
+  HeaderRefreshButton,
   Input,
   LivenessBanner,
   ListSkeleton,
@@ -244,6 +245,8 @@ export default function WallScreen() {
     router.push(`/post/${item.postId}`);
   };
 
+  const [headerRefreshing, setHeaderRefreshing] = useState(false);
+
   const {
     data,
     isLoading,
@@ -283,6 +286,23 @@ export default function WallScreen() {
     },
     enabled: !!coords,
   });
+
+  const refreshWall = useCallback(async () => {
+    setHeaderRefreshing(true);
+    try {
+      const located = coords ?? (await ping({ preferCached: false }));
+      if (located) {
+        await forceLocationPing(located);
+      }
+      await refetch();
+      await queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
+      await queryClient.invalidateQueries({ queryKey: ['presence-status'] });
+    } catch {
+      showToast('Could not refresh', 'error');
+    } finally {
+      setHeaderRefreshing(false);
+    }
+  }, [coords, ping, queryClient, refetch]);
 
   const posts = useMemo(
     () => data?.pages.flatMap((page) => page.data) ?? [],
@@ -490,6 +510,11 @@ export default function WallScreen() {
         subtitle={wallSubtitle(radiusMeters)}
         right={
           <View style={styles.headerActions}>
+            <HeaderRefreshButton
+              onPress={() => void refreshWall()}
+              loading={headerRefreshing}
+              accessibilityLabel="Refresh wall"
+            />
             <Pressable
               onPress={() => setNotificationsOpen(true)}
               accessibilityRole="button"

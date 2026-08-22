@@ -1,7 +1,5 @@
 import {
   BadRequestException,
-  HttpException,
-  HttpStatus,
   Inject,
   Injectable,
   NotFoundException,
@@ -11,12 +9,10 @@ import { Prisma } from '@pingme/db';
 import {
   distanceBucket,
   fuzzyCoordinate,
-  LOCATION_PINGS_PER_HOUR,
 } from '@pingme/shared';
 import { BlocksService } from '../common/services/blocks.service';
 import { AppConfigService } from '../config/app-config.service';
 import { loadPublicProfileMap } from '../common/utils/public-profile.util';
-import { RateLimitService } from '../common/services/rate-limit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.module';
 import { ChatGateway } from '../chat/chat.gateway';
@@ -31,7 +27,6 @@ export class PresenceService {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly appConfig: AppConfigService,
-    private readonly rateLimit: RateLimitService,
     private readonly blocks: BlocksService,
     private readonly verification: VerificationService,
     @Inject(forwardRef(() => ChatGateway))
@@ -39,15 +34,6 @@ export class PresenceService {
   ) {}
 
   async ping(userId: string, dto: PresencePingInput) {
-    const allowed = await this.rateLimit.incrementWithinWindow(
-      `rate:ping:${userId}`,
-      LOCATION_PINGS_PER_HOUR,
-      3600,
-    );
-    if (!allowed) {
-      throw new HttpException('Location ping rate limit exceeded', HttpStatus.TOO_MANY_REQUESTS);
-    }
-
     const fuzzyLat = fuzzyCoordinate(dto.latitude);
     const fuzzyLng = fuzzyCoordinate(dto.longitude);
 

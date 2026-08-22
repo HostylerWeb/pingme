@@ -1,4 +1,5 @@
 export { AppIcon } from './app-icon';
+export { HeaderRefreshButton } from './header-refresh-button';
 export type { AppIconName } from './app-icon';
 export { GenderPicker, GenderReadOnly } from './gender-picker';
 export { DateOfBirthField } from './date-of-birth-field';

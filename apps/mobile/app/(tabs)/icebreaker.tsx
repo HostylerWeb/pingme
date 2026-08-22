@@ -48,6 +48,7 @@ import {
   PresencePulse,
   hapticLight,
   hapticSuccess,
+  HeaderRefreshButton,
   Input,
   LivenessBanner,
   LoadingView,
@@ -615,6 +616,24 @@ export default function IcebreakerScreen() {
   const [blockTarget, setBlockTarget] = useState<{ userId: string; displayName: string } | null>(
     null,
   );
+  const [headerRefreshing, setHeaderRefreshing] = useState(false);
+
+  const refreshIcebreaker = useCallback(async () => {
+    setHeaderRefreshing(true);
+    try {
+      const located = coords ?? (await ping({ preferCached: false }));
+      if (located) {
+        await forceLocationPing(located);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['icebreaker-nearby'] });
+      await queryClient.invalidateQueries({ queryKey: ['icebreaker-status'] });
+      await queryClient.invalidateQueries({ queryKey: ['matches'] });
+    } catch {
+      showToast('Could not refresh', 'error');
+    } finally {
+      setHeaderRefreshing(false);
+    }
+  }, [coords, ping, queryClient]);
 
   const styles = useThemedStyles(({ colors }) => ({
     denied: { flex: 1, justifyContent: 'center', padding: spacing.container },
@@ -1038,6 +1057,13 @@ export default function IcebreakerScreen() {
     titleSuffix: icebreakerTitleSuffix,
     showBrand: false as const,
     subtitle: ICEBREAKER_SUBTITLE,
+    right: (
+      <HeaderRefreshButton
+        onPress={() => void refreshIcebreaker()}
+        loading={headerRefreshing}
+        accessibilityLabel="Refresh nearby list"
+      />
+    ),
   };
 
   const acknowledgeMutation = useMutation({
