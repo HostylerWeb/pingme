@@ -272,7 +272,7 @@ function IcebreakerHelpSheet({
     <BottomSheet visible={visible} title="How Break the ice works" onClose={onClose}>
       <Text style={styles.intro}>
         Break the ice is for meeting people in person nearby — not anonymous browsing. Both
-        people have to opt in.
+        people have to opt in. (OTA update active)
       </Text>
       {steps.map((body, index) => (
         <View key={body} style={styles.step}>
