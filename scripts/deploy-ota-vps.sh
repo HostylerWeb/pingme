@@ -26,8 +26,8 @@ SSHPASS="$Password" sshpass -e ssh -o StrictHostKeyChecking=no "${User}@${Host}"
 set -euo pipefail
 SITE_DIR="${SiteDir}"
 cd "\$SITE_DIR"
-git fetch origin main
-git reset --hard origin/main
+git -c safe.directory="\$SITE_DIR" fetch origin main
+git -c safe.directory="\$SITE_DIR" reset --hard origin/main
 
 OTA_DIR="\$SITE_DIR/infrastructure/ota"
 ENV_FILE="\$OTA_DIR/.env"
