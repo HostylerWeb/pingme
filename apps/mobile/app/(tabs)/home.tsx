@@ -1,7 +1,7 @@
 import { distanceLabel, WALL_POST_MAX_AGE_HOURS } from '@pingme/shared';
 import { AppIcon } from '../../src/components/ui/app-icon';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,10 +13,6 @@ import {
 } from 'react-native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, WallNotificationItem, WallPost } from '../../src/lib/api';
-import {
-  stopBackgroundLocation,
-  syncBackgroundLocationWithAvailability,
-} from '../../src/lib/background-location';
 import { useLocationPing } from '../../src/hooks/use-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useAuthStore } from '../../src/stores/auth-store';
@@ -44,7 +40,6 @@ import {
   Input,
   LivenessBanner,
   ListSkeleton,
-  PresencePulse,
   Screen,
   SectionLabel,
 } from '../../src/components/ui';
@@ -150,13 +145,11 @@ export default function WallScreen() {
   const { coords, error: locationError, permissionGranted, requestPermission, ping } = useLocationPing(screenFocused);
   const [modalOpen, setModalOpen] = useState(false);
   const [radiusSheetOpen, setRadiusSheetOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [showPhoto, setShowPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
   const [deletePostTarget, setDeletePostTarget] = useState<WallPost | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [availableOn, setAvailableOn] = useState(false);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
   const user = useAuthStore((s) => s.user);
 
@@ -170,21 +163,6 @@ export default function WallScreen() {
     center: { flex: 1, justifyContent: 'center' },
     skeletonWrap: { paddingHorizontal: spacing.container },
     headerBlock: { paddingBottom: spacing.md },
-    presenceBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      paddingVertical: spacing.md,
-      marginBottom: spacing.lg,
-    },
-    presenceCopy: { flex: 1 },
-    presenceTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    presenceTitle: { ...typography.bodySemiBold, color: colors.ink, fontSize: 16 },
-    presenceHint: { ...typography.caption, color: colors.inkSecondary, marginTop: 2 },
     nearbySection: { marginBottom: spacing.lg },
     nearbyScroll: { gap: spacing.lg, paddingRight: spacing.container },
     nearbyPerson: { alignItems: 'center', width: 64, gap: 6 },
@@ -326,13 +304,6 @@ export default function WallScreen() {
     }, [queryClient]),
   );
 
-  useEffect(() => {
-    if (presenceData?.data == null) return;
-    const isAvailable = presenceData.data.isAvailable;
-    setAvailableOn(isAvailable);
-    void syncBackgroundLocationWithAvailability(isAvailable);
-  }, [presenceData?.data]);
-
   const { data: nearbyUsersData } = useQuery({
     queryKey: ['nearby-users'],
     queryFn: () => api.getNearbyUsers(),
@@ -369,44 +340,6 @@ export default function WallScreen() {
     },
   });
 
-  const availabilityMutation = useMutation({
-    mutationFn: async (isAvailable: boolean) => {
-      if (isAvailable) {
-        const foregroundGranted = await requestPermission();
-        if (!foregroundGranted) {
-          throw new Error('Location permission is required to go visible on the Wall.');
-        }
-        if (!coords) {
-          const location = await ping({ preferCached: true });
-          if (!location) {
-            throw new Error('Could not get your location. Try again in a moment.');
-          }
-        }
-      } else {
-        void stopBackgroundLocation();
-      }
-      return api.setAvailable(isAvailable);
-    },
-    onMutate: (isAvailable) => setAvailableOn(isAvailable),
-    onSuccess: (_data, isAvailable) => {
-      void syncBackgroundLocationWithAvailability(isAvailable);
-      queryClient.invalidateQueries({ queryKey: ['presence-status'] });
-      queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
-      setConfirmOpen(false);
-      showToast(
-        isAvailable ? "You're visible on the Wall" : "You're hidden on the Wall",
-        isAvailable ? 'success' : 'info',
-      );
-    },
-    onError: (error: Error) => {
-      setAvailableOn(serverAvailable);
-      if (!handleLivenessError(error)) {
-        showToast(error.message, 'error');
-      }
-      setConfirmOpen(false);
-    },
-  });
-
   const nearbyUsers = nearbyUsersData?.data.users ?? [];
   const radiusMeters =
     settingsData?.data.radiusMeters ?? nearbyUsersData?.data.radiusMeters ?? wallDefaultMeters;
@@ -436,16 +369,6 @@ export default function WallScreen() {
       setPosting(false);
     }
   }, [coords, draft, showPhoto, queryClient, handleLivenessError, ensureVerified]);
-
-  const handleAvailabilityToggle = (on: boolean) => {
-    if (on) {
-      if (!ensureVerified()) return;
-      setConfirmOpen(true);
-      return;
-    }
-    setAvailableOn(false);
-    availabilityMutation.mutate(false);
-  };
 
   const onDeletePost = (post: WallPost) => {
     setDeletePostTarget(post);
@@ -497,26 +420,6 @@ export default function WallScreen() {
 
   const listHeader = (
     <View style={styles.headerBlock}>
-      <View style={styles.presenceBar}>
-        <View style={styles.presenceCopy}>
-          <View style={styles.presenceTitleRow}>
-            <PresencePulse active={availableOn} color={availableOn ? colors.online : colors.inkMuted} />
-            <Text style={styles.presenceTitle}>{availableOn ? 'Visible on Wall' : 'Hidden on Wall'}</Text>
-          </View>
-          <Text style={styles.presenceHint}>
-            {availableOn
-              ? `Others within ${radiusMeters}m can see you're around on the Wall`
-              : 'Turn on to show up in the nearby list on the Wall — separate from Break the ice'}
-          </Text>
-        </View>
-        <AppSwitch
-          variant="online"
-          value={availableOn}
-          onValueChange={handleAvailabilityToggle}
-          disabled={availabilityMutation.isPending}
-        />
-      </View>
-
       {!isVerified ? <LivenessBanner /> : null}
       <DeletionScheduledBanner />
 
@@ -574,7 +477,7 @@ export default function WallScreen() {
             >
               <AppIcon name="settings" size={20} color={colors.ink} />
             </Pressable>
-            <AvailableChip isAvailable={availableOn} />
+            <AvailableChip isAvailable={serverAvailable} />
           </View>
         }
       />
@@ -639,21 +542,6 @@ export default function WallScreen() {
       >
         <AppIcon name="add" size={28} color={colors.onAccent} />
       </Pressable>
-
-      <BottomSheet
-        visible={confirmOpen}
-        title="Visible on Wall?"
-        subtitle={`People within ~${radiusMeters}m can see you're on the Wall while you use PingMe. "Allow only while using the app" is enough — no extra permission needed.`}
-        onClose={() => setConfirmOpen(false)}
-      >
-        <Button
-          label="Turn on"
-          onPress={() => availabilityMutation.mutate(true)}
-          loading={availabilityMutation.isPending}
-          style={styles.sheetBtn}
-        />
-        <Button label="Not now" variant="ghost" onPress={() => setConfirmOpen(false)} />
-      </BottomSheet>
 
       <BottomSheet
         visible={radiusSheetOpen}

@@ -168,6 +168,128 @@ function ResponsePill({
 const ICEBREAKER_SUBTITLE =
   'People open to meeting nearby. Say yes — if they say yes too, you can connect.';
 
+function IcebreakerTitleHelpButton({ onPress }: { onPress: () => void }) {
+  const styles = useThemedStyles(({ colors }) => ({
+    button: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 1.5,
+      borderColor: colors.icebreakerStart,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 2,
+    },
+    label: {
+      ...typography.labelSm,
+      color: colors.icebreakerStart,
+      fontSize: 13,
+      lineHeight: 15,
+      fontFamily: typography.bodySemiBold.fontFamily,
+    },
+  }));
+
+  return (
+    <Pressable
+      onPress={() => {
+        void hapticLight();
+        onPress();
+      }}
+      hitSlop={10}
+      accessibilityRole="button"
+      accessibilityLabel="How Break the ice works"
+      style={({ pressed }) => [styles.button, pressed && { opacity: 0.75 }]}
+    >
+      <Text style={styles.label}>?</Text>
+    </Pressable>
+  );
+}
+
+function IcebreakerHelpSheet({
+  visible,
+  onClose,
+  radiusText,
+  windowMinutes,
+  interestExpiryMinutes,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  radiusText: string;
+  windowMinutes: number;
+  interestExpiryMinutes: number;
+}) {
+  const styles = useThemedStyles(({ colors }) => ({
+    intro: {
+      ...typography.bodyMd,
+      color: colors.inkSecondary,
+      lineHeight: 22,
+      marginBottom: spacing.lg,
+    },
+    step: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+      marginBottom: spacing.md,
+    },
+    stepNumber: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.icebreakerSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 1,
+    },
+    stepNumberText: {
+      ...typography.labelSm,
+      color: colors.icebreakerStart,
+      fontSize: 12,
+    },
+    stepBody: {
+      flex: 1,
+      ...typography.bodyMd,
+      color: colors.ink,
+      lineHeight: 22,
+    },
+    footnote: {
+      ...typography.caption,
+      color: colors.inkTertiary,
+      lineHeight: 18,
+      marginTop: spacing.sm,
+    },
+  }));
+
+  const steps = [
+    `Turn on Break the ice when you're open to meeting people ${radiusText.toLowerCase()}.`,
+    `You'll appear to others who also have it on — and you can browse who's nearby.`,
+    `Tap Yes on someone you'd like to meet. If they tap Yes on you too, you'll both get a connection request.`,
+    `Accept the request to start chatting. Say No to pass — they won't be notified.`,
+    `Your session stays on for about ${formatDurationMinutes(windowMinutes)}, or until you turn it off.`,
+    `If someone doesn't respond within ${formatDurationMinutes(interestExpiryMinutes)}, the request expires quietly.`,
+  ];
+
+  return (
+    <BottomSheet visible={visible} title="How Break the ice works" onClose={onClose}>
+      <Text style={styles.intro}>
+        Break the ice is for meeting people in person nearby — not anonymous browsing. Both
+        people have to opt in.
+      </Text>
+      {steps.map((body, index) => (
+        <View key={body} style={styles.step}>
+          <View style={styles.stepNumber}>
+            <Text style={styles.stepNumberText}>{index + 1}</Text>
+          </View>
+          <Text style={styles.stepBody}>{body}</Text>
+        </View>
+      ))}
+      <Text style={styles.footnote}>
+        You need face verification before you can turn Break the ice on or send interest.
+      </Text>
+      <Button label="Got it" variant="icebreaker" onPress={onClose} />
+    </BottomSheet>
+  );
+}
+
 function useIcebreakerCountdown(expiresAt: string | null | undefined, active: boolean) {
   const [label, setLabel] = useState<string | null>(null);
 
@@ -472,6 +594,7 @@ export default function IcebreakerScreen() {
   const { coords, permissionGranted, ping } = useLocationPing(screenFocused);
   const { ensureVerified, handleLivenessError, isVerified } = useLivenessGate();
   const [icebreakerSetupOpen, setIcebreakerSetupOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [showPhoto, setShowPhoto] = useState(false);
   const [introMessage, setIntroMessage] = useState('');
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
@@ -875,6 +998,17 @@ export default function IcebreakerScreen() {
     },
   });
 
+  const icebreakerTitleSuffix = (
+    <IcebreakerTitleHelpButton onPress={() => setHelpOpen(true)} />
+  );
+
+  const icebreakerHeaderProps = {
+    title: 'Break the ice',
+    titleSuffix: icebreakerTitleSuffix,
+    showBrand: false as const,
+    subtitle: ICEBREAKER_SUBTITLE,
+  };
+
   const acknowledgeMutation = useMutation({
     mutationFn: (interestIds: string[]) =>
       api.acknowledgeIcebreakerUnanswered({ interestIds }),
@@ -886,12 +1020,7 @@ export default function IcebreakerScreen() {
   if (permissionGranted === null) {
     return (
       <Screen padded={false}>
-        <AppHeader
-          title="Break the ice"
-          showBrand={false}
-          subtitle={ICEBREAKER_SUBTITLE}
-        />
-        <LoadingView />
+        <AppHeader {...icebreakerHeaderProps} />
       </Screen>
     );
   }
@@ -899,11 +1028,7 @@ export default function IcebreakerScreen() {
   if (permissionGranted === false) {
     return (
       <Screen padded={false} edges={[]}>
-        <AppHeader
-          title="Break the ice"
-          showBrand={false}
-          subtitle={ICEBREAKER_SUBTITLE}
-        />
+        <AppHeader {...icebreakerHeaderProps} />
         <View style={[styles.denied, { paddingBottom: contentBottom }]}>
           <EmptyState
             icon="location"
@@ -921,11 +1046,7 @@ export default function IcebreakerScreen() {
 
   return (
     <Screen padded={false} edges={[]}>
-      <AppHeader
-        title="Break the ice"
-        showBrand={false}
-        subtitle={ICEBREAKER_SUBTITLE}
-      />
+      <AppHeader {...icebreakerHeaderProps} />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: contentBottom }]}
@@ -1136,6 +1257,14 @@ export default function IcebreakerScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      <IcebreakerHelpSheet
+        visible={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        radiusText={icebreakerRadiusText}
+        windowMinutes={distanceConfig.icebreaker.windowMinutes}
+        interestExpiryMinutes={distanceConfig.icebreaker.interestExpiryMinutes}
+      />
 
       <BottomSheet
         visible={icebreakerSetupOpen}

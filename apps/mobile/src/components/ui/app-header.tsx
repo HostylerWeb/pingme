@@ -8,6 +8,7 @@ import { BrandMark } from './brand-mark';
 
 export function AppHeader({
   title = 'PingMe',
+  titleSuffix,
   subtitle,
   right,
   onBack,
@@ -16,6 +17,7 @@ export function AppHeader({
   centerTitle = false,
 }: {
   title?: string;
+  titleSuffix?: ReactNode;
   subtitle?: string;
   right?: ReactNode;
   onBack?: () => void;
@@ -49,6 +51,13 @@ export function AppHeader({
     },
     titleBlock: { flex: 1 },
     titleBlockCentered: { alignItems: 'center' },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      flexWrap: 'wrap',
+    },
+    titleRowCentered: { justifyContent: 'center' },
     brandRow: {
       marginBottom: 6,
     },
@@ -110,16 +119,19 @@ export function AppHeader({
               <BrandMark size="sm" />
             </View>
           ) : null}
-          <Text
-            style={[
-              large ? styles.titleLarge : styles.title,
-              !showBrand && !centerTitle && styles.titleStandalone,
-              centerTitle && styles.titleCentered,
-            ]}
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
+          <View style={[styles.titleRow, centerTitle && styles.titleRowCentered]}>
+            <Text
+              style={[
+                large ? styles.titleLarge : styles.title,
+                !showBrand && !centerTitle && styles.titleStandalone,
+                centerTitle && styles.titleCentered,
+              ]}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            {titleSuffix}
+          </View>
           {subtitle ? <Text style={[styles.subtitle, centerTitle && styles.subtitleCentered]}>{subtitle}</Text> : null}
         </View>
         {right ?? (centerTitle ? <View style={styles.sideSlot} /> : null)}

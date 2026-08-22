@@ -35,6 +35,8 @@ import { AppErrorBoundary } from '../src/components/app-error-boundary';
 import { AppLocationPingBridge } from '../src/components/app-location-ping-bridge';
 import { AccountReviewBanner } from '../src/components/account-review-banner';
 import { OfflineBanner } from '../src/components/offline-banner';
+import { OtaUpdatePrompt } from '../src/components/ota-update-prompt';
+import { useOtaUpdates } from '../src/hooks/use-ota-updates';
 import { ThemeProvider, spacing, typography, useTheme, useThemedStyles } from '../src/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -299,6 +301,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 function RootLayoutContent() {
   const { isDark } = useTheme();
   const { loaded: fontsLoaded } = useAppFonts();
+  const otaUpdate = useOtaUpdates();
 
   if (!fontsLoaded) {
     return <BootstrapLoading />;
@@ -309,6 +312,7 @@ function RootLayoutContent() {
       <QueryClientProvider client={queryClient}>
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <OfflineBanner />
+        <OtaUpdatePrompt state={otaUpdate} />
         <ConfigBootstrap>
           <AppSocketProvider>
             <AuthGate>

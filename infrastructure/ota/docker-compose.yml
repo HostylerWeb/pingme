@@ -1,0 +1,47 @@
+# Self-hosted Expo OTA (xprem) for PingMe staging.
+# Deploy path on VPS: /var/www/sites/pingme/infrastructure/ota/
+services:
+  xprem-db:
+    image: postgres:16
+    container_name: pingme-xprem-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: expo_open_ota
+      POSTGRES_USER: xprem
+      POSTGRES_PASSWORD: ${XPREM_DB_PASSWORD}
+    volumes:
+      - xprem_pg_data:/var/lib/postgresql/data
+    networks:
+      - xprem
+
+  xprem:
+    image: ghcr.io/mercuretechnologies/xprem:3.1.2
+    container_name: pingme-xprem
+    restart: unless-stopped
+    user: "0:0"
+    depends_on:
+      - xprem-db
+    ports:
+      - "127.0.0.1:3010:3000"
+    environment:
+      BASE_URL: ${XPREM_BASE_URL}
+      DB_URL: postgres://xprem:${XPREM_DB_PASSWORD}@xprem-db:5432/expo_open_ota?sslmode=disable
+      DB_KEYS_MASTER_KEY_B64: ${XPREM_DB_KEYS_MASTER_KEY_B64}
+      JWT_SECRET: ${XPREM_JWT_SECRET}
+      STORAGE_MODE: local
+      LOCAL_BUCKET_BASE_PATH: /updates
+      CACHE_MODE: local
+      USE_DASHBOARD: "true"
+      ADMIN_EMAIL: ${XPREM_ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${XPREM_ADMIN_PASSWORD}
+    volumes:
+      - xprem_updates:/updates
+    networks:
+      - xprem
+
+networks:
+  xprem:
+
+volumes:
+  xprem_pg_data:
+  xprem_updates:

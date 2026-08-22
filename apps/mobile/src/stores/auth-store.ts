@@ -11,7 +11,7 @@ import {
   saveCachedUser,
   saveTokens,
 } from '../lib/auth-storage';
-import { stopBackgroundLocation } from '../lib/background-location';
+import { goOfflinePresence } from '../hooks/use-auto-presence';
 import { unregisterPushNotifications } from '../lib/push-notifications';
 import { queryClient } from '../lib/query-client';
 
@@ -120,7 +120,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       try {
-        await stopBackgroundLocation();
+        await goOfflinePresence();
       } catch {
         // ignore
       }
