@@ -1,14 +1,9 @@
 import { Share } from 'react-native';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+import { getApiUrl, getInviteUrl } from './api-url';
 
 /** Public marketing / invite page (no /v1). */
 export function getInviteWebBaseUrl(): string {
-  const configured = process.env.EXPO_PUBLIC_INVITE_URL?.trim();
-  if (configured) {
-    return configured.replace(/\/$/, '');
-  }
-  return API_URL.replace(/\/v1\/?$/, '');
+  return getInviteUrl().replace(/\/$/, '');
 }
 
 export function buildInviteWebUrl(referrerUserId?: string): string {

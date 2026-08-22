@@ -1,4 +1,4 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+import { getApiUrl } from './api-url';
 
 export type LegalDoc = 'privacy' | 'terms';
 
@@ -9,7 +9,7 @@ export function defaultLegalUrl(doc: LegalDoc): string {
       ? process.env.EXPO_PUBLIC_PRIVACY_URL
       : process.env.EXPO_PUBLIC_TERMS_URL;
   if (explicit) return explicit;
-  return `${API_URL.replace(/\/$/, '')}/legal/${file}`;
+  return `${getApiUrl().replace(/\/$/, '')}/legal/${file}`;
 }
 
 export function resolveLegalUrl(

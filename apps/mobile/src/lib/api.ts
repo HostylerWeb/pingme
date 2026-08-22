@@ -7,8 +7,7 @@ import {
   setSignOutInProgress,
 } from './auth-session';
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from './auth-storage';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
+import { getApiUrl } from './api-url';
 
 const PUBLIC_AUTH_PATHS = new Set([
   '/auth/login',
@@ -60,7 +59,7 @@ async function performRefreshAccessToken(epochAtStart: number): Promise<string |
   if (!refreshToken || isStaleAuthSession(epochAtStart)) return null;
 
   try {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
+    const response = await fetch(`${getApiUrl()}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
@@ -153,7 +152,7 @@ export async function apiFetch<T>(
     headers.set('Authorization', `Bearer ${accessToken}`);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${getApiUrl()}${path}`, {
     ...options,
     headers,
   });
@@ -208,7 +207,7 @@ export async function uploadAvatarFile(key: string, uri: string, fileName: strin
     type: 'image/jpeg',
   } as unknown as Blob);
 
-  const response = await fetch(`${API_URL}/media/upload`, {
+  const response = await fetch(`${getApiUrl()}/media/upload`, {
     method: 'POST',
     headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     body: formData,

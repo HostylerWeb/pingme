@@ -8,6 +8,17 @@ import { BrandMark, Button, Input, PasswordInput, PhoneInput, Screen, SegmentedC
 import { isValidE164 } from '../../src/lib/phone-e164';
 import { spacing, typography, useThemedStyles } from '../../src/theme';
 
+function loginErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  if (error instanceof TypeError) {
+    const msg = error.message.toLowerCase();
+    if (msg.includes('network request failed') || msg.includes('failed to fetch')) {
+      return 'Cannot reach the server. Check your connection or restart the app after updating.';
+    }
+  }
+  return 'Login failed';
+}
+
 export default function LoginScreen() {
   const login = useAuthStore((s) => s.login);
   const isLoading = useAuthStore((s) => s.isLoading);
@@ -44,7 +55,7 @@ export default function LoginScreen() {
         await login(email.trim(), password, 'email');
       }
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Login failed';
+      const message = loginErrorMessage(error);
       showToast(message, 'error');
     }
   };

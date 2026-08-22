@@ -20,9 +20,19 @@ if (otaEnabled) {
   ]);
 }
 
+const STAGING_API_URL = 'https://pingme.hostyler.cloud/v1';
+const STAGING_WS_URL = 'wss://pingme.hostyler.cloud/ws';
+const STAGING_INVITE_URL = 'https://pingme.hostyler.cloud';
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   ...expo,
+  extra: {
+    ...(expo.extra ?? {}),
+    apiUrl: process.env.EXPO_PUBLIC_API_URL ?? STAGING_API_URL,
+    wsUrl: process.env.EXPO_PUBLIC_WS_URL ?? STAGING_WS_URL,
+    inviteUrl: process.env.EXPO_PUBLIC_INVITE_URL ?? STAGING_INVITE_URL,
+  },
   runtimeVersion: {
     policy: 'appVersion',
   },

@@ -2,10 +2,9 @@ import { BACKGROUND_PING_INTERVAL_MS } from '@pingme/shared';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { ensureValidAccessToken } from './api';
+import { getApiUrl } from './api-url';
 
 export const BACKGROUND_LOCATION_TASK = 'pingme-background-location';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
 
 TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (error) return;
@@ -22,7 +21,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (!token) return;
 
   try {
-    await fetch(`${API_URL}/presence/ping`, {
+    await fetch(`${getApiUrl()}/presence/ping`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

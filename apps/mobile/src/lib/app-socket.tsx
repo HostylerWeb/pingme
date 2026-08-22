@@ -14,20 +14,20 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { ensureValidAccessToken } from './api';
 import { getAccessToken } from './auth-storage';
+import { getApiUrl, getWsUrl } from './api-url';
 import { isMatchPromptDismissed } from './match-prompt-dismiss';
 import { useAuthStore } from '../stores/auth-store';
 import { iconForNotificationType, showIncomingBanner } from '../stores/incoming-banner-store';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000/v1';
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 
 function wsBaseUrl() {
-  const explicit = process.env.EXPO_PUBLIC_WS_URL;
+  const explicit = getWsUrl();
   if (explicit) {
     return explicit.replace(/\/ws\/?$/, '');
   }
-  const httpBase = API_URL.replace(/\/v1\/?$/, '');
+  const httpBase = getApiUrl().replace(/\/v1\/?$/, '');
   if (httpBase.startsWith('https://')) {
     return httpBase.replace('https://', 'wss://');
   }
