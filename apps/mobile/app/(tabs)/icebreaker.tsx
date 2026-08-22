@@ -967,10 +967,9 @@ export default function IcebreakerScreen() {
     },
   });
 
-  const handleQuickStart = async () => {
+  const handleOpenSetup = () => {
     if (!ensureVerified()) return;
-    if (!(await ensureServerLocation())) return;
-    icebreakerMutation.mutate('start-quick');
+    setIcebreakerSetupOpen(true);
   };
 
   const handleStartFromSheet = async () => {
@@ -1164,8 +1163,7 @@ export default function IcebreakerScreen() {
               <Button
                 label="Turn on & browse"
                 variant="icebreaker"
-                onPress={handleQuickStart}
-                loading={icebreakerMutation.isPending}
+                onPress={handleOpenSetup}
               />
             </View>
           </Card>
