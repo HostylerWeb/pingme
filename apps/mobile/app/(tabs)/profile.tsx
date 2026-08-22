@@ -65,6 +65,7 @@ export default function ProfileScreen() {
   const [editOpen, setEditOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(displayName);
   const [bioDraft, setBioDraft] = useState(bio ?? '');
+  const [phoneDraft, setPhoneDraft] = useState(user?.phone ?? '');
   const [genderDraft, setGenderDraft] = useState<GenderValue | null>(profileGender);
   const [saving, setSaving] = useState(false);
   const [sharingInvite, setSharingInvite] = useState(false);
@@ -235,6 +236,7 @@ export default function ProfileScreen() {
   const openEdit = () => {
     setNameDraft(displayName);
     setBioDraft(bio ?? '');
+    setPhoneDraft(user?.phone ?? '');
     setGenderDraft(profileGender);
     setEditOpen(true);
   };
@@ -252,6 +254,22 @@ export default function ProfileScreen() {
 
     setSaving(true);
     try {
+      const trimmedPhone = phoneDraft.trim();
+      const currentPhone = user?.phone ?? '';
+      if (trimmedPhone !== currentPhone) {
+        if (trimmedPhone && !/^\+[1-9]\d{6,14}$/.test(trimmedPhone)) {
+          showToast('Use international format, e.g. +15551234567', 'error');
+          setSaving(false);
+          return;
+        }
+        if (!trimmedPhone && !user?.email) {
+          showToast('Add an email before removing your phone number', 'error');
+          setSaving(false);
+          return;
+        }
+        await api.updateContact({ phone: trimmedPhone || null });
+      }
+
       const result = await api.updateProfile({
         displayName: trimmedName,
         bio: bioDraft.trim() || undefined,
@@ -289,6 +307,7 @@ export default function ProfileScreen() {
         large
         title="You"
         showBrand={false}
+        subtitle="Your profile, reputation, and account details."
         right={
           <Pressable
             onPress={() => router.push('/settings')}
@@ -452,6 +471,19 @@ export default function ProfileScreen() {
 
       <BottomSheet visible={editOpen} title="Edit profile" onClose={() => setEditOpen(false)}>
         <Input label="Display name" value={nameDraft} onChangeText={setNameDraft} maxLength={50} />
+        <Input
+          label="Phone"
+          placeholder="+15551234567"
+          keyboardType="phone-pad"
+          autoComplete="tel"
+          value={phoneDraft}
+          onChangeText={setPhoneDraft}
+          hint={
+            user?.phoneVerified && phoneDraft.trim() === (user?.phone ?? '')
+              ? 'Verified'
+              : 'International format (E.164). Changing your number requires verification again.'
+          }
+        />
         {profileGender ? (
           <GenderReadOnly label="Gender" value={genderLabel(profileGender)} />
         ) : (

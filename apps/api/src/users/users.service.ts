@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Profile, Prisma, UserStatus, WallPostStatus, WallReplyStatus } from '@pingme/db';
-import { ACCOUNT_DELETION_GRACE_DAYS, PREMIUM_AVATAR_THEMES, CancelAccountDeletionInput, DeleteAccountInput, MediaConfirmInput, MediaPresignInput, UpdateProfileInput, UpdateSettingsInput } from '@pingme/shared';
+import { ACCOUNT_DELETION_GRACE_DAYS, PREMIUM_AVATAR_THEMES, CancelAccountDeletionInput, DeleteAccountInput, MediaConfirmInput, MediaPresignInput, UpdateContactInput, UpdateProfileInput, UpdateSettingsInput } from '@pingme/shared';
 import * as bcrypt from 'bcrypt';
 import { AuditService } from '../audit/audit.service';
 import { AppConfigService } from '../config/app-config.service';
@@ -117,6 +117,55 @@ export class UsersService {
     });
 
     return profile;
+  }
+
+  async updateContact(
+    userId: string,
+    dto: UpdateContactInput,
+    meta: { ipAddress?: string; userAgent?: string } = {},
+  ) {
+    if (dto.phone === undefined) {
+      throw new BadRequestException('No contact fields to update');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const newPhone = dto.phone;
+    if (newPhone === user.phone) {
+      return { phone: user.phone, phoneVerified: user.phoneVerified };
+    }
+
+    if (newPhone) {
+      const existing = await this.prisma.user.findUnique({ where: { phone: newPhone } });
+      if (existing && existing.id !== userId) {
+        throw new ConflictException('Phone already in use');
+      }
+    } else if (!user.email) {
+      throw new BadRequestException('Add an email before removing your phone number');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        phone: newPhone,
+        phoneVerified: false,
+      },
+      select: { phone: true, phoneVerified: true },
+    });
+
+    await this.audit.log({
+      userId,
+      action: 'user.contact_update',
+      entityType: 'user',
+      entityId: userId,
+      ...meta,
+      metadata: { phoneUpdated: true },
+    });
+
+    return updated;
   }
 
   async updateSettings(userId: string, dto: UpdateSettingsInput) {

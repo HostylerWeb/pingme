@@ -8,6 +8,7 @@ import {
   MediaConfirmSchema,
   MediaPresignSchema,
   MediaUploadBase64Schema,
+  UpdateContactSchema,
   UpdateProfileSchema,
   UpdateSettingsSchema,
   CancelAccountDeletionInput,
@@ -15,6 +16,7 @@ import {
   MediaConfirmInput,
   MediaPresignInput,
   MediaUploadBase64Input,
+  UpdateContactInput,
   UpdateProfileInput,
   UpdateSettingsInput,
 } from '@pingme/shared';
@@ -48,6 +50,17 @@ export class UsersController {
     @Req() req: Request,
   ): Promise<{ success: boolean; data: Profile }> {
     const data = await this.usersService.updateProfile(user.id, dto, getRequestMeta(req));
+    return { success: true, data };
+  }
+
+  @Patch('users/me/contact')
+  @ApiOperation({ summary: 'Update phone number' })
+  async updateContact(
+    @CurrentUser() user: User,
+    @Body(new ZodValidationPipe(UpdateContactSchema)) dto: UpdateContactInput,
+    @Req() req: Request,
+  ) {
+    const data = await this.usersService.updateContact(user.id, dto, getRequestMeta(req));
     return { success: true, data };
   }
 

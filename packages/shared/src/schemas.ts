@@ -80,6 +80,16 @@ export const UpdateProfileSchema = z
   })
   .strict();
 
+const phoneE164Schema = z
+  .string()
+  .regex(/^\+[1-9]\d{6,14}$/, 'Phone must be in E.164 format (e.g. +15551234567)');
+
+export const UpdateContactSchema = z
+  .object({
+    phone: phoneE164Schema.nullable().optional(),
+  })
+  .strict();
+
 export const UpdateSettingsSchema = z
   .object({
     radiusMeters: z.number().int().min(1).max(100_000).optional(),
@@ -137,6 +147,7 @@ export const CancelAccountDeletionSchema = z
 export type SignUpInput = z.infer<typeof SignUpSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
+export type UpdateContactInput = z.infer<typeof UpdateContactSchema>;
 export type UpdateSettingsInput = z.infer<typeof UpdateSettingsSchema>;
 export type VerifyOtpInput = z.infer<typeof VerifyOtpSchema>;
 export type ForgotPasswordInput = z.infer<typeof ForgotPasswordSchema>;

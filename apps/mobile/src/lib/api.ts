@@ -309,6 +309,15 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  updateContact: (payload: { phone?: string | null }) =>
+    apiFetch<{
+      success: boolean;
+      data: { phone: string | null; phoneVerified: boolean };
+    }>('/users/me/contact', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
   uploadAvatarBase64: (payload: { key: string; contentType: string; data: string }) =>
     apiFetch('/media/upload-base64', {
       method: 'POST',
