@@ -68,7 +68,17 @@ export async function adminFetch<T>(
     throw new Error(message);
   }
 
-  return response.json() as Promise<T>;
+  const body = await response.json();
+  if (
+    body &&
+    typeof body === 'object' &&
+    (body as { success?: boolean }).success === true &&
+    'data' in body
+  ) {
+    return (body as { data: T }).data;
+  }
+
+  return body as T;
 }
 
 export async function loginAdmin(email: string, password: string) {

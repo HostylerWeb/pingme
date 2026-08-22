@@ -73,10 +73,11 @@ export function SystemHealthPanel() {
     void load();
   }, [load]);
 
-  const coreServices = health?.services.filter((s) =>
+  const services = health?.services ?? [];
+  const coreServices = services.filter((s) =>
     ['api', 'database', 'redis', 'notification_queue', 'push_delivery', 'ota_updates'].includes(s.id),
   );
-  const workerServices = health?.services.filter((s) => s.id.startsWith('worker_'));
+  const workerServices = services.filter((s) => s.id.startsWith('worker_'));
 
   return (
     <div className="mt-8">
@@ -118,7 +119,7 @@ export function SystemHealthPanel() {
                 Core services
               </h3>
               <ul className="space-y-3">
-                {coreServices?.map((service) => (
+                {coreServices.map((service) => (
                   <li
                     key={service.id}
                     className="flex items-start justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
@@ -141,7 +142,7 @@ export function SystemHealthPanel() {
                 Background workers
               </h3>
               <ul className="space-y-2">
-                {workerServices?.map((service) => (
+                {workerServices.map((service) => (
                   <li
                     key={service.id}
                     className="flex items-center justify-between gap-3 rounded-lg bg-surface-muted px-3 py-2"
