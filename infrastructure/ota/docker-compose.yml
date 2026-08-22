@@ -15,7 +15,7 @@ services:
       - xprem
 
   xprem:
-    image: ghcr.io/mercuretechnologies/xprem:3.1.2
+    image: ghcr.io/mercuretechnologies/xprem:latest
     container_name: pingme-xprem
     restart: unless-stopped
     user: "0:0"
