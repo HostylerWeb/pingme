@@ -42,6 +42,12 @@ export class NotificationsController {
     return this.inbox.markWallNotificationsRead(user.id, body.postId);
   }
 
+  @Post('wall/clear')
+  @ApiOperation({ summary: 'Delete all wall notifications' })
+  clearWall(@CurrentUser() user: User) {
+    return this.inbox.clearWallNotifications(user.id);
+  }
+
   @Post('test')
   @ApiOperation({ summary: 'Send a test push notification to the current user (non-production only)' })
   async sendTest(@CurrentUser() user: User) {

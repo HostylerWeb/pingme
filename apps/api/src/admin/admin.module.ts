@@ -30,6 +30,8 @@ import { AdminEventsController } from './events/admin-events.controller';
 import { AdminEventsService } from './events/admin-events.service';
 import { AdminWallController } from './wall/admin-wall.controller';
 import { AdminWallService } from './wall/admin-wall.service';
+import { AdminSystemHealthController } from './system/admin-system-health.controller';
+import { AdminSystemHealthService } from './system/admin-system-health.service';
 
 @Module({
   imports: [
@@ -61,6 +63,7 @@ import { AdminWallService } from './wall/admin-wall.service';
     AdminChatsController,
     AdminAdminsController,
     AdminMapController,
+    AdminSystemHealthController,
   ],
   providers: [
     AdminAuthService,
@@ -76,6 +79,7 @@ import { AdminWallService } from './wall/admin-wall.service';
     AdminAdminsService,
     AdminMapService,
     AdminMapRefreshService,
+    AdminSystemHealthService,
   ],
 })
 export class AdminModule {}

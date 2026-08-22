@@ -11,6 +11,6 @@ import { PushSenderService } from './push-sender.service';
   imports: [DevicesModule, PrismaModule],
   controllers: [NotificationsController],
   providers: [NotificationService, NotificationQueueService, PushSenderService, InboxService],
-  exports: [NotificationService, InboxService],
+  exports: [NotificationService, InboxService, NotificationQueueService],
 })
 export class NotificationsModule {}

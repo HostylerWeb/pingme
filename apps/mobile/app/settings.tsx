@@ -177,10 +177,26 @@ export default function SettingsScreen() {
       allowPushIcebreakerNearby?: boolean;
       allowPushEventsNearby?: boolean;
     }) => api.updateSettings(payload),
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: ['user-settings'] });
+      const previous = queryClient.getQueryData<{ success: boolean; data: Record<string, unknown> }>([
+        'user-settings',
+      ]);
+      if (previous?.data) {
+        queryClient.setQueryData(['user-settings'], {
+          ...previous,
+          data: { ...previous.data, ...payload },
+        });
+      }
+      return { previous };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-settings'] });
     },
-    onError: () => {
+    onError: (_error, _payload, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['user-settings'], context.previous);
+      }
       showToast('Could not update settings', 'error');
     },
   });

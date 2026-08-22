@@ -85,6 +85,11 @@ export class InboxService {
     return { success: true };
   }
 
+  async clearWallNotifications(userId: string) {
+    await this.prisma.userNotification.deleteMany({ where: { userId } });
+    return { success: true };
+  }
+
   async createWallReplyNotifications(params: {
     postId: string;
     postAuthorId: string;

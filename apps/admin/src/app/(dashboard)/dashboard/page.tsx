@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/page-header';
 import { Card, CardTitle, CardValue } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LoadingBlock } from '@/components/loading-block';
+import { SystemHealthPanel } from '@/components/system-health-panel';
 
 interface DashboardStats {
   dau: number;
@@ -220,6 +221,8 @@ export default function DashboardPage() {
             )}
             </div>
           </div>
+
+          <SystemHealthPanel />
         </>
       ) : null}
     </div>

@@ -526,6 +526,12 @@ export const api = {
       body: JSON.stringify(postId ? { postId } : {}),
     }),
 
+  clearWallNotifications: () =>
+    apiFetch<{ success: boolean }>('/notifications/wall/clear', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
   registerDevice: (payload: {
     platform: 'ios' | 'android';
     pushToken: string;

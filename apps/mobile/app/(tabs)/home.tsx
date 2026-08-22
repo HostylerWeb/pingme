@@ -14,6 +14,7 @@ import {
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError, WallNotificationItem, WallPost } from '../../src/lib/api';
 import { useLocationPing } from '../../src/hooks/use-location-ping';
+import { forceLocationPing } from '../../src/lib/throttled-location-ping';
 import { useLivenessGate } from '../../src/hooks/use-liveness-gate';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { useTabBarInsets } from '../../src/hooks/use-tab-bar-insets';
@@ -22,6 +23,7 @@ import { useNotificationSummary } from '../../src/hooks/use-notification-summary
 import { useWallNotifications } from '../../src/hooks/use-wall-notifications';
 import { useSocketAwareRefetchInterval } from '../../src/hooks/use-socket-aware-interval';
 import { DeletionScheduledBanner } from '../../src/components/deletion-scheduled-banner';
+import { WallNotificationsPanel } from '../../src/components/wall-notifications-panel';
 import { GenderSymbol } from '../../src/components/ui/gender-symbol';
 import { NearbyRadiusPicker, wallRadiusRangeLabelFromConfig } from '../../src/components/nearby-radius-picker';
 import { showToast } from '../../src/stores/toast-store';
@@ -220,16 +222,6 @@ export default function WallScreen() {
       backgroundColor: colors.accent,
     },
     bellBadgeText: { ...typography.labelSm, color: colors.onAccent, fontSize: 10 },
-    notificationRow: {
-      paddingVertical: spacing.md,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.divider,
-      gap: 4,
-    },
-    notificationRowUnread: { backgroundColor: colors.accentSoft },
-    notificationTitle: { ...typography.bodySemiBold, color: colors.ink },
-    notificationBody: { ...typography.bodyMd, color: colors.inkSecondary, lineHeight: 22 },
-    notificationMeta: { ...typography.caption, color: colors.inkTertiary },
   }));
 
   const { wallUnread } = useNotificationSummary();
@@ -261,9 +253,28 @@ export default function WallScreen() {
     hasNextPage,
     isFetchingNextPage,
     isError,
+    error: wallError,
   } = useInfiniteQuery({
     queryKey: ['wall-posts'],
-    queryFn: ({ pageParam }) => api.getWallPosts(pageParam, 20),
+    queryFn: async ({ pageParam }) => {
+      const page = pageParam ?? 1;
+      if (page === 1 && coords) {
+        try {
+          await forceLocationPing(coords);
+        } catch {
+          // Wall may still work if a prior ping synced location to the server.
+        }
+      }
+      try {
+        return await api.getWallPosts(page, 20);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 400 && coords) {
+          await forceLocationPing(coords);
+          return await api.getWallPosts(page, 20);
+        }
+        throw error;
+      }
+    },
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
       if (lastPage.meta.hasMore === false) return undefined;
@@ -277,6 +288,16 @@ export default function WallScreen() {
     () => data?.pages.flatMap((page) => page.data) ?? [],
     [data],
   );
+  const wallLoadErrorMessage = useMemo(() => {
+    if (!wallError) return null;
+    if (wallError instanceof ApiError) {
+      if (wallError.message.toLowerCase().includes('location')) {
+        return 'Your location is not synced yet. Tap Try again — if it keeps failing, open Settings and ensure location is allowed for PingMe.';
+      }
+      return wallError.message;
+    }
+    return 'Could not load posts';
+  }, [wallError]);
   const presenceRefetchInterval = useSocketAwareRefetchInterval({
     foreground: 60_000,
     connected: 5 * 60_000,
@@ -299,9 +320,19 @@ export default function WallScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void queryClient.invalidateQueries({ queryKey: ['presence-status'] });
-      void queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
-    }, [queryClient]),
+      void (async () => {
+        if (coords) {
+          try {
+            await forceLocationPing(coords);
+          } catch {
+            // Surface via wall query error state.
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ['presence-status'] });
+        await queryClient.invalidateQueries({ queryKey: ['nearby-users'] });
+        await queryClient.invalidateQueries({ queryKey: ['wall-posts'] });
+      })();
+    }, [coords, queryClient]),
   );
 
   const { data: nearbyUsersData } = useQuery({
@@ -518,7 +549,7 @@ export default function WallScreen() {
               title={isError ? 'Couldn’t load posts' : 'No posts yet'}
               message={
                 isError
-                  ? 'Check your connection and pull to try again.'
+                  ? wallLoadErrorMessage ?? 'Check your connection and pull to try again.'
                   : `Be the first to say something to people within about ${radiusMeters} meters. Posts older than ${WALL_POST_MAX_AGE_HOURS} hours leave the feed.`
               }
               action={
@@ -576,41 +607,13 @@ export default function WallScreen() {
         ) : null}
       </BottomSheet>
 
-      <BottomSheet
+      <WallNotificationsPanel
         visible={notificationsOpen}
-        title="Wall activity"
-        subtitle="Replies on your posts and threads you joined."
+        loading={notificationsLoading}
+        items={notificationsData?.data.items ?? []}
         onClose={() => setNotificationsOpen(false)}
-      >
-        {notificationsLoading && !notificationsData ? (
-          <ActivityIndicator color={colors.accent} style={{ marginVertical: spacing.lg }} />
-        ) : !notificationsData?.data.items.length ? (
-          <EmptyState
-            icon="notifications"
-            title="All caught up"
-            message="New replies on your posts or threads will show up here."
-          />
-        ) : (
-          notificationsData.data.items.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => openWallNotification(item)}
-              style={[
-                styles.notificationRow,
-                !item.readAt && styles.notificationRowUnread,
-              ]}
-            >
-              <Text style={styles.notificationTitle}>{item.title}</Text>
-              <Text style={styles.notificationBody} numberOfLines={2}>
-                {item.actorDisplayName}: {item.replyPreview}
-              </Text>
-              <Text style={styles.notificationMeta} numberOfLines={1}>
-                On “{item.postPreview}”
-              </Text>
-            </Pressable>
-          ))
-        )}
-      </BottomSheet>
+        onOpenItem={openWallNotification}
+      />
 
       <BottomSheet visible={modalOpen} title="Post to the wall" subtitle="Only people nearby will see this." onClose={() => setModalOpen(false)}>
         <Input

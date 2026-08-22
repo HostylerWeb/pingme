@@ -59,4 +59,45 @@ export class NotificationQueueService implements OnModuleInit, OnModuleDestroy {
       removeOnFail: 50,
     });
   }
+
+  async getQueueHealth(): Promise<{
+    status: 'ok' | 'degraded' | 'disabled';
+    workerActive: boolean;
+    counts?: {
+      active: number;
+      waiting: number;
+      delayed: number;
+      failed: number;
+      completed: number;
+    };
+  }> {
+    const workerActive = shouldRunWorkers();
+    if (!this.queue) {
+      return { status: 'disabled', workerActive };
+    }
+
+    try {
+      const counts = await this.queue.getJobCounts(
+        'active',
+        'waiting',
+        'delayed',
+        'failed',
+        'completed',
+      );
+      const failed = counts.failed ?? 0;
+      return {
+        status: workerActive ? (failed > 25 ? 'degraded' : 'ok') : 'disabled',
+        workerActive,
+        counts: {
+          active: counts.active ?? 0,
+          waiting: counts.waiting ?? 0,
+          delayed: counts.delayed ?? 0,
+          failed,
+          completed: counts.completed ?? 0,
+        },
+      };
+    } catch {
+      return { status: 'degraded', workerActive };
+    }
+  }
 }

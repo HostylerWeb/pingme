@@ -100,6 +100,10 @@ export class IcebreakerService {
       icebreaker = await createActiveSession();
     }
 
+    await this.prisma.icebreakerInterest.deleteMany({
+      where: { fromUserId: userId, interested: false },
+    });
+
     await this.audit.log({
       userId,
       action: 'icebreaker.start',
@@ -270,6 +274,29 @@ export class IcebreakerService {
     }
 
     const radius = this.appConfig.getDistanceConfig().icebreaker.radiusMeters;
+    const presenceTtlSeconds = this.appConfig.getPresenceTtlSeconds();
+    const locationCutoff = new Date(Date.now() - presenceTtlSeconds * 1000);
+
+    if (
+      latitude == null ||
+      longitude == null ||
+      !presence?.locationUpdatedAt ||
+      presence.locationUpdatedAt < locationCutoff
+    ) {
+      throw new BadRequestException('Location required — send a ping first');
+    }
+
+    await this.prisma.$executeRaw`
+      UPDATE icebreaker_sessions AS s
+      SET latitude = ps.latitude, longitude = ps.longitude
+      FROM presence_sessions AS ps
+      WHERE s.user_id = ps.user_id
+        AND s.status = 'active'
+        AND s.expires_at > ${now}
+        AND ps.latitude IS NOT NULL
+        AND ps.longitude IS NOT NULL
+        AND ps.location_updated_at >= ${locationCutoff}
+    `;
 
     const rows = await this.prisma.$queryRaw<NearbySessionRow[]>`
       SELECT
@@ -279,33 +306,22 @@ export class IcebreakerService {
         s.intro_message,
         ST_Distance(
           ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
-          ST_SetSRID(
-            ST_MakePoint(
-              COALESCE(ps.longitude, s.longitude),
-              COALESCE(ps.latitude, s.latitude)
-            ),
-            4326
-          )::geography
+          ST_SetSRID(ST_MakePoint(ps.longitude, ps.latitude), 4326)::geography
         ) AS distance_meters
       FROM icebreaker_sessions s
       INNER JOIN users u ON u.id = s.user_id
         AND u.deleted_at IS NULL
         AND u.status <> 'deleted'
-      LEFT JOIN presence_sessions ps ON ps.user_id = s.user_id
+      INNER JOIN presence_sessions ps ON ps.user_id = s.user_id
+        AND ps.latitude IS NOT NULL
+        AND ps.longitude IS NOT NULL
+        AND ps.location_updated_at >= ${locationCutoff}
       WHERE s.user_id != ${userId}::uuid
         AND s.status = 'active'
         AND s.expires_at > ${now}
-        AND COALESCE(ps.latitude, s.latitude) IS NOT NULL
-        AND COALESCE(ps.longitude, s.longitude) IS NOT NULL
         AND ST_DWithin(
           ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
-          ST_SetSRID(
-            ST_MakePoint(
-              COALESCE(ps.longitude, s.longitude),
-              COALESCE(ps.latitude, s.latitude)
-            ),
-            4326
-          )::geography,
+          ST_SetSRID(ST_MakePoint(ps.longitude, ps.latitude), 4326)::geography,
           ${radius}
         )
       ORDER BY distance_meters ASC
