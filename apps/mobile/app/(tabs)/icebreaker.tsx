@@ -789,7 +789,13 @@ export default function IcebreakerScreen() {
     isFetching: nearbyRefreshing,
   } = useQuery({
     queryKey: ['icebreaker-nearby'],
-    queryFn: () => api.getIcebreakerNearby(),
+    queryFn: async () => {
+      const located = coords ?? (await ping({ preferCached: false }));
+      if (located) {
+        await forceLocationPing(located);
+      }
+      return api.getIcebreakerNearby();
+    },
     enabled: !!coords && canBrowse,
     placeholderData: keepPreviousData,
     staleTime: 5_000,
