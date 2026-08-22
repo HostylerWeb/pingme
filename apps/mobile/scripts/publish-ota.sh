@@ -2,8 +2,8 @@
 # Publish a JS bundle to the self-hosted xprem OTA server (staging by default).
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MOBILE_DIR="${ROOT_DIR}/apps/mobile"
+MOBILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$(cd "${MOBILE_DIR}/../.." && pwd)"
 SECRETS_FILE="${ROOT_DIR}/infrastructure/ota/bootstrap.secrets.env"
 
 if [[ -f "${SECRETS_FILE}" ]]; then
@@ -24,6 +24,7 @@ npx eoas publish \
   --channel "${RELEASE_CHANNEL}" \
   --platform "${PLATFORM}" \
   --nonInteractive \
+  --serverUrl "${EXPO_OTA_PUBLISH_URL:-https://pingme.hostyler.cloud}" \
   --message "${OTA_MESSAGE:-PingMe staging update}"
 
 echo "Done. Open the app on your phone and tap Restart when prompted."
