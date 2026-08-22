@@ -16,7 +16,8 @@ import { ProfileStatusBadges } from '../../src/components/profile-status-badges'
 import { ReputationCard } from '../../src/components/reputation-card';
 import type { ProfileCompletenessField } from '@pingme/shared';
 import { shareAppInvite } from '../../src/lib/invite';
-import { ActionSheet, AppHeader, BottomSheet, Button, GenderPicker, GenderReadOnly, Input, Screen } from '../../src/components/ui';
+import { ActionSheet, AppHeader, BottomSheet, Button, GenderPicker, GenderReadOnly, Input, PhoneInput, Screen } from '../../src/components/ui';
+import { isValidE164 } from '../../src/lib/phone-e164';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 function InfoRow({ label, value, isLast }: { label: string; value: string; isLast?: boolean }) {
@@ -257,7 +258,7 @@ export default function ProfileScreen() {
       const trimmedPhone = phoneDraft.trim();
       const currentPhone = user?.phone ?? '';
       if (trimmedPhone !== currentPhone) {
-        if (trimmedPhone && !/^\+[1-9]\d{6,14}$/.test(trimmedPhone)) {
+        if (trimmedPhone && !isValidE164(trimmedPhone)) {
           showToast('Use international format, e.g. +15551234567', 'error');
           setSaving(false);
           return;
@@ -471,17 +472,14 @@ export default function ProfileScreen() {
 
       <BottomSheet visible={editOpen} title="Edit profile" onClose={() => setEditOpen(false)}>
         <Input label="Display name" value={nameDraft} onChangeText={setNameDraft} maxLength={50} />
-        <Input
+        <PhoneInput
           label="Phone"
-          placeholder="+15551234567"
-          keyboardType="phone-pad"
-          autoComplete="tel"
           value={phoneDraft}
           onChangeText={setPhoneDraft}
           hint={
             user?.phoneVerified && phoneDraft.trim() === (user?.phone ?? '')
               ? 'Verified'
-              : 'International format (E.164). Changing your number requires verification again.'
+              : 'Changing your number requires verification again.'
           }
         />
         {profileGender ? (

@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { api, ApiError } from '../../src/lib/api';
 import { showToast } from '../../src/stores/toast-store';
-import { BrandMark, Button, Input, Screen, SegmentedControl } from '../../src/components/ui';
+import { BrandMark, Button, Input, PhoneInput, Screen, SegmentedControl } from '../../src/components/ui';
+import { isValidE164 } from '../../src/lib/phone-e164';
 import { spacing, typography, useThemedStyles } from '../../src/theme';
 
 export default function ForgotPasswordScreen() {
@@ -72,13 +73,7 @@ export default function ForgotPasswordScreen() {
             />
 
             {usePhone ? (
-              <Input
-                label="Phone"
-                placeholder="+15551234567"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-              />
+              <PhoneInput label="Phone" value={phone} onChangeText={setPhone} />
             ) : (
               <Input
                 label="Email"
@@ -90,7 +85,12 @@ export default function ForgotPasswordScreen() {
               />
             )}
 
-            <Button label="Send reset link" onPress={onSubmit} loading={loading} />
+            <Button
+              label="Send reset link"
+              onPress={onSubmit}
+              loading={loading}
+              disabled={usePhone ? !isValidE164(phone) : !email.trim()}
+            />
 
           <Link href="/(auth)/login" style={styles.link}>
             Back to login

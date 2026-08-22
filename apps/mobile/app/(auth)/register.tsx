@@ -6,7 +6,8 @@ import type { GenderValue } from '@pingme/shared';
 import { ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { showToast } from '../../src/stores/toast-store';
-import { BrandMark, Button, DateOfBirthField, GenderPicker, Input, PasswordInput, Screen, SegmentedControl } from '../../src/components/ui';
+import { BrandMark, Button, DateOfBirthField, GenderPicker, Input, PasswordInput, PhoneInput, Screen, SegmentedControl } from '../../src/components/ui';
+import { isValidE164 } from '../../src/lib/phone-e164';
 import { radius, spacing, typography, useTheme, useThemedStyles } from '../../src/theme';
 
 export default function RegisterScreen() {
@@ -115,7 +116,7 @@ export default function RegisterScreen() {
             <Input label="Display name" placeholder="Jane Doe" value={displayName} onChangeText={setDisplayName} />
 
             {mode === 'phone' ? (
-              <Input label="Phone" placeholder="+15551234567" keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+              <PhoneInput label="Phone" value={phone} onChangeText={setPhone} />
             ) : (
               <Input label="Email" placeholder="hello@example.com" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
             )}
@@ -165,7 +166,7 @@ export default function RegisterScreen() {
                 !gender ||
                 !password.trim() ||
                 !dateOfBirth.trim() ||
-                (mode === 'email' ? !email.trim() : !phone.trim())
+                (mode === 'email' ? !email.trim() : !isValidE164(phone))
               }
             />
 

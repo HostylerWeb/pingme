@@ -4,7 +4,8 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { ApiError } from '../../src/lib/api';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { showToast } from '../../src/stores/toast-store';
-import { BrandMark, Button, Input, PasswordInput, Screen, SegmentedControl } from '../../src/components/ui';
+import { BrandMark, Button, Input, PasswordInput, PhoneInput, Screen, SegmentedControl } from '../../src/components/ui';
+import { isValidE164 } from '../../src/lib/phone-e164';
 import { spacing, typography, useThemedStyles } from '../../src/theme';
 
 export default function LoginScreen() {
@@ -69,13 +70,7 @@ export default function LoginScreen() {
             />
 
             {mode === 'phone' ? (
-              <Input
-                label="Phone"
-                placeholder="+15551234567"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-              />
+              <PhoneInput label="Phone" value={phone} onChangeText={setPhone} />
             ) : (
               <Input
                 label="Email"
@@ -98,7 +93,9 @@ export default function LoginScreen() {
               label="Sign in"
               onPress={onSubmit}
               loading={isLoading}
-              disabled={!password.trim() || (mode === 'email' ? !email.trim() : !phone.trim())}
+              disabled={
+                !password.trim() || (mode === 'email' ? !email.trim() : !isValidE164(phone))
+              }
             />
 
           <Link href="/(auth)/forgot-password" style={styles.link}>

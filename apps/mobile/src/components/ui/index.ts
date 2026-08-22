@@ -11,6 +11,7 @@ export { PresencePulse } from './presence-pulse';
 export { Button } from './button';
 export { Card } from './card';
 export { Input } from './input';
+export { PhoneInput } from './phone-input';
 export { DistancePill } from './distance-pill';
 export { EmptyState } from './empty-state';
 export { BottomSheet } from './bottom-sheet';
